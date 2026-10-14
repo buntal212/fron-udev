@@ -1,1 +1,11 @@
-// app global css
+:root {
+  --udev-black: #0c0c0d;
+  --udev-gold: #d6ad4d;
+  --udev-ink: #20180b;
+  --udev-sand: #f7f4ee;
+}
+
+body {
+  background: var(--udev-sand);
+  color: var(--udev-ink);
+}
