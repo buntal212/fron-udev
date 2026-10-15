@@ -5,6 +5,7 @@ let lastNotification = { message: '', shownAt: 0 }
 
 const messages = {
   connection: 'Tidak dapat terhubung ke server. Periksa koneksi Anda.',
+  conflict: 'Data berkonflik dengan data yang sudah ada. Periksa kembali.',
   forbidden: 'Anda tidak memiliki izin untuk mengakses halaman ini.',
   notFound: 'Data yang Anda cari tidak ditemukan.',
   rateLimited:
@@ -29,6 +30,8 @@ export function getApiErrorMessage(error, fallback = messages.fallback) {
       return messages.forbidden
     case 404:
       return messages.notFound
+    case 409:
+      return messages.conflict
     case 422:
       return error.response.data?.message || messages.validation
     case 429:

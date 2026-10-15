@@ -68,3 +68,9 @@ export const paymentGatewayService = {
   update: (id, payload) =>
     api.patch(`/v1/admin/payment-gateways/${id}`, payload)
 }
+
+export const danaGatewayMerchantService = {
+  list: params => getList('/v1/admin/dana-gateway-merchants', params),
+  get: merchantId => api.get(`/v1/admin/dana-gateway-merchants/${merchantId}`),
+  create: payload => api.post('/v1/admin/dana-gateway-merchants', payload)
+}
