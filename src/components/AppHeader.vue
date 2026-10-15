@@ -24,7 +24,7 @@
 
       <div class="user-info q-ml-sm gt-xs">
         <span>{{ loginStore.user?.name || 'Administrator' }}</span>
-        <small>@{{ loginStore.user?.username || '-' }}</small>
+        <small>{{ loginStore.user?.username || '-' }}</small>
       </div>
 
       <q-avatar class="q-ml-sm" color="amber-5" text-color="dark" size="34px">

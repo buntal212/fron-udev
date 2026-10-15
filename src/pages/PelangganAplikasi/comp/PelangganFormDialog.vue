@@ -1,9 +1,9 @@
 <template>
   <q-dialog v-model="store.formDialogOpen" persistent
-    ><q-card class="form-dialog">
-      <q-card-section class="row items-center justify-between"
+    ><q-card class="form-dialog"
+      ><q-card-section class="row items-center justify-between"
         ><div
-          ><p class="eyebrow">DATA DEMO</p
+          ><p class="eyebrow">MASTER PELANGGAN</p
           ><h2>{{
             store.formMode === 'edit' ? 'Ubah pelanggan' : 'Tambah pelanggan'
           }}</h2></div
@@ -13,58 +13,51 @@
           dense
           icon="close"
           aria-label="Tutup"
-          @click="store.formDialogOpen = false"
-      /></q-card-section>
-      <q-separator />
-      <q-form @submit="store.saveDemoCustomer"
-        ><q-card-section class="q-gutter-md">
-          <q-select
-            v-model="store.form.application"
+          @click="store.formDialogOpen = false" /></q-card-section
+      ><q-separator /><q-form @submit="store.saveCustomer"
+        ><q-card-section class="q-gutter-md"
+          ><q-select
+            v-model="store.form.application_id"
             outlined
             dense
+            emit-value
+            map-options
             label="Aplikasi"
-            :options="store.applications"
-            :rules="[required]"
-          />
-          <q-input
+            :options="applicationOptions"
+            :rules="[requiredApplication]"
+            :error="hasError('application_id')"
+            :error-message="errorFor('application_id')" /><q-input
             v-model="store.form.name"
             outlined
             dense
             label="Nama pelanggan"
-            :rules="[required]"
-          />
-          <q-input
-            v-model="store.form.externalId"
+            :rules="[requiredName]"
+            :error="hasError('name')"
+            :error-message="errorFor('name')" /><q-input
+            v-model="store.form.external_customer_id"
             outlined
             dense
             label="ID pelanggan pada aplikasi"
-            :rules="[required]"
-          />
-          <q-input
+            :rules="[requiredExternalCustomerId]"
+            :error="hasError('external_customer_id')"
+            :error-message="errorFor('external_customer_id')" /><q-input
             v-model="store.form.email"
             outlined
             dense
             type="email"
             label="Email"
-            :rules="[required]"
-          />
-          <q-input
-            v-model="store.form.phone"
+            :error="hasError('email')"
+            :error-message="errorFor('email')" /><q-input
+            v-model="store.form.phone_number"
             outlined
             dense
             type="tel"
             label="Nomor telepon"
-            :rules="[required]"
-          />
-          <q-select
-            v-model="store.form.status"
-            outlined
-            dense
-            emit-value
-            map-options
-            label="Status"
-            :options="statusOptions"
-          /> </q-card-section
+            :error="hasError('phone_number')"
+            :error-message="errorFor('phone_number')" /><q-toggle
+            v-model="store.form.is_active"
+            color="warning"
+            label="Pelanggan aktif" /></q-card-section
         ><q-separator /><q-card-actions align="right" class="q-pa-md"
           ><q-btn
             flat
@@ -75,26 +68,31 @@
             text-color="dark"
             no-caps
             type="submit"
+            :loading="store.saving"
             :label="
               store.formMode === 'edit'
-                ? 'Simpan perubahan demo'
-                : 'Tambah data demo'
-            " /></q-card-actions
-      ></q-form> </q-card
+                ? 'Simpan perubahan'
+                : 'Tambah pelanggan'
+            " /></q-card-actions></q-form></q-card
   ></q-dialog>
 </template>
-
 <script setup>
+import { computed } from 'vue'
 import { usePelangganAplikasiStore } from '@/stores/pelangganaplikasi'
 const store = usePelangganAplikasiStore()
-const required = value => !!value || 'Wajib diisi.'
-const statusOptions = [
-  { label: 'Aktif', value: 'active' },
-  { label: 'Menunggu', value: 'pending' },
-  { label: 'Tidak aktif', value: 'inactive' }
-]
+const applicationOptions = computed(() =>
+  store.applications.map(application => ({
+    label: application.name,
+    value: application.id
+  }))
+)
+const requiredApplication = value => !!value || 'Aplikasi wajib dipilih.'
+const requiredName = value => !!value || 'Nama pelanggan wajib diisi.'
+const requiredExternalCustomerId = value =>
+  !!value || 'ID pelanggan pada aplikasi wajib diisi.'
+const hasError = field => Boolean(store.formErrors[field]?.length)
+const errorFor = field => store.formErrors[field]?.[0] || ''
 </script>
-
 <style scoped>
 .form-dialog {
   width: min(560px, 96vw);

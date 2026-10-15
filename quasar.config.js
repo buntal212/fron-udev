@@ -63,9 +63,9 @@ export default defineConfig((/* ctx */) => {
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#devserver
     devServer: {
-      // vueDevtools: true,
-      // https: true,
-      open: true, // opens browser window automatically
+      open: true,
+      port: 9200,
+
       proxy: {
         '/api': {
           target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8001',
@@ -89,7 +89,7 @@ export default defineConfig((/* ctx */) => {
       // directives: [],
 
       // Quasar plugins
-      plugins: []
+      plugins: ['Notify']
     },
 
     // animations: 'all', // --- includes all animations

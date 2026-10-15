@@ -1,0 +1,440 @@
+import { defineStore } from 'pinia'
+import {
+  applicationCustomerService,
+  applicationService,
+  invoiceService,
+  subscriptionPlanService,
+  subscriptionService
+} from '@/services/udev-billing'
+import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
+
+const emptyForm = () => ({
+  application_id: null,
+  application_customer_id: null,
+  subscription_plan_id: null,
+  subscription_id: null,
+  due_at: ''
+})
+
+const createIdempotencyKey = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `invoice-${crypto.randomUUID()}`
+  }
+
+  return `invoice-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+}
+
+async function fetchAllPages(request) {
+  const records = []
+  let page = 1
+  let lastPage = 1
+
+  do {
+    const response = await request(page)
+    const payload = response.data
+
+    if (Array.isArray(payload?.data)) {
+      records.push(...payload.data)
+    }
+
+    lastPage = Math.max(page, Number(payload?.meta?.last_page) || page)
+    page += 1
+  } while (page <= lastPage)
+
+  return records
+}
+
+export const useInvoiceStore = defineStore('invoice', {
+  state: () => ({
+    items: [],
+    applications: [],
+    listCustomers: [],
+    formCustomers: [],
+    plans: [],
+    subscriptions: [],
+    applicationsLoading: false,
+    formCustomersLoading: false,
+    plansLoading: false,
+    subscriptionsLoading: false,
+    applicationsError: '',
+    formCustomersError: '',
+    plansError: '',
+    subscriptionsError: '',
+    formLookupVersion: 0,
+    loading: false,
+    error: null,
+    applicationId: null,
+    customerId: null,
+    status: null,
+    pagination: {
+      page: 1,
+      rowsPerPage: 15,
+      rowsNumber: 0,
+      sortBy: 'created_at',
+      descending: true
+    },
+    form: emptyForm(),
+    formErrors: {},
+    formMessage: '',
+    formDialogOpen: false,
+    saving: false,
+    idempotencyKey: '',
+    detailDialogOpen: false,
+    detailLoading: false,
+    selectedInvoice: null
+  }),
+
+  actions: {
+    async fetchApplications() {
+      this.applicationsLoading = true
+      this.applicationsError = ''
+
+      try {
+        this.applications = await fetchAllPages(page =>
+          applicationService.list({
+            page,
+            per_page: 100,
+            sort: 'name',
+            direction: 'asc'
+          })
+        )
+      } catch (error) {
+        this.applications = []
+        this.applicationsError = getApiErrorMessage(error)
+      } finally {
+        this.applicationsLoading = false
+      }
+    },
+
+    async fetchListCustomers() {
+      try {
+        const response = await applicationCustomerService.list({
+          per_page: 100,
+          application_id: this.applicationId || undefined,
+          is_active: true,
+          sort: 'name',
+          direction: 'asc'
+        })
+        this.listCustomers = response.data.data
+      } catch (error) {
+        this.listCustomers = []
+        this.error = getApiErrorMessage(error)
+      }
+    },
+
+    async fetchFormCustomers(
+      applicationId = this.form.application_id,
+      lookupVersion = this.formLookupVersion
+    ) {
+      if (!applicationId) {
+        this.formCustomers = []
+        return
+      }
+
+      this.formCustomersLoading = true
+      this.formCustomersError = ''
+
+      try {
+        const customers = await fetchAllPages(page =>
+          applicationCustomerService.list({
+            page,
+            per_page: 100,
+            application_id: applicationId,
+            is_active: true,
+            sort: 'name',
+            direction: 'asc'
+          })
+        )
+
+        if (
+          this.formLookupVersion === lookupVersion &&
+          this.form.application_id === applicationId
+        ) {
+          this.formCustomers = customers
+        }
+      } catch (error) {
+        if (this.formLookupVersion === lookupVersion) {
+          this.formCustomers = []
+          this.formCustomersError = getApiErrorMessage(error)
+        }
+      } finally {
+        if (this.formLookupVersion === lookupVersion) {
+          this.formCustomersLoading = false
+        }
+      }
+    },
+
+    async fetchPlans(
+      applicationId = this.form.application_id,
+      lookupVersion = this.formLookupVersion
+    ) {
+      if (!applicationId) {
+        this.plans = []
+        return
+      }
+
+      this.plansLoading = true
+      this.plansError = ''
+
+      try {
+        const plans = await fetchAllPages(page =>
+          subscriptionPlanService.list({
+            page,
+            per_page: 100,
+            application_id: applicationId,
+            is_active: true,
+            sort: 'name',
+            direction: 'asc'
+          })
+        )
+
+        if (
+          this.formLookupVersion === lookupVersion &&
+          this.form.application_id === applicationId
+        ) {
+          this.plans = plans
+        }
+      } catch (error) {
+        if (this.formLookupVersion === lookupVersion) {
+          this.plans = []
+          this.plansError = getApiErrorMessage(error)
+        }
+      } finally {
+        if (this.formLookupVersion === lookupVersion) {
+          this.plansLoading = false
+        }
+      }
+    },
+
+    async fetchSubscriptionsForForm(
+      applicationId = this.form.application_id,
+      customerId = this.form.application_customer_id,
+      planId = this.form.subscription_plan_id,
+      lookupVersion = this.formLookupVersion
+    ) {
+      if (!applicationId || !customerId) {
+        this.subscriptions = []
+        return
+      }
+
+      this.subscriptionsLoading = true
+      this.subscriptionsError = ''
+
+      try {
+        const subscriptions = await fetchAllPages(page =>
+          subscriptionService.list({
+            page,
+            per_page: 100,
+            application_id: applicationId,
+            application_customer_id: customerId,
+            subscription_plan_id: planId || undefined,
+            sort: 'expires_at',
+            direction: 'desc'
+          })
+        )
+
+        if (
+          this.formLookupVersion === lookupVersion &&
+          this.form.application_id === applicationId &&
+          this.form.application_customer_id === customerId &&
+          this.form.subscription_plan_id === planId
+        ) {
+          this.subscriptions = subscriptions
+        }
+      } catch (error) {
+        if (this.formLookupVersion === lookupVersion) {
+          this.subscriptions = []
+          this.subscriptionsError = getApiErrorMessage(error)
+        }
+      } finally {
+        if (this.formLookupVersion === lookupVersion) {
+          this.subscriptionsLoading = false
+        }
+      }
+    },
+
+    async fetchInvoices(nextPagination = {}) {
+      this.loading = true
+      this.error = null
+      this.pagination = { ...this.pagination, ...nextPagination }
+
+      try {
+        const response = await invoiceService.list({
+          page: this.pagination.page,
+          per_page: this.pagination.rowsPerPage,
+          application_id: this.applicationId || undefined,
+          application_customer_id: this.customerId || undefined,
+          status: this.status || undefined,
+          sort: this.pagination.sortBy || 'created_at',
+          direction: this.pagination.descending ? 'desc' : 'asc'
+        })
+        const { data, meta } = response.data
+
+        this.items = data
+        this.pagination = {
+          ...this.pagination,
+          page: meta.current_page,
+          rowsPerPage: meta.per_page,
+          rowsNumber: meta.total
+        }
+      } catch (error) {
+        this.items = []
+        this.error = getApiErrorMessage(error)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async onListApplicationChanged() {
+      this.customerId = null
+      await this.fetchListCustomers()
+      await this.fetchInvoices({ page: 1 })
+    },
+
+    async openCreateDialog() {
+      this.formLookupVersion += 1
+      this.form = emptyForm()
+      this.formErrors = {}
+      this.formMessage = ''
+      this.formCustomers = []
+      this.plans = []
+      this.subscriptions = []
+      this.formCustomersError = ''
+      this.plansError = ''
+      this.subscriptionsError = ''
+      this.idempotencyKey = createIdempotencyKey()
+      this.formDialogOpen = true
+
+      if (!this.applications.length && !this.applicationsLoading) {
+        await this.fetchApplications()
+      }
+    },
+
+    async onFormApplicationChanged() {
+      const applicationId = this.form.application_id
+      const lookupVersion = ++this.formLookupVersion
+      this.form.application_customer_id = null
+      this.form.subscription_plan_id = null
+      this.form.subscription_id = null
+      this.formErrors = {}
+      this.formCustomers = []
+      this.plans = []
+      this.subscriptions = []
+      this.formCustomersError = ''
+      this.plansError = ''
+      this.subscriptionsError = ''
+
+      if (!applicationId) return
+
+      await Promise.all([
+        this.fetchFormCustomers(applicationId, lookupVersion),
+        this.fetchPlans(applicationId, lookupVersion)
+      ])
+    },
+
+    async onFormCustomerChanged() {
+      const applicationId = this.form.application_id
+      const customerId = this.form.application_customer_id
+      const planId = this.form.subscription_plan_id
+      const lookupVersion = ++this.formLookupVersion
+      this.form.subscription_id = null
+      this.subscriptions = []
+      this.subscriptionsError = ''
+      await this.fetchSubscriptionsForForm(
+        applicationId,
+        customerId,
+        planId,
+        lookupVersion
+      )
+    },
+
+    async onFormPlanChanged() {
+      const applicationId = this.form.application_id
+      const customerId = this.form.application_customer_id
+      const planId = this.form.subscription_plan_id
+      const lookupVersion = ++this.formLookupVersion
+      this.form.subscription_id = null
+      this.subscriptions = []
+      this.subscriptionsError = ''
+      await this.fetchSubscriptionsForForm(
+        applicationId,
+        customerId,
+        planId,
+        lookupVersion
+      )
+    },
+
+    retryFormCustomers() {
+      return this.fetchFormCustomers(
+        this.form.application_id,
+        this.formLookupVersion
+      )
+    },
+
+    retryPlans() {
+      return this.fetchPlans(this.form.application_id, this.formLookupVersion)
+    },
+
+    retrySubscriptions() {
+      return this.fetchSubscriptionsForForm(
+        this.form.application_id,
+        this.form.application_customer_id,
+        this.form.subscription_plan_id,
+        this.formLookupVersion
+      )
+    },
+
+    async saveInvoice() {
+      this.saving = true
+      this.formErrors = {}
+      this.formMessage = ''
+
+      try {
+        await invoiceService.create(
+          {
+            application_customer_id: this.form.application_customer_id,
+            subscription_plan_id: this.form.subscription_plan_id,
+            subscription_id: this.form.subscription_id || null,
+            due_at: this.form.due_at
+          },
+          { 'Idempotency-Key': this.idempotencyKey }
+        )
+
+        this.formDialogOpen = false
+        await this.fetchInvoices()
+      } catch (error) {
+        this.formErrors = getApiValidationErrors(error)
+        this.formMessage =
+          this.formErrors.invoice?.[0] ||
+          (Object.keys(this.formErrors).length ? '' : getApiErrorMessage(error))
+      } finally {
+        this.saving = false
+      }
+    },
+
+    applicationName(invoice) {
+      const applicationId =
+        invoice.customer?.application_id || invoice.plan?.application_id
+      return (
+        this.applications.find(application => application.id === applicationId)
+          ?.name || '—'
+      )
+    },
+
+    async openDetailDialog(invoice) {
+      this.detailDialogOpen = true
+      this.detailLoading = true
+      this.selectedInvoice = null
+
+      try {
+        const response = await invoiceService.get(invoice.id)
+        this.selectedInvoice = response.data.data
+      } catch (error) {
+        this.error = getApiErrorMessage(error)
+        this.detailDialogOpen = false
+      } finally {
+        this.detailLoading = false
+      }
+    }
+  }
+})

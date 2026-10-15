@@ -1,32 +1,33 @@
 <template>
   <q-card flat bordered class="table-card">
-    <q-card-section class="row items-center justify-between">
-      <div>
-        <h2>Daftar aplikasi</h2>
-        <p>{{ rows.length }} data demo ditampilkan.</p>
-      </div>
-      <q-badge outline color="warning" label="DEMO" />
+    <q-card-section>
+      <h2>Daftar aplikasi</h2>
+      <p>{{ pagination.rowsNumber }} data terdaftar.</p>
     </q-card-section>
     <q-separator />
     <q-table
       :rows="rows"
       :columns="columns"
+      :loading="loading"
+      :pagination="pagination"
       row-key="id"
       flat
-      :rows-per-page-options="[5, 10, 20]"
+      binary-state-sort
+      :rows-per-page-options="[10, 15, 25, 50]"
       no-data-label="Tidak ada aplikasi yang sesuai."
+      @request="$emit('request', $event.pagination)"
     >
-      <template #body-cell-status="props">
+      <template #body-cell-is_active="props">
         <q-td :props="props"
           ><q-badge
             rounded
-            :color="props.value === 'active' ? 'positive' : 'grey-7'"
-            :label="props.value === 'active' ? 'Aktif' : 'Tidak aktif'"
+            :color="props.value ? 'positive' : 'grey-7'"
+            :label="props.value ? 'Aktif' : 'Tidak aktif'"
         /></q-td>
       </template>
-      <template #body-cell-createdAt="props">
-        <q-td :props="props">{{ formatDate(props.value) }}</q-td>
-      </template>
+      <template #body-cell-created_at="props"
+        ><q-td :props="props">{{ formatDate(props.value) }}</q-td></template
+      >
       <template #body-cell-actions="props">
         <q-td :props="props" class="text-right">
           <q-btn
@@ -47,7 +48,7 @@
             color="warning"
             aria-label="Ubah aplikasi"
             @click="$emit('edit', props.row)"
-            ><q-tooltip>Ubah demo</q-tooltip></q-btn
+            ><q-tooltip>Ubah</q-tooltip></q-btn
           >
         </q-td>
       </template>
@@ -56,8 +57,12 @@
 </template>
 
 <script setup>
-defineProps({ rows: { type: Array, default: () => [] } })
-defineEmits(['edit', 'detail'])
+defineProps({
+  rows: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false },
+  pagination: { type: Object, required: true }
+})
+defineEmits(['request', 'edit', 'detail'])
 
 const columns = [
   { name: 'code', label: 'Kode', field: 'code', align: 'left', sortable: true },
@@ -68,23 +73,23 @@ const columns = [
     align: 'left',
     sortable: true
   },
-  { name: 'url', label: 'URL aplikasi', field: 'url', align: 'left' },
   {
-    name: 'status',
-    label: 'Status',
-    field: 'status',
-    align: 'left',
-    sortable: true
+    name: 'application_url',
+    label: 'URL aplikasi',
+    field: 'application_url',
+    align: 'left'
   },
+  { name: 'is_active', label: 'Status', field: 'is_active', align: 'left' },
   {
-    name: 'createdAt',
+    name: 'created_at',
     label: 'Terdaftar',
-    field: 'createdAt',
+    field: 'created_at',
     align: 'left',
     sortable: true
   },
   { name: 'actions', label: 'Aksi', field: 'actions', align: 'right' }
 ]
+
 const formatDate = value =>
   new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(
     new Date(value)

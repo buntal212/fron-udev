@@ -24,7 +24,6 @@
         </div>
       </div>
 
-      <DemoNotice class="q-mb-md" />
       <FilterPanel class="q-mb-md">
         <div class="col-12 col-md-6">
           <q-input
@@ -33,7 +32,7 @@
             dense
             clearable
             debounce="250"
-            label="Cari nama atau kode aplikasi"
+            label="Cari nama, kode, atau email kontak"
             bg-color="white"
           >
             <template #prepend><q-icon name="search" /></template>
@@ -54,8 +53,17 @@
         </div>
       </FilterPanel>
 
+      <ErrorState
+        v-if="store.error"
+        :message="store.error"
+        @retry="store.fetchApplications"
+      />
       <AplikasiTable
-        :rows="store.filteredItems"
+        v-else
+        :rows="store.items"
+        :loading="store.loading"
+        :pagination="store.pagination"
+        @request="store.fetchApplications"
         @edit="store.openEditDialog"
         @detail="store.openDetailDialog"
       />
@@ -66,8 +74,9 @@
 </template>
 
 <script setup>
+import { onMounted, watch } from 'vue'
 import AppBreadcrumb from '@/components/AppBreadcrumb.vue'
-import DemoNotice from '@/components/DemoNotice.vue'
+import ErrorState from '@/components/ErrorState.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import { useAplikasiStore } from '@/stores/aplikasi'
 import AplikasiDetailDialog from './comp/AplikasiDetailDialog.vue'
@@ -76,9 +85,14 @@ import AplikasiTable from './comp/AplikasiTable.vue'
 
 const store = useAplikasiStore()
 const statusOptions = [
-  { label: 'Aktif', value: 'active' },
-  { label: 'Tidak aktif', value: 'inactive' }
+  { label: 'Aktif', value: true },
+  { label: 'Tidak aktif', value: false }
 ]
+
+onMounted(() => store.fetchApplications())
+watch([() => store.search, () => store.status], () => {
+  store.fetchApplications({ page: 1 })
+})
 </script>
 
 <style scoped>

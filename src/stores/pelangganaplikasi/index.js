@@ -1,127 +1,148 @@
 import { defineStore } from 'pinia'
-
-const demoCustomers = [
-  {
-    id: 'cust-demo-001',
-    application: 'SI RUKEM',
-    applicationId: 'app-demo-001',
-    externalId: 'DESA-ROWO-LECES',
-    name: 'Desa Rowo Leces (Demo)',
-    email: 'desa.rowo@example.test',
-    phone: '0812-0000-0001',
-    status: 'active',
-    createdAt: '2026-10-02T08:00:00+07:00'
-  },
-  {
-    id: 'cust-demo-002',
-    application: 'Larissama',
-    applicationId: 'app-demo-002',
-    externalId: 'WARUNG-A',
-    name: 'Warung A (Demo)',
-    email: 'warung.a@example.test',
-    phone: '0812-0000-0002',
-    status: 'active',
-    createdAt: '2026-10-04T08:00:00+07:00'
-  },
-  {
-    id: 'cust-demo-003',
-    application: 'Larissama',
-    applicationId: 'app-demo-002',
-    externalId: 'WARUNG-B',
-    name: 'Warung B (Demo)',
-    email: 'warung.b@example.test',
-    phone: '0812-0000-0003',
-    status: 'pending',
-    createdAt: '2026-10-06T08:00:00+07:00'
-  }
-]
+import {
+  applicationCustomerService,
+  applicationService
+} from '@/services/udev-billing'
+import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
 
 const emptyForm = () => ({
-  application: 'SI RUKEM',
-  externalId: '',
+  application_id: null,
+  external_customer_id: '',
   name: '',
   email: '',
-  phone: '',
-  status: 'active'
+  phone_number: '',
+  is_active: true
 })
+const requestError = error => getApiErrorMessage(error)
 
 export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
   state: () => ({
-    items: demoCustomers,
+    items: [],
+    applications: [],
+    loading: false,
+    error: null,
     search: '',
-    application: null,
+    applicationId: null,
     status: null,
+    pagination: {
+      page: 1,
+      rowsPerPage: 15,
+      rowsNumber: 0,
+      sortBy: 'created_at',
+      descending: true
+    },
     form: emptyForm(),
+    formErrors: {},
+    saving: false,
     formDialogOpen: false,
     formMode: 'create',
     editingId: null,
     detailDialogOpen: false,
+    detailLoading: false,
     selectedCustomer: null
   }),
 
-  getters: {
-    applications: state => [
-      ...new Set(state.items.map(item => item.application))
-    ],
-    filteredItems: state => {
-      const search = state.search.trim().toLowerCase()
-
-      return state.items.filter(item => {
-        const matchesSearch =
-          !search ||
-          [item.name, item.externalId, item.email].some(value =>
-            value.toLowerCase().includes(search)
-          )
-
-        return (
-          matchesSearch &&
-          (!state.application || item.application === state.application) &&
-          (!state.status || item.status === state.status)
-        )
-      })
-    }
-  },
-
   actions: {
+    async fetchApplications() {
+      try {
+        const response = await applicationService.list({
+          per_page: 100,
+          sort: 'name',
+          direction: 'asc'
+        })
+        this.applications = response.data.data
+      } catch (error) {
+        this.error = requestError(error)
+      }
+    },
+    async fetchCustomers(nextPagination = {}) {
+      this.loading = true
+      this.error = null
+      this.pagination = { ...this.pagination, ...nextPagination }
+      try {
+        const response = await applicationCustomerService.list({
+          page: this.pagination.page,
+          per_page: this.pagination.rowsPerPage,
+          search: this.search || undefined,
+          application_id: this.applicationId || undefined,
+          is_active: this.status ?? undefined,
+          sort: this.pagination.sortBy || 'created_at',
+          direction: this.pagination.descending ? 'desc' : 'asc'
+        })
+        const { data, meta } = response.data
+        this.items = data
+        this.pagination = {
+          ...this.pagination,
+          page: meta.current_page,
+          rowsPerPage: meta.per_page,
+          rowsNumber: meta.total
+        }
+      } catch (error) {
+        this.items = []
+        this.error = requestError(error)
+      } finally {
+        this.loading = false
+      }
+    },
     openCreateDialog() {
       this.form = emptyForm()
+      this.formErrors = {}
       this.formMode = 'create'
       this.editingId = null
       this.formDialogOpen = true
     },
-
-    openEditDialog(item) {
-      this.form = { ...item }
+    openEditDialog(customer) {
+      this.form = {
+        application_id: customer.application_id,
+        external_customer_id: customer.external_customer_id,
+        name: customer.name,
+        email: customer.email || '',
+        phone_number: customer.phone_number || '',
+        is_active: customer.is_active
+      }
+      this.formErrors = {}
       this.formMode = 'edit'
-      this.editingId = item.id
+      this.editingId = customer.id
       this.formDialogOpen = true
     },
-
-    openDetailDialog(item) {
-      this.selectedCustomer = item
+    async openDetailDialog(customer) {
       this.detailDialogOpen = true
+      this.detailLoading = true
+      this.selectedCustomer = null
+      try {
+        this.selectedCustomer = (
+          await applicationCustomerService.get(customer.id)
+        ).data.data
+      } catch (error) {
+        this.error = requestError(error)
+        this.detailDialogOpen = false
+      } finally {
+        this.detailLoading = false
+      }
     },
+    async saveCustomer() {
+      this.saving = true
+      this.formErrors = {}
+      try {
+        const payload = {
+          ...this.form,
+          email: this.form.email || null,
+          phone_number: this.form.phone_number || null
+        }
+        if (this.formMode === 'edit')
+          await applicationCustomerService.update(this.editingId, payload)
+        else await applicationCustomerService.create(payload)
+        this.formDialogOpen = false
+        await this.fetchCustomers()
+      } catch (error) {
+        this.formErrors = getApiValidationErrors(error)
 
-    saveDemoCustomer() {
-      const customer = {
-        ...this.form,
-        applicationId:
-          this.form.application === 'SI RUKEM' ? 'app-demo-001' : 'app-demo-002'
+        if (!Object.keys(this.formErrors).length) {
+          this.error = requestError(error)
+        }
+      } finally {
+        this.saving = false
       }
-
-      if (this.formMode === 'edit') {
-        const index = this.items.findIndex(item => item.id === this.editingId)
-        if (index !== -1)
-          this.items.splice(index, 1, { ...this.items[index], ...customer })
-      } else {
-        this.items.unshift({
-          id: `cust-demo-${Date.now()}`,
-          ...customer,
-          createdAt: new Date().toISOString()
-        })
-      }
-
-      this.formDialogOpen = false
     }
   }
 })

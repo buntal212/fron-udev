@@ -1,36 +1,37 @@
 <template>
   <q-dialog v-model="store.detailDialogOpen"
-    ><q-card v-if="customer" class="detail-dialog">
-      <q-card-section class="row items-start justify-between"
+    ><q-card class="detail-dialog"
+      ><q-card-section class="row items-start justify-between"
         ><div
-          ><p class="eyebrow">DATA DEMO</p><h2>{{ customer.name }}</h2
-          ><p>{{ customer.application }}</p></div
+          ><p class="eyebrow">MASTER PELANGGAN</p
+          ><h2>{{ customer?.name || 'Memuat...' }}</h2
+          ><p>{{ customer?.application?.name }}</p></div
         ><q-btn
           flat
           round
           dense
           icon="close"
           aria-label="Tutup"
-          @click="store.detailDialogOpen = false"
-      /></q-card-section>
-      <q-separator /><q-list separator
+          @click="store.detailDialogOpen = false" /></q-card-section
+      ><q-separator /><q-card-section v-if="store.detailLoading"
+        ><q-spinner color="warning" size="28px" /></q-card-section
+      ><q-list v-else-if="customer" separator
         ><q-item v-for="item in details" :key="item.label"
           ><q-item-section
             ><q-item-label caption>{{ item.label }}</q-item-label
-            ><q-item-label>{{ item.value }}</q-item-label></q-item-section
+            ><q-item-label>{{
+              item.value || '-'
+            }}</q-item-label></q-item-section
           ></q-item
         ></q-list
-      >
-      <q-card-actions align="right"
+      ><q-card-actions align="right"
         ><q-btn
           flat
           no-caps
           label="Tutup"
-          @click="store.detailDialogOpen = false"
-      /></q-card-actions> </q-card
+          @click="store.detailDialogOpen = false" /></q-card-actions></q-card
   ></q-dialog>
 </template>
-
 <script setup>
 import { computed } from 'vue'
 import { usePelangganAplikasiStore } from '@/stores/pelangganaplikasi'
@@ -39,27 +40,23 @@ const customer = computed(() => store.selectedCustomer)
 const details = computed(() =>
   customer.value
     ? [
-        { label: 'ID eksternal', value: customer.value.externalId },
+        { label: 'ID eksternal', value: customer.value.external_customer_id },
         { label: 'Email', value: customer.value.email },
-        { label: 'Nomor telepon', value: customer.value.phone },
+        { label: 'Nomor telepon', value: customer.value.phone_number },
         {
           label: 'Status',
-          value:
-            { active: 'Aktif', pending: 'Menunggu', inactive: 'Tidak aktif' }[
-              customer.value.status
-            ] || customer.value.status
+          value: customer.value.is_active ? 'Aktif' : 'Tidak aktif'
         },
         {
           label: 'Tanggal terdaftar',
           value: new Intl.DateTimeFormat('id-ID', { dateStyle: 'long' }).format(
-            new Date(customer.value.createdAt)
+            new Date(customer.value.created_at)
           )
         }
       ]
     : []
 )
 </script>
-
 <style scoped>
 .detail-dialog {
   width: min(500px, 96vw);

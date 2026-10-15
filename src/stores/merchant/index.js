@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { api } from '@/boot/axios'
+import { getApiErrorMessage } from '@/utils/api-error'
 
 export const useMerchantStore = defineStore('merchant', {
   state: () => ({
@@ -49,9 +50,7 @@ export const useMerchantStore = defineStore('merchant', {
           rowsNumber: response.data?.meta?.total ?? 0
         }
       } catch (error) {
-        this.error =
-          error.response?.data?.message ||
-          'Data merchant tidak dapat dimuat. Silakan coba lagi.'
+        this.error = getApiErrorMessage(error)
       } finally {
         this.loading = false
       }
@@ -67,9 +66,7 @@ export const useMerchantStore = defineStore('merchant', {
         this.selectedMerchant = response.data?.data ?? null
         this.detailDialogOpen = true
       } catch (error) {
-        this.error =
-          error.response?.data?.message ||
-          'Detail merchant tidak dapat dimuat. Silakan coba lagi.'
+        this.error = getApiErrorMessage(error)
       } finally {
         this.detailLoading = false
       }

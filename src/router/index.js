@@ -35,18 +35,19 @@ export default defineRouter(({ store /* ssrContext */ }) => {
     history: createHistory(import.meta.env.QUASAR_VUE_ROUTER_BASE)
   })
 
-  Router.beforeEach(to => {
+  Router.beforeEach(async to => {
     const loginStore = useLoginStore(store)
     const requiresAuth = to.matched.some(route => route.meta.requiresAuth)
+    const isAuthenticated = await loginStore.restoreSession()
 
-    if (requiresAuth && !loginStore.token) {
+    if (requiresAuth && !isAuthenticated) {
       return {
         path: '/login',
         query: { redirect: to.fullPath }
       }
     }
 
-    if (to.meta.guestOnly && loginStore.token) {
+    if (to.meta.guestOnly && isAuthenticated) {
       return { path: '/' }
     }
 

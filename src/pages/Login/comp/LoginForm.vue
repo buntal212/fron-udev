@@ -92,7 +92,12 @@ const store = useLoginStore()
 const router = useRouter()
 const route = useRoute()
 const showPassword = ref(false)
-const usernameRules = [value => !!value || 'Username wajib diisi']
+const usernameRules = [
+  value => !!value || 'Username wajib diisi',
+  value =>
+    /^[a-zA-Z0-9_-]+$/.test(value) ||
+    'Username hanya boleh berisi huruf, angka, tanda hubung, dan garis bawah'
+]
 const passwordRules = [value => !!value || 'Password wajib diisi']
 
 async function handleSubmit() {

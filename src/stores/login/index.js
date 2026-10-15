@@ -1,93 +1,45 @@
 import { defineStore } from 'pinia'
 import { api } from '@/boot/axios'
+import { authService } from '@/services/udev-billing'
+import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
 
-const userStorageKey = 'udumbara-payment:user'
-const tokenStorageKey = 'udumbara-payment:token'
+const userStorageKey = 'udumbara-payment:admin-user'
+const tokenStorageKey = 'udumbara-payment:admin-token'
+
+function getStoredValue(key) {
+  if (typeof window === 'undefined') return null
+
+  return window.sessionStorage.getItem(key)
+}
 
 function getStoredUser() {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
   try {
-    const storedUser = JSON.parse(window.localStorage.getItem(userStorageKey))
+    const user = JSON.parse(getStoredValue(userStorageKey))
 
-    if (
-      storedUser &&
-      typeof storedUser === 'object' &&
-      storedUser.id &&
-      typeof storedUser.name === 'string' &&
-      typeof storedUser.username === 'string'
-    ) {
-      return {
-        id: storedUser.id,
-        name: storedUser.name,
-        username: storedUser.username
-      }
-    }
+    return user?.id && user?.username ? user : null
   } catch {
-    // Data local yang tidak valid akan digantikan setelah login berikutnya.
-  }
-
-  return null
-}
-
-function saveUser(user) {
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(userStorageKey, JSON.stringify(user))
-  }
-}
-
-function removeStoredUser() {
-  if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(userStorageKey)
-  }
-}
-
-function getStoredToken() {
-  if (typeof window === 'undefined') {
     return null
-  }
-
-  const token = window.localStorage.getItem(tokenStorageKey)
-
-  return typeof token === 'string' && token.length > 0 ? token : null
-}
-
-function saveToken(token) {
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(tokenStorageKey, token)
-  }
-}
-
-function removeStoredToken() {
-  if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(tokenStorageKey)
   }
 }
 
 function setAuthorizationHeader(token) {
   if (token) {
     api.defaults.headers.common.Authorization = `Bearer ${token}`
-
     return
   }
 
   delete api.defaults.headers.common.Authorization
 }
 
-const storedToken = getStoredToken()
+const storedToken = getStoredValue(tokenStorageKey)
 setAuthorizationHeader(storedToken)
 
 export const useLoginStore = defineStore('login', {
   state: () => ({
     loading: false,
     logoutLoading: false,
-    form: {
-      username: '',
-      password: '',
-      remember: false
-    },
+    sessionChecked: false,
+    form: { username: '', password: '' },
     submitted: false,
     error: null,
     token: storedToken,
@@ -95,56 +47,79 @@ export const useLoginStore = defineStore('login', {
   }),
 
   actions: {
+    persistSession(token, user) {
+      this.token = token
+      this.user = user
+      setAuthorizationHeader(token)
+      window.sessionStorage.setItem(tokenStorageKey, token)
+      window.sessionStorage.setItem(userStorageKey, JSON.stringify(user))
+    },
+
+    clearSession() {
+      this.token = null
+      this.user = null
+      this.submitted = false
+      setAuthorizationHeader(null)
+
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(tokenStorageKey)
+        window.sessionStorage.removeItem(userStorageKey)
+      }
+    },
+
+    async restoreSession() {
+      if (this.sessionChecked) return Boolean(this.user)
+
+      this.sessionChecked = true
+
+      if (!this.token) {
+        this.clearSession()
+        return false
+      }
+
+      try {
+        const response = await authService.me()
+        this.user = response.data.data
+        window.sessionStorage.setItem(userStorageKey, JSON.stringify(this.user))
+
+        return true
+      } catch {
+        this.clearSession()
+        return false
+      }
+    },
+
     async submit() {
       this.loading = true
       this.submitted = false
       this.error = null
 
       try {
-        const response = await api.post('/v1/auth/login', {
-          username: this.form.username,
-          password: this.form.password,
-          remember: this.form.remember
-        })
+        const response = await authService.login(this.form)
+        const { token, user } = response.data.data
 
-        this.token = response.data.data.token
-        saveToken(this.token)
-        this.user = {
-          id: response.data.data.id,
-          name: response.data.data.name,
-          username: response.data.data.username
-        }
-        saveUser(this.user)
-        setAuthorizationHeader(this.token)
-
+        this.persistSession(token, user)
+        this.sessionChecked = true
         this.submitted = true
       } catch (error) {
         this.error =
-          error.response?.data?.message ||
-          'Login gagal. Periksa kembali username dan password Anda.'
+          getApiValidationErrors(error).username?.[0] ||
+          getApiErrorMessage(error)
       } finally {
         this.loading = false
       }
     },
 
     async logout() {
-      if (this.logoutLoading) {
-        return
-      }
+      if (this.logoutLoading) return
 
       this.logoutLoading = true
 
       try {
-        await api.post('/v1/auth/logout')
-      } catch (error) {
-        console.error('Logout API gagal diproses.', error)
+        await authService.logout()
       } finally {
-        this.token = null
-        this.user = null
-        this.submitted = false
-        removeStoredUser()
-        removeStoredToken()
-        setAuthorizationHeader(null)
+        this.clearSession()
+        this.sessionChecked = true
         this.logoutLoading = false
       }
     }

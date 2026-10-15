@@ -18,6 +18,26 @@ const routes = [
         path: 'pelanggan-aplikasi',
         component: () => import('@/pages/PelangganAplikasi/IndexPage.vue')
       },
+      {
+        path: 'paket-langganan',
+        component: () => import('@/pages/PaketLangganan/IndexPage.vue')
+      },
+      {
+        path: 'langganan-pelanggan',
+        component: () => import('@/pages/LanggananPelanggan/IndexPage.vue')
+      },
+      {
+        path: 'invoice',
+        component: () => import('@/pages/Invoice/IndexPage.vue')
+      },
+      {
+        path: 'riwayat-pembayaran',
+        component: () => import('@/pages/RiwayatPembayaran/IndexPage.vue')
+      },
+      {
+        path: 'payment-gateway',
+        component: () => import('@/pages/PaymentGateway/IndexPage.vue')
+      },
       { path: 'merchant', redirect: '/aplikasi' }
     ]
   },

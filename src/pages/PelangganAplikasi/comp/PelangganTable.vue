@@ -1,31 +1,30 @@
 <template>
-  <q-card flat bordered class="table-card">
-    <q-card-section class="row items-center justify-between"
-      ><div
-        ><h2>Daftar pelanggan</h2
-        ><p>{{ rows.length }} data demo ditampilkan.</p></div
-      ><q-badge outline color="warning" label="DEMO"
-    /></q-card-section>
-    <q-separator />
-    <q-table
+  <q-card flat bordered class="table-card"
+    ><q-card-section
+      ><h2>Daftar pelanggan</h2
+      ><p>{{ pagination.rowsNumber }} data terdaftar.</p></q-card-section
+    ><q-separator /><q-table
       :rows="rows"
       :columns="columns"
+      :loading="loading"
+      :pagination="pagination"
       row-key="id"
       flat
-      :rows-per-page-options="[5, 10, 20]"
+      binary-state-sort
+      :rows-per-page-options="[10, 15, 25, 50]"
       no-data-label="Tidak ada pelanggan yang sesuai."
-    >
-      <template #body-cell-status="props"
+      @request="$emit('request', $event.pagination)"
+      ><template #body-cell-application="props"
+        ><q-td :props="props">{{ props.value?.name || '-' }}</q-td></template
+      ><template #body-cell-is_active="props"
         ><q-td :props="props"
           ><q-badge
             rounded
-            :color="statusColor(props.value)"
-            :label="statusLabel(props.value)" /></q-td
-      ></template>
-      <template #body-cell-createdAt="props"
+            :color="props.value ? 'positive' : 'grey-7'"
+            :label="props.value ? 'Aktif' : 'Tidak aktif'" /></q-td></template
+      ><template #body-cell-created_at="props"
         ><q-td :props="props">{{ formatDate(props.value) }}</q-td></template
-      >
-      <template #body-cell-actions="props"
+      ><template #body-cell-actions="props"
         ><q-td :props="props" class="text-right"
           ><q-btn
             flat
@@ -34,27 +33,23 @@
             icon="visibility"
             color="brown-7"
             aria-label="Detail pelanggan"
-            @click="$emit('detail', props.row)"
-            ><q-tooltip>Detail</q-tooltip></q-btn
-          ><q-btn
+            @click="$emit('detail', props.row)" /><q-btn
             flat
             round
             dense
             icon="edit"
             color="warning"
             aria-label="Ubah pelanggan"
-            @click="$emit('edit', props.row)"
-            ><q-tooltip>Ubah demo</q-tooltip></q-btn
-          ></q-td
-        ></template
-      >
-    </q-table>
-  </q-card>
+            @click="$emit('edit', props.row)" /></q-td></template></q-table
+  ></q-card>
 </template>
-
 <script setup>
-defineProps({ rows: { type: Array, default: () => [] } })
-defineEmits(['edit', 'detail'])
+defineProps({
+  rows: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false },
+  pagination: { type: Object, required: true }
+})
+defineEmits(['request', 'edit', 'detail'])
 const columns = [
   {
     name: 'name',
@@ -67,28 +62,27 @@ const columns = [
     name: 'application',
     label: 'Aplikasi',
     field: 'application',
-    align: 'left',
-    sortable: true
+    align: 'left'
   },
   {
-    name: 'externalId',
+    name: 'external_customer_id',
     label: 'ID eksternal',
-    field: 'externalId',
-    align: 'left',
-    sortable: true
-  },
-  { name: 'email', label: 'Email', field: 'email', align: 'left' },
-  {
-    name: 'status',
-    label: 'Status',
-    field: 'status',
+    field: 'external_customer_id',
     align: 'left',
     sortable: true
   },
   {
-    name: 'createdAt',
+    name: 'email',
+    label: 'Email',
+    field: 'email',
+    align: 'left',
+    sortable: true
+  },
+  { name: 'is_active', label: 'Status', field: 'is_active', align: 'left' },
+  {
+    name: 'created_at',
     label: 'Terdaftar',
-    field: 'createdAt',
+    field: 'created_at',
     align: 'left',
     sortable: true
   },
@@ -98,14 +92,7 @@ const formatDate = value =>
   new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(
     new Date(value)
   )
-const statusColor = value =>
-  ({ active: 'positive', pending: 'warning', inactive: 'grey-7' })[value] ||
-  'grey-7'
-const statusLabel = value =>
-  ({ active: 'Aktif', pending: 'Menunggu', inactive: 'Tidak aktif' })[value] ||
-  value
 </script>
-
 <style scoped>
 .table-card {
   border-color: #e0d7c6;

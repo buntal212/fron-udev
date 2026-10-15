@@ -55,23 +55,31 @@ const sections = [
         icon: 'groups',
         to: '/pelanggan-aplikasi'
       },
-      { label: 'Paket Langganan', icon: 'workspace_premium', comingSoon: true }
+      {
+        label: 'Paket Langganan',
+        icon: 'workspace_premium',
+        to: '/paket-langganan'
+      }
     ]
   },
   {
     label: 'BILLING & PAYMENT',
     items: [
-      { label: 'Tagihan', icon: 'receipt_long', comingSoon: true },
-      { label: 'Pembayaran', icon: 'payments', comingSoon: true },
+      { label: 'Invoice', icon: 'receipt_long', to: '/invoice' },
+      {
+        label: 'Riwayat Pembayaran',
+        icon: 'payments',
+        to: '/riwayat-pembayaran'
+      },
       {
         label: 'Transaksi Bermasalah',
         icon: 'report_problem',
         comingSoon: true
       },
       {
-        label: 'Masa Aktif Langganan',
+        label: 'Langganan Pelanggan',
         icon: 'event_available',
-        comingSoon: true
+        to: '/langganan-pelanggan'
       }
     ]
   },
@@ -86,7 +94,12 @@ const sections = [
     label: 'ADMINISTRASI',
     items: [
       { label: 'Manajemen Admin', icon: 'manage_accounts', comingSoon: true },
-      { label: 'Pengaturan', icon: 'settings', comingSoon: true }
+      {
+        label: 'Payment Gateway',
+        icon: 'account_balance_wallet',
+        to: '/payment-gateway'
+      },
+      { label: 'Pengaturan Lainnya', icon: 'settings', comingSoon: true }
     ]
   }
 ]

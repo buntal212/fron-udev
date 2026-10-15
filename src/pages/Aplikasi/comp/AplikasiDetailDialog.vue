@@ -1,55 +1,66 @@
 <template>
-  <q-dialog v-model="store.detailDialogOpen"
-    ><q-card v-if="application" class="detail-dialog">
-      <q-card-section class="row items-start justify-between"
-        ><div
-          ><p class="eyebrow">DATA DEMO</p><h2>{{ application.name }}</h2
-          ><p>{{ application.code }}</p></div
-        ><q-btn
+  <q-dialog v-model="store.detailDialogOpen">
+    <q-card class="detail-dialog">
+      <q-card-section class="row items-start justify-between">
+        <div
+          ><p class="eyebrow">MASTER APLIKASI</p
+          ><h2>{{ application?.name || 'Memuat...' }}</h2
+          ><p>{{ application?.code }}</p></div
+        >
+        <q-btn
           flat
           round
           dense
           icon="close"
           aria-label="Tutup"
           @click="store.detailDialogOpen = false"
-      /></q-card-section>
+        />
+      </q-card-section>
       <q-separator />
-      <q-list separator
-        ><q-item v-for="item in details" :key="item.label"
+      <q-card-section v-if="store.detailLoading"
+        ><q-spinner color="warning" size="28px"
+      /></q-card-section>
+      <q-list v-else-if="application" separator>
+        <q-item v-for="item in details" :key="item.label"
           ><q-item-section
             ><q-item-label caption>{{ item.label }}</q-item-label
-            ><q-item-label>{{ item.value }}</q-item-label></q-item-section
+            ><q-item-label>{{
+              item.value || '-'
+            }}</q-item-label></q-item-section
           ></q-item
-        ></q-list
-      >
+        >
+      </q-list>
       <q-card-actions align="right"
         ><q-btn
           flat
           no-caps
           label="Tutup"
           @click="store.detailDialogOpen = false"
-      /></q-card-actions> </q-card
-  ></q-dialog>
+      /></q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useAplikasiStore } from '@/stores/aplikasi'
+
 const store = useAplikasiStore()
 const application = computed(() => store.selectedApplication)
 const details = computed(() =>
   application.value
     ? [
-        { label: 'URL aplikasi', value: application.value.url },
+        { label: 'URL aplikasi', value: application.value.application_url },
+        { label: 'Email kontak', value: application.value.contact_email },
         { label: 'Deskripsi', value: application.value.description },
         {
           label: 'Status',
-          value: application.value.status === 'active' ? 'Aktif' : 'Tidak aktif'
+          value: application.value.is_active ? 'Aktif' : 'Tidak aktif'
         },
         {
           label: 'Tanggal terdaftar',
           value: new Intl.DateTimeFormat('id-ID', { dateStyle: 'long' }).format(
-            new Date(application.value.createdAt)
+            new Date(application.value.created_at)
           )
         }
       ]
