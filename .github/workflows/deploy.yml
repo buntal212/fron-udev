@@ -74,7 +74,7 @@ jobs:
       - name: Build Quasar PWA
         env:
           NODE_ENV: production
-          VITE_API_URL: https://apiudev.udumbara.my.id
+          QCLI_API_URL: https://apiudev.udumbara.my.id/api
         run: |
           set -euo pipefail
 
