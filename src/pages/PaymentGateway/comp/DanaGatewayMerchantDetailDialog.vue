@@ -626,12 +626,14 @@
             outlined
             type="textarea"
             autogrow
-            label="Private key (PEM)"
+            label="Private key DANA Sandbox"
+            hint="Tempel langsung key dari Portal DANA: PEM lengkap atau Base64 DER. Header/footer PEM tidak perlu ditambahkan manual."
+            persistent-hint
             autocomplete="off"
             :input-class="showPrivateKey ? '' : 'masked-sensitive-input'"
             :error="Boolean(configurationErrors.private_key)"
             :error-message="firstError('private_key')"
-            :rules="[optionalPemRule]"
+            :rules="[optionalKeyMaterialRule]"
             no-error-icon
             ><template #append
               ><q-btn
@@ -651,12 +653,14 @@
             outlined
             type="textarea"
             autogrow
-            label="DANA webhook public key (PEM)"
+            label="Public key webhook DANA Sandbox"
+            hint="Tempel langsung public key DANA dari portal. Jangan gunakan public key merchant untuk field ini."
+            persistent-hint
             autocomplete="off"
             :input-class="showWebhookPublicKey ? '' : 'masked-sensitive-input'"
             :error="Boolean(configurationErrors.dana_webhook_public_key)"
             :error-message="firstError('dana_webhook_public_key')"
-            :rules="[optionalPemRule]"
+            :rules="[optionalKeyMaterialRule]"
             no-error-icon
             ><template #append
               ><q-btn
@@ -673,6 +677,13 @@
                   showWebhookPublicKey = !showWebhookPublicKey
                 " /></template
           ></q-input>
+          <q-banner rounded class="transport-notice"
+            ><template #avatar><q-icon name="verified_user" /></template>Saat
+            disimpan, Gateway memvalidasi struktur key, RSA-2048, dan kemampuan
+            signature tanpa menampilkan isi key. Status tersimpan hanya berarti
+            format konfigurasi diterima; gunakan status kesiapan lalu uji
+            Sandbox terpisah untuk memverifikasi koneksi DANA.</q-banner
+          >
           <q-banner v-if="configurationError" rounded class="error-banner"
             ><template #avatar><q-icon name="error_outline" /></template
             >{{ configurationError }}</q-banner
@@ -1211,15 +1222,12 @@ function maxRule(maximum) {
 function httpsUrlRule(value) {
   return /^https:\/\/.+/i.test(value) || 'Harus berupa URL HTTPS.'
 }
-function pemRule(value) {
+function optionalKeyMaterialRule(value) {
   return (
-    /^-----BEGIN [A-Z0-9 ]+-----\r?\n.+\r?\n-----END [A-Z0-9 ]+-----$/s.test(
-      value.trim()
-    ) || 'Format PEM tidak valid.'
+    !value ||
+    typeof value === 'string' ||
+    'Masukkan key sebagai teks dari Portal DANA.'
   )
-}
-function optionalPemRule(value) {
-  return !value || pemRule(value)
 }
 async function askToSaveConfiguration() {
   if (await configurationFormRef.value?.validate())
