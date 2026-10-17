@@ -1,4 +1,3 @@
-
 name: Deploy UDEV PWA
 
 on:
@@ -16,7 +15,8 @@ concurrency:
 
 jobs:
   deploy:
-    name: Build and Deploy PWA
+    name: Build and Deploy UDEV PWA
+
     runs-on:
       - self-hosted
       - Linux
@@ -25,37 +25,81 @@ jobs:
 
     timeout-minutes: 30
 
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      NODE_ENV: production
+      VITE_API_URL: https://apiudev.udumbara.my.id
+      DEPLOY_PATH: /www/wwwroot/udev.udumbara.my.id
+
     steps:
+      # ========================================
+      # 1. CHECKOUT SOURCE CODE
+      # ========================================
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
+      # ========================================
+      # 2. SETUP NODE.JS
+      # ========================================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
 
+      # ========================================
+      # 3. INSTALL DEPENDENCIES
+      # ========================================
       - name: Install dependencies
         run: npm ci
 
+      # ========================================
+      # 4. BUILD QUASAR PWA
+      # ========================================
       - name: Build Quasar PWA
         run: npm run build -- -m pwa
         env:
           NODE_ENV: production
+          VITE_API_URL: https://apiudev.udumbara.my.id
 
-      - name: Validate build
-        run: |
-          test -f dist/pwa/index.html
-          test -d dist/pwa/assets
-          echo "PWA build berhasil"
-
-      - name: Deploy to HOMELAB
+      # ========================================
+      # 5. VALIDATE BUILD
+      # ========================================
+      - name: Validate PWA build
         run: |
           set -euo pipefail
 
-          TARGET="/www/wwwroot/udev.udumbara.my.id"
+          test -f dist/pwa/index.html
+          test -d dist/pwa/assets
 
-          mkdir -p "$TARGET"
+          echo "PWA build validation successful"
+
+          ls -lah dist/pwa/
+
+      # ========================================
+      # 6. PREPARE DEPLOYMENT
+      # ========================================
+      - name: Prepare deployment directory
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$DEPLOY_PATH"
+
+          test -w "$DEPLOY_PATH"
+
+          echo "Deployment directory ready"
+
+      # ========================================
+      # 7. DEPLOY PWA
+      # ========================================
+      - name: Deploy PWA to HOMELAB
+        run: |
+          set -euo pipefail
 
           rsync -r \
             --delete \
@@ -66,11 +110,38 @@ jobs:
             --no-perms \
             --no-owner \
             --no-group \
-            dist/pwa/ "$TARGET/"
+            dist/pwa/ "$DEPLOY_PATH/"
 
-          echo "Deployment PWA selesai"
+          test -f "$DEPLOY_PATH/index.html"
 
-      - name: Verify deployment
+          echo "PWA deployment completed"
+
+      # ========================================
+      # 8. VERIFY DEPLOYMENT
+      # ========================================
+      - name: Verify deployed files
         run: |
-          test -f /www/wwwroot/udev.udumbara.my.id/index.html
-          echo "UDEV PWA deployed successfully"
+          set -euo pipefail
+
+          echo "Checking deployed index.html..."
+          test -s "$DEPLOY_PATH/index.html"
+
+          echo "Checking deployed assets..."
+          test -d "$DEPLOY_PATH/assets"
+
+          echo "Deployment verification successful"
+
+      # ========================================
+      # 9. DEPLOYMENT SUMMARY
+      # ========================================
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "=================================="
+          echo " UDEV PWA DEPLOYMENT SUCCESS"
+          echo "=================================="
+          echo "Frontend: https://udev.udumbara.my.id"
+          echo "Backend : $VITE_API_URL"
+          echo "Runner  : homelab-frontend-udev"
+          echo "Mode    : PWA"
+          echo "=================================="

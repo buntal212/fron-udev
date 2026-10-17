@@ -1,38 +1,38 @@
-import { boot } from 'quasar/wrappers'
-import axios from 'axios'
+import { boot } from "quasar/wrappers";
+import axios from "axios";
 import {
   getApiErrorMessage,
   getApiValidationErrors,
-  notifyApiError
-} from '@/utils/api-error'
+  notifyApiError,
+} from "@/utils/api-error";
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || "/api",
   headers: {
-    Accept: 'application/json'
-  }
-})
+    Accept: "application/json",
+  },
+});
 
 api.interceptors.response.use(
-  response => response,
-  error => {
-    error.userMessage = getApiErrorMessage(error)
-    error.validationErrors = getApiValidationErrors(error)
+  (response) => response,
+  (error) => {
+    error.userMessage = getApiErrorMessage(error);
+    error.validationErrors = getApiValidationErrors(error);
 
     if (error.response?.status !== 422) {
-      notifyApiError(error)
+      notifyApiError(error);
     }
 
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('udev:session-expired'))
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("udev:session-expired"));
     }
 
-    return Promise.reject(error)
-  }
-)
+    return Promise.reject(error);
+  },
+);
 
 export default boot(() => {
   // Instance diekspor untuk digunakan oleh Pinia store.
-})
+});
 
-export { api }
+export { api };
