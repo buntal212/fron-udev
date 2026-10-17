@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+
   workflow_dispatch:
 
 permissions:
@@ -30,74 +31,86 @@ jobs:
         shell: bash
 
     env:
-      NODE_ENV: production
-      VITE_API_URL: https://apiudev.udumbara.my.id
       DEPLOY_PATH: /www/wwwroot/udev.udumbara.my.id
+      VITE_API_URL: https://apiudev.udumbara.my.id
 
     steps:
-      # ========================================
-      # 1. CHECKOUT SOURCE CODE
-      # ========================================
+      # ==========================================
+      # 1. CHECKOUT REPOSITORY
+      # ==========================================
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      # ========================================
+      # ==========================================
       # 2. SETUP NODE.JS
-      # ========================================
+      # ==========================================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
 
-      # ========================================
+      # ==========================================
       # 3. INSTALL DEPENDENCIES
-      # ========================================
+      # ==========================================
       - name: Install dependencies
-        run: npm ci
+        env:
+          NODE_ENV: development
+        run: |
+          set -euo pipefail
 
-      # ========================================
+          npm ci --include=dev
+
+          echo "Checking Quasar CLI..."
+          test -x node_modules/.bin/quasar
+
+          echo "Dependencies installed successfully"
+
+      # ==========================================
       # 4. BUILD QUASAR PWA
-      # ========================================
+      # ==========================================
       - name: Build Quasar PWA
-        run: npm run build -- -m pwa
         env:
           NODE_ENV: production
           VITE_API_URL: https://apiudev.udumbara.my.id
+        run: |
+          set -euo pipefail
 
-      # ========================================
+          npm run build -- -m pwa
+
+          echo "Quasar PWA build completed"
+
+      # ==========================================
       # 5. VALIDATE BUILD
-      # ========================================
+      # ==========================================
       - name: Validate PWA build
         run: |
           set -euo pipefail
 
-          test -f dist/pwa/index.html
+          test -s dist/pwa/index.html
           test -d dist/pwa/assets
 
-          echo "PWA build validation successful"
-
+          echo "Build output:"
           ls -lah dist/pwa/
 
-      # ========================================
+      # ==========================================
       # 6. PREPARE DEPLOYMENT
-      # ========================================
+      # ==========================================
       - name: Prepare deployment directory
         run: |
           set -euo pipefail
 
           mkdir -p "$DEPLOY_PATH"
-
           test -w "$DEPLOY_PATH"
 
           echo "Deployment directory ready"
 
-      # ========================================
-      # 7. DEPLOY PWA
-      # ========================================
-      - name: Deploy PWA to HOMELAB
+      # ==========================================
+      # 7. DEPLOY TO HOMELAB
+      # ==========================================
+      - name: Deploy PWA
         run: |
           set -euo pipefail
 
@@ -112,36 +125,31 @@ jobs:
             --no-group \
             dist/pwa/ "$DEPLOY_PATH/"
 
-          test -f "$DEPLOY_PATH/index.html"
+          echo "Files deployed successfully"
 
-          echo "PWA deployment completed"
-
-      # ========================================
+      # ==========================================
       # 8. VERIFY DEPLOYMENT
-      # ========================================
-      - name: Verify deployed files
+      # ==========================================
+      - name: Verify deployment
         run: |
           set -euo pipefail
 
-          echo "Checking deployed index.html..."
           test -s "$DEPLOY_PATH/index.html"
-
-          echo "Checking deployed assets..."
           test -d "$DEPLOY_PATH/assets"
 
           echo "Deployment verification successful"
 
-      # ========================================
+      # ==========================================
       # 9. DEPLOYMENT SUMMARY
-      # ========================================
+      # ==========================================
       - name: Deployment summary
         if: success()
         run: |
-          echo "=================================="
+          echo "======================================"
           echo " UDEV PWA DEPLOYMENT SUCCESS"
-          echo "=================================="
-          echo "Frontend: https://udev.udumbara.my.id"
-          echo "Backend : $VITE_API_URL"
-          echo "Runner  : homelab-frontend-udev"
-          echo "Mode    : PWA"
-          echo "=================================="
+          echo "======================================"
+          echo "Frontend : https://udev.udumbara.my.id"
+          echo "Backend  : $VITE_API_URL"
+          echo "Runner   : homelab-frontend-udev"
+          echo "Mode     : Production PWA"
+          echo "======================================"
