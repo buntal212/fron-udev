@@ -32,7 +32,7 @@ jobs:
 
     env:
       DEPLOY_PATH: /www/wwwroot/udev.udumbara.my.id
-      VITE_API_URL: https://apiudev.udumbara.my.id
+      QCLI_API_URL: https://apiudev.udumbara.my.id/api
 
     steps:
       # ==========================================
@@ -61,9 +61,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          echo "Installing project dependencies..."
+
           npm ci --include=dev
 
-          echo "Checking Quasar CLI..."
+          echo "Checking local Quasar CLI..."
+
           test -x node_modules/.bin/quasar
 
           echo "Dependencies installed successfully"
@@ -74,20 +77,24 @@ jobs:
       - name: Build Quasar PWA
         env:
           NODE_ENV: production
-          QCLI_API_URL: https://apiudev.udumbara.my.id/api
         run: |
           set -euo pipefail
+
+          echo "Building Quasar PWA..."
+          echo "API URL: $QCLI_API_URL"
 
           npm run build -- -m pwa
 
           echo "Quasar PWA build completed"
 
       # ==========================================
-      # 5. VALIDATE BUILD
+      # 5. VALIDATE BUILD OUTPUT
       # ==========================================
       - name: Validate PWA build
         run: |
           set -euo pipefail
+
+          echo "Validating PWA build..."
 
           test -s dist/pwa/index.html
           test -d dist/pwa/assets
@@ -95,24 +102,51 @@ jobs:
           echo "Build output:"
           ls -lah dist/pwa/
 
+          echo "PWA build validation successful"
+
       # ==========================================
-      # 6. PREPARE DEPLOYMENT
+      # 6. VERIFY PRODUCTION API URL
+      # ==========================================
+      - name: Verify production API URL
+        run: |
+          set -euo pipefail
+
+          echo "Checking production API URL in build..."
+
+          if ! grep -RFlq \
+            "$QCLI_API_URL" \
+            dist/pwa/assets; then
+
+            echo "ERROR: Production API URL missing from build"
+            echo "Expected: $QCLI_API_URL"
+            exit 1
+          fi
+
+          echo "Production API URL verified"
+
+      # ==========================================
+      # 7. PREPARE DEPLOYMENT
       # ==========================================
       - name: Prepare deployment directory
         run: |
           set -euo pipefail
 
+          echo "Preparing deployment directory..."
+
           mkdir -p "$DEPLOY_PATH"
+
           test -w "$DEPLOY_PATH"
 
           echo "Deployment directory ready"
 
       # ==========================================
-      # 7. DEPLOY TO HOMELAB
+      # 8. DEPLOY TO HOMELAB
       # ==========================================
       - name: Deploy PWA
         run: |
           set -euo pipefail
+
+          echo "Deploying UDEV PWA..."
 
           rsync -r \
             --delete \
@@ -128,19 +162,31 @@ jobs:
           echo "Files deployed successfully"
 
       # ==========================================
-      # 8. VERIFY DEPLOYMENT
+      # 9. VERIFY DEPLOYMENT
       # ==========================================
       - name: Verify deployment
         run: |
           set -euo pipefail
 
+          echo "Verifying deployment..."
+
           test -s "$DEPLOY_PATH/index.html"
           test -d "$DEPLOY_PATH/assets"
+
+          echo "Checking production API URL in deployed files..."
+
+          if ! grep -RFlq \
+            "$QCLI_API_URL" \
+            "$DEPLOY_PATH/assets"; then
+
+            echo "ERROR: Deployed assets missing production API URL"
+            exit 1
+          fi
 
           echo "Deployment verification successful"
 
       # ==========================================
-      # 9. DEPLOYMENT SUMMARY
+      # 10. DEPLOYMENT SUMMARY
       # ==========================================
       - name: Deployment summary
         if: success()
@@ -149,7 +195,17 @@ jobs:
           echo " UDEV PWA DEPLOYMENT SUCCESS"
           echo "======================================"
           echo "Frontend : https://udev.udumbara.my.id"
-          echo "Backend  : $VITE_API_URL"
+          echo "Backend  : $QCLI_API_URL"
           echo "Runner   : homelab-frontend-udev"
           echo "Mode     : Production PWA"
           echo "======================================"
+
+          {
+            echo "## UDEV PWA Deployment"
+            echo ""
+            echo "- Status: Success"
+            echo "- Frontend: https://udev.udumbara.my.id"
+            echo "- Backend: $QCLI_API_URL"
+            echo "- Mode: Production PWA"
+            echo "- Commit: $GITHUB_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"
