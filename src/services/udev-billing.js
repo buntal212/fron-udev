@@ -77,6 +77,13 @@ export const danaGatewayMerchantService = {
     api.get(`/v1/admin/dana-gateway-merchants/${merchantId}/readiness`, {
       headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
     }),
+  storedDanaConfiguration: merchantId =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/dana-configuration`,
+      {
+        headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+      }
+    ),
   configureSandbox: (merchantId, payload) =>
     api.put(
       `/v1/admin/dana-gateway-merchants/${merchantId}/dana-configuration`,

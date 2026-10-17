@@ -461,12 +461,62 @@
       /></q-card-section>
       <q-separator />
       <q-card-section>
-        <q-banner rounded class="transport-notice q-mb-md"
+        <q-banner
+          v-if="!isSecureFrontend"
+          rounded
+          class="transport-notice q-mb-md"
           ><template #avatar><q-icon name="security" /></template>Credential
           dikirim ke backend UDEV melalui koneksi lokal, lalu diteruskan ke
           Gateway HOMELAB menggunakan HTTPS. Karena frontend lokal masih HTTP,
           gunakan data dummy Sandbox atau HTTPS lokal tepercaya sebelum
           memasukkan credential asli.</q-banner
+        >
+        <q-banner v-else rounded class="transport-notice q-mb-md"
+          ><template #avatar><q-icon name="verified_user" /></template
+          >Credential dikirim ke backend UDEV melalui HTTPS. Nilai secret tidak
+          ditampilkan kembali setelah disimpan.</q-banner
+        >
+        <div class="row items-center q-col-gutter-sm q-mb-md">
+          <div class="col-12 col-sm-auto">
+            <q-btn
+              outline
+              color="warning"
+              icon="download"
+              label="Ambil Konfigurasi Tersimpan"
+              no-caps
+              :loading="storedConfigurationLoading"
+              @click="loadStoredConfiguration"
+            />
+          </div>
+          <div class="col-12 col-sm">
+            <span class="section-description"
+              >Hanya metadata Sandbox merchant ini yang diisi. Secret tetap di
+              Gateway dan tidak disimpan otomatis.</span
+            >
+          </div>
+        </div>
+        <q-banner
+          v-if="storedConfigurationNotice"
+          rounded
+          class="warning-banner q-mb-md"
+          >{{ storedConfigurationNotice }}</q-banner
+        >
+        <q-banner
+          v-if="storedSecretStatus"
+          rounded
+          class="transport-notice q-mb-md"
+          ><template #avatar><q-icon name="key" /></template>Private key:
+          <strong>{{
+            storedSecretStatus.private_key ? 'tersimpan' : 'belum tersedia'
+          }}</strong
+          >; webhook public key:
+          <strong>{{
+            storedSecretStatus.webhook_public_key
+              ? 'tersimpan'
+              : 'belum tersedia'
+          }}</strong
+          >. Biarkan field secret kosong untuk mempertahankan nilai yang sudah
+          tersimpan.</q-banner
         >
         <q-form
           ref="configurationFormRef"
@@ -581,7 +631,7 @@
             :input-class="showPrivateKey ? '' : 'masked-sensitive-input'"
             :error="Boolean(configurationErrors.private_key)"
             :error-message="firstError('private_key')"
-            :rules="[pemRule]"
+            :rules="[optionalPemRule]"
             no-error-icon
             ><template #append
               ><q-btn
@@ -606,7 +656,7 @@
             :input-class="showWebhookPublicKey ? '' : 'masked-sensitive-input'"
             :error="Boolean(configurationErrors.dana_webhook_public_key)"
             :error-message="firstError('dana_webhook_public_key')"
-            :rules="[pemRule]"
+            :rules="[optionalPemRule]"
             no-error-icon
             ><template #append
               ><q-btn
@@ -739,6 +789,7 @@ import { danaGatewayMerchantService } from '@/services/udev-billing'
 import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
 import { useDanaGatewayMerchantStore } from '@/stores/danagatewaymerchant'
 import { notificationForApiKeyIssuance } from './dana-api-key-issuance-notification'
+import { isSecureFrontendProtocol } from './dana-sandbox-configuration'
 
 const store = useDanaGatewayMerchantStore()
 const $q = useQuasar()
@@ -752,6 +803,9 @@ const saveConfirmationOpen = ref(false)
 const configurationSaving = ref(false)
 const configurationError = ref(null)
 const configurationErrors = ref({})
+const storedConfigurationLoading = ref(false)
+const storedConfigurationNotice = ref(null)
+const storedSecretStatus = ref(null)
 const showPrivateKey = ref(false)
 const showWebhookPublicKey = ref(false)
 const revokeConfirmationOpen = ref(false)
@@ -827,6 +881,9 @@ const abilityOptions = [
 ]
 const merchant = computed(() => store.selectedMerchant)
 const isSandbox = computed(() => merchant.value?.environment === 'sandbox')
+const isSecureFrontend = computed(() =>
+  isSecureFrontendProtocol(globalThis.location?.protocol)
+)
 const emptyConfiguration = () => ({
   environment: 'sandbox',
   partner_id: '',
@@ -925,6 +982,8 @@ function resetConfigurationForm() {
   Object.assign(configurationForm, emptyConfiguration())
   configurationErrors.value = {}
   configurationError.value = null
+  storedConfigurationNotice.value = null
+  storedSecretStatus.value = null
   showPrivateKey.value = false
   showWebhookPublicKey.value = false
   saveConfirmationOpen.value = false
@@ -935,6 +994,99 @@ function clearSensitiveFields() {
   configurationForm.dana_webhook_public_key = ''
   showPrivateKey.value = false
   showWebhookPublicKey.value = false
+}
+function hasManualConfigurationChanges() {
+  return Object.entries(configurationForm).some(([field, value]) => {
+    if (field === 'environment') return false
+    if (typeof value === 'boolean') return value
+
+    return Boolean(value)
+  })
+}
+function applyStoredConfiguration(response) {
+  const values = response?.configuration
+  if (!response?.configuration_exists || !values) {
+    storedSecretStatus.value = null
+    storedConfigurationNotice.value =
+      'Konfigurasi DANA Sandbox tersimpan belum ditemukan untuk merchant ini. Silakan lengkapi konfigurasi secara manual.'
+    return
+  }
+
+  const fields = [
+    'partner_id',
+    'merchant_id',
+    'origin',
+    'channel_id',
+    'notification_url',
+    'callback_url',
+    'mcc'
+  ]
+  const filled = []
+  const missing = []
+  for (const field of fields) {
+    if (typeof values[field] === 'string' && values[field] !== '') {
+      configurationForm[field] = values[field]
+      filled.push(field)
+    } else {
+      missing.push(field)
+    }
+  }
+  configurationForm.environment = 'sandbox'
+  configurationForm.enabled = values.enabled === true
+  configurationForm.private_key = ''
+  configurationForm.dana_webhook_public_key = ''
+  storedSecretStatus.value = {
+    private_key: values.private_key_configured === true,
+    webhook_public_key: values.dana_webhook_public_key_configured === true
+  }
+
+  const labels = {
+    partner_id: 'Partner ID',
+    merchant_id: 'Merchant ID DANA',
+    origin: 'Origin',
+    channel_id: 'Channel ID',
+    notification_url: 'Notification URL',
+    callback_url: 'Callback URL',
+    mcc: 'MCC'
+  }
+  const filledText =
+    filled.map(field => labels[field]).join(', ') || 'tidak ada'
+  const missingText =
+    missing.map(field => labels[field]).join(', ') || 'tidak ada'
+  storedConfigurationNotice.value = `Field terisi: ${filledText}. Field yang masih perlu dilengkapi: ${missingText}.`
+}
+async function loadStoredConfiguration() {
+  if (!merchant.value || storedConfigurationLoading.value) return
+
+  const load = async () => {
+    storedConfigurationLoading.value = true
+    storedConfigurationNotice.value = null
+    configurationError.value = null
+    try {
+      const response = await danaGatewayMerchantService.storedDanaConfiguration(
+        merchant.value.merchant_id
+      )
+      applyStoredConfiguration(response.data?.data ?? null)
+    } catch (error) {
+      storedConfigurationNotice.value = getApiErrorMessage(error)
+    } finally {
+      storedConfigurationLoading.value = false
+    }
+  }
+
+  if (hasManualConfigurationChanges()) {
+    $q.dialog({
+      title: 'Timpa perubahan manual?',
+      message:
+        'Metadata konfigurasi tersimpan akan menggantikan field yang sedang Anda isi. Private key dan webhook public key tidak akan diambil.',
+      cancel: true,
+      persistent: true,
+      ok: { label: 'Ambil konfigurasi', color: 'warning', textColor: 'dark' }
+    }).onOk(load)
+    return
+  }
+
+  await load()
 }
 function resetSensitiveState() {
   resetConfigurationForm()
@@ -1066,6 +1218,9 @@ function pemRule(value) {
     ) || 'Format PEM tidak valid.'
   )
 }
+function optionalPemRule(value) {
+  return !value || pemRule(value)
+}
 async function askToSaveConfiguration() {
   if (await configurationFormRef.value?.validate())
     saveConfirmationOpen.value = true
@@ -1077,6 +1232,8 @@ async function saveConfiguration() {
   configurationError.value = null
   configurationErrors.value = {}
   const payload = { ...configurationForm, environment: 'sandbox' }
+  if (!payload.private_key) delete payload.private_key
+  if (!payload.dana_webhook_public_key) delete payload.dana_webhook_public_key
   try {
     await danaGatewayMerchantService.configureSandbox(
       merchant.value.merchant_id,
