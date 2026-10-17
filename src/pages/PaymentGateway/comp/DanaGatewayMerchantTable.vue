@@ -60,8 +60,8 @@
             flat
             dense
             color="warning"
-            icon="visibility"
-            label="Detail"
+            icon="settings"
+            label="Detail & Konfigurasi"
             no-caps
             @click="$emit('detail', props.row.merchant_id)"
           />

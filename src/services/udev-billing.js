@@ -72,5 +72,58 @@ export const paymentGatewayService = {
 export const danaGatewayMerchantService = {
   list: params => getList('/v1/admin/dana-gateway-merchants', params),
   get: merchantId => api.get(`/v1/admin/dana-gateway-merchants/${merchantId}`),
-  create: payload => api.post('/v1/admin/dana-gateway-merchants', payload)
+  create: payload => api.post('/v1/admin/dana-gateway-merchants', payload),
+  readiness: merchantId =>
+    api.get(`/v1/admin/dana-gateway-merchants/${merchantId}/readiness`, {
+      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+    }),
+  configureSandbox: (merchantId, payload) =>
+    api.put(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/dana-configuration`,
+      payload,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  apiKeys: merchantId =>
+    api.get(`/v1/admin/dana-gateway-merchants/${merchantId}/api-keys`, {
+      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+    }),
+  revokeApiKey: (merchantId, apiKeyId) =>
+    api.delete(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/api-keys/${apiKeyId}`,
+      {
+        data: { confirm_revoke: true },
+        headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+      }
+    ),
+  issueApiKey: (merchantId, payload, idempotencyKey) =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/api-keys/issue`,
+      payload,
+      {
+        headers: {
+          'Cache-Control': 'no-store',
+          Pragma: 'no-cache',
+          'Idempotency-Key': idempotencyKey
+        }
+      }
+    ),
+  issuanceStatus: (merchantId, issuanceId) =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/api-key-issuances/${issuanceId}`,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  issuances: (merchantId, params) =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/api-key-issuances`,
+      {
+        params,
+        headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+      }
+    ),
+  cancelIssuance: (merchantId, issuanceId) =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/api-key-issuances/${issuanceId}/cancel`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    )
 }

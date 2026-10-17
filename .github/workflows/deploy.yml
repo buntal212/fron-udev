@@ -1,0 +1,76 @@
+
+name: Deploy UDEV PWA
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: udev-pwa-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and Deploy PWA
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+      - frontend-udev
+
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Quasar PWA
+        run: npm run build -- -m pwa
+        env:
+          NODE_ENV: production
+
+      - name: Validate build
+        run: |
+          test -f dist/pwa/index.html
+          test -d dist/pwa/assets
+          echo "PWA build berhasil"
+
+      - name: Deploy to HOMELAB
+        run: |
+          set -euo pipefail
+
+          TARGET="/www/wwwroot/udev.udumbara.my.id"
+
+          mkdir -p "$TARGET"
+
+          rsync -r \
+            --delete \
+            --exclude='.well-known/' \
+            --exclude='.user.ini' \
+            --exclude='.htaccess' \
+            --exclude='.releases/' \
+            --no-perms \
+            --no-owner \
+            --no-group \
+            dist/pwa/ "$TARGET/"
+
+          echo "Deployment PWA selesai"
+
+      - name: Verify deployment
+        run: |
+          test -f /www/wwwroot/udev.udumbara.my.id/index.html
+          echo "UDEV PWA deployed successfully"
