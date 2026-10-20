@@ -177,6 +177,7 @@
                   no-caps
                   @click="openConfigurationDialog"
               /></q-card-section>
+              <DanaSandboxTesterPanel :merchant="merchant" />
               <q-separator />
               <q-card-section>
                 <h3>Metadata API key</h3
@@ -801,6 +802,7 @@ import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
 import { useDanaGatewayMerchantStore } from '@/stores/danagatewaymerchant'
 import { notificationForApiKeyIssuance } from './dana-api-key-issuance-notification'
 import { isSecureFrontendProtocol } from './dana-sandbox-configuration'
+import DanaSandboxTesterPanel from './DanaSandboxTesterPanel.vue'
 
 const store = useDanaGatewayMerchantStore()
 const $q = useQuasar()

@@ -90,6 +90,36 @@ export const danaGatewayMerchantService = {
       payload,
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  validateSandboxTester: merchantId =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/validation`,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  sandboxTestHistory: (merchantId, params) =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions`,
+      {
+        params,
+        headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+      }
+    ),
+  createSandboxTestTransaction: (merchantId, payload, idempotencyKey) =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions`,
+      payload,
+      {
+        headers: {
+          'Cache-Control': 'no-store',
+          Pragma: 'no-cache',
+          'Idempotency-Key': idempotencyKey
+        }
+      }
+    ),
+  sandboxTestTransactionStatus: (merchantId, paymentId) =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions/${paymentId}/status`,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   apiKeys: merchantId =>
     api.get(`/v1/admin/dana-gateway-merchants/${merchantId}/api-keys`, {
       headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }

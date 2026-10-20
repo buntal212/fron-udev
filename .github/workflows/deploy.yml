@@ -1,5 +1,8 @@
 name: Deploy UDEV PWA
 
+# ============================================================
+# TRIGGER
+# ============================================================
 on:
   push:
     branches:
@@ -15,8 +18,121 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # ==========================================================
+  # JOB 1 - BUILD QUASAR DI GITHUB
+  # ==========================================================
+  build:
+    name: Build UDEV PWA
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      QCLI_API_URL: https://apiudev.udumbara.my.id/api
+
+    steps:
+      # ------------------------------------------------------
+      # 1. CHECKOUT
+      # ------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # ------------------------------------------------------
+      # 2. SETUP NODE
+      # ------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # ------------------------------------------------------
+      # 3. INSTALL DEPENDENCIES
+      # ------------------------------------------------------
+      - name: Install dependencies
+        env:
+          NODE_ENV: development
+        run: |
+          set -euo pipefail
+
+          echo "Installing dependencies..."
+
+          npm ci --include=dev
+
+          test -x node_modules/.bin/quasar
+
+          echo "Dependencies installed."
+
+      # ------------------------------------------------------
+      # 4. BUILD QUASAR PWA
+      # ------------------------------------------------------
+      - name: Build Quasar PWA
+        env:
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+
+          echo "Building UDEV PWA..."
+
+          npm run build -- -m pwa
+
+          echo "Build completed."
+
+      # ------------------------------------------------------
+      # 5. VALIDATE BUILD
+      # ------------------------------------------------------
+      - name: Validate PWA build
+        run: |
+          set -euo pipefail
+
+          test -s dist/pwa/index.html
+          test -d dist/pwa/assets
+
+          echo "Build size:"
+          du -sh dist/pwa
+
+          echo "Build validated."
+
+      # ------------------------------------------------------
+      # 6. VERIFY API URL
+      # ------------------------------------------------------
+      - name: Verify production API URL
+        run: |
+          set -euo pipefail
+
+          if ! grep -RFlq \
+            "$QCLI_API_URL" \
+            dist/pwa/assets; then
+
+            echo "::error::Production API URL missing."
+            exit 1
+          fi
+
+          echo "Production API URL verified."
+
+      # ------------------------------------------------------
+      # 7. UPLOAD ARTIFACT
+      # ------------------------------------------------------
+      - name: Upload production artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: udev-pwa-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/pwa/
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: false
+
+  # ==========================================================
+  # JOB 2 - DEPLOY KE HOMELAB
+  # ==========================================================
   deploy:
-    name: Build and Deploy UDEV PWA
+    name: Deploy UDEV to HOMELAB
+    needs: build
 
     runs-on:
       - self-hosted
@@ -24,7 +140,7 @@ jobs:
       - X64
       - frontend-udev
 
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     defaults:
       run:
@@ -33,116 +149,63 @@ jobs:
     env:
       DEPLOY_PATH: /www/wwwroot/udev.udumbara.my.id
       QCLI_API_URL: https://apiudev.udumbara.my.id/api
+      ARTIFACT_PATH: /tmp/udev-pwa-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
-      # ==========================================
-      # 1. CHECKOUT REPOSITORY
-      # ==========================================
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # ------------------------------------------------------
+      # 1. DOWNLOAD ARTIFACT
+      # ------------------------------------------------------
+      - name: Download production artifact
+        uses: actions/download-artifact@v4
         with:
-          persist-credentials: false
+          name: udev-pwa-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.ARTIFACT_PATH }}
 
-      # ==========================================
-      # 2. SETUP NODE.JS
-      # ==========================================
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      # ==========================================
-      # 3. INSTALL DEPENDENCIES
-      # ==========================================
-      - name: Install dependencies
-        env:
-          NODE_ENV: development
+      # ------------------------------------------------------
+      # 2. VERIFY ARTIFACT
+      # ------------------------------------------------------
+      - name: Verify artifact
         run: |
           set -euo pipefail
 
-          echo "Installing project dependencies..."
-
-          npm ci --include=dev
-
-          echo "Checking local Quasar CLI..."
-
-          test -x node_modules/.bin/quasar
-
-          echo "Dependencies installed successfully"
-
-      # ==========================================
-      # 4. BUILD QUASAR PWA
-      # ==========================================
-      - name: Build Quasar PWA
-        env:
-          NODE_ENV: production
-        run: |
-          set -euo pipefail
-
-          echo "Building Quasar PWA..."
-          echo "API URL: $QCLI_API_URL"
-
-          npm run build -- -m pwa
-
-          echo "Quasar PWA build completed"
-
-      # ==========================================
-      # 5. VALIDATE BUILD OUTPUT
-      # ==========================================
-      - name: Validate PWA build
-        run: |
-          set -euo pipefail
-
-          echo "Validating PWA build..."
-
-          test -s dist/pwa/index.html
-          test -d dist/pwa/assets
-
-          echo "Build output:"
-          ls -lah dist/pwa/
-
-          echo "PWA build validation successful"
-
-      # ==========================================
-      # 6. VERIFY PRODUCTION API URL
-      # ==========================================
-      - name: Verify production API URL
-        run: |
-          set -euo pipefail
-
-          echo "Checking production API URL in build..."
+          test -s "$ARTIFACT_PATH/index.html"
+          test -d "$ARTIFACT_PATH/assets"
 
           if ! grep -RFlq \
             "$QCLI_API_URL" \
-            dist/pwa/assets; then
+            "$ARTIFACT_PATH/assets"; then
 
-            echo "ERROR: Production API URL missing from build"
-            echo "Expected: $QCLI_API_URL"
+            echo "::error::Production API URL missing."
             exit 1
           fi
 
-          echo "Production API URL verified"
+          echo "Artifact verified."
+          du -sh "$ARTIFACT_PATH"
 
-      # ==========================================
-      # 7. PREPARE DEPLOYMENT
-      # ==========================================
+      # ------------------------------------------------------
+      # 3. CHECK DEPLOY DIRECTORY
+      # ------------------------------------------------------
       - name: Prepare deployment directory
         run: |
           set -euo pipefail
 
-          echo "Preparing deployment directory..."
+          EXPECTED_PATH="/www/wwwroot/udev.udumbara.my.id"
+
+          if [ "$DEPLOY_PATH" != "$EXPECTED_PATH" ]; then
+            echo "::error::Unexpected deployment path."
+            exit 1
+          fi
 
           mkdir -p "$DEPLOY_PATH"
 
           test -w "$DEPLOY_PATH"
 
-          echo "Deployment directory ready"
+          echo "Deployment directory ready."
 
-      # ==========================================
-      # 8. DEPLOY TO HOMELAB
-      # ==========================================
-      - name: Deploy PWA
+      # ------------------------------------------------------
+      # 4. DEPLOY PWA
+      # ------------------------------------------------------
+      - name: Deploy PWA to aaPanel
         run: |
           set -euo pipefail
 
@@ -157,37 +220,53 @@ jobs:
             --no-perms \
             --no-owner \
             --no-group \
-            dist/pwa/ "$DEPLOY_PATH/"
+            "$ARTIFACT_PATH/" \
+            "$DEPLOY_PATH/"
 
-          echo "Files deployed successfully"
+          echo "Deployment completed."
 
-      # ==========================================
-      # 9. VERIFY DEPLOYMENT
-      # ==========================================
-      - name: Verify deployment
+      # ------------------------------------------------------
+      # 5. VERIFY DEPLOYMENT
+      # ------------------------------------------------------
+      - name: Verify production deployment
         run: |
           set -euo pipefail
 
-          echo "Verifying deployment..."
-
           test -s "$DEPLOY_PATH/index.html"
           test -d "$DEPLOY_PATH/assets"
-
-          echo "Checking production API URL in deployed files..."
 
           if ! grep -RFlq \
             "$QCLI_API_URL" \
             "$DEPLOY_PATH/assets"; then
 
-            echo "ERROR: Deployed assets missing production API URL"
+            echo "::error::Deployed API URL missing."
             exit 1
           fi
 
-          echo "Deployment verification successful"
+          echo "Production deployment verified."
+          du -sh "$DEPLOY_PATH"
 
-      # ==========================================
-      # 10. DEPLOYMENT SUMMARY
-      # ==========================================
+      # ------------------------------------------------------
+      # 6. CLEANUP ARTIFACT
+      # ------------------------------------------------------
+      - name: Cleanup temporary artifact
+        if: always()
+        run: |
+          set -euo pipefail
+
+          EXPECTED_PREFIX="/tmp/udev-pwa-"
+
+          if [[ "$ARTIFACT_PATH" == "$EXPECTED_PREFIX"* ]] &&
+             [[ "$ARTIFACT_PATH" != "$EXPECTED_PREFIX" ]]; then
+
+            rm -rf -- "$ARTIFACT_PATH"
+
+            echo "Temporary artifact removed."
+          fi
+
+      # ------------------------------------------------------
+      # 7. DEPLOYMENT SUMMARY
+      # ------------------------------------------------------
       - name: Deployment summary
         if: success()
         run: |
@@ -196,7 +275,6 @@ jobs:
           echo "======================================"
           echo "Frontend : https://udev.udumbara.my.id"
           echo "Backend  : $QCLI_API_URL"
-          echo "Runner   : homelab-frontend-udev"
           echo "Mode     : Production PWA"
           echo "======================================"
 
