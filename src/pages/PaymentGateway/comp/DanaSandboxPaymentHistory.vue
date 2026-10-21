@@ -2,13 +2,13 @@
   <q-separator class="q-my-lg" />
   <section aria-labelledby="sandbox-payment-history-heading">
     <div class="row items-center justify-between q-col-gutter-sm">
-      <div class="col-12 col-sm"
-        ><h3 id="sandbox-payment-history-heading">Audit Pembayaran Sandbox</h3
-        ><p class="section-description"
+      <div class="col-12 col-sm">
+        <h3 id="sandbox-payment-history-heading">Audit Pembayaran Sandbox</h3>
+        <p class="section-description"
           >Status dan waktu lunas hanya berasal dari catatan gateway yang telah
           diverifikasi.</p
-        ></div
-      >
+        >
+      </div>
       <div class="col-12 col-sm-auto"
         ><q-btn
           outline
@@ -79,8 +79,8 @@
       ><template #avatar><q-icon name="error_outline" /></template
       >{{ error }}</q-banner
     >
-    <div class="payment-history q-mt-sm"
-      ><q-inner-loading :showing="loading" color="warning" />
+    <div class="payment-history q-mt-sm">
+      <q-inner-loading :showing="loading" color="warning" />
       <q-table
         v-if="payments.length && $q.screen.gt.sm"
         flat
@@ -161,82 +161,170 @@
       />
     </div>
   </section>
-  <q-dialog v-model="detailOpen"
-    ><q-card class="payment-detail-dialog"
-      ><q-card-section class="row items-center justify-between"
-        ><div
-          ><p class="eyebrow">DANA SANDBOX</p
-          ><h3>Detail Audit Pembayaran</h3></div
-        ><q-btn
+
+  <q-dialog v-model="detailOpen">
+    <q-card class="payment-detail-dialog">
+      <q-card-section class="dialog-header row items-center justify-between">
+        <div
+          ><p class="eyebrow">DANA SANDBOX · PAYMENT AUDIT</p
+          ><h3>Detail Pembayaran</h3></div
+        >
+        <q-btn
           flat
           round
           dense
           icon="close"
+          color="white"
           aria-label="Tutup"
-          v-close-popup /></q-card-section
-      ><q-separator />
-      <q-card-section v-if="detail" class="q-gutter-y-md"
-        ><div
-          ><h4>Transaksi</h4
-          ><dl
-            ><dt>Referensi merchant</dt><dd>{{ detail.merchant_reference }}</dd
-            ><dt>Referensi pembayaran</dt><dd>{{ detail.id }}</dd
-            ><dt>Referensi provider</dt
-            ><dd>{{ detail.provider_order_reference || '—' }}</dd
-            ><dt>Nominal</dt><dd>{{ formatAmount(detail) }}</dd
-            ><dt>Status</dt
-            ><dd
-              ><q-badge :color="statusColor(detail.status)">{{
+          v-close-popup
+        />
+      </q-card-section>
+      <q-card-section v-if="detail" class="dialog-body">
+        <div class="payment-overview">
+          <div
+            ><p class="overview-label">Nominal pembayaran</p
+            ><p class="overview-amount">{{ formatAmount(detail) }}</p
+            ><p class="overview-reference">{{
+              detail.merchant_reference
+            }}</p></div
+          >
+          <div class="overview-status"
+            ><q-badge
+              rounded
+              :color="statusColor(detail.status)"
+              class="status-badge"
+              ><q-icon name="verified" size="14px" class="q-mr-xs" />{{
                 labelFor(detail.status)
-              }}</q-badge></dd
-            ><dt>Terverifikasi gateway</dt
-            ><dd>{{ formatDate(detail.gateway_verified_at) }}</dd></dl
-          ></div
-        >
-        <div
-          ><h4>Timeline status</h4
-          ><q-list v-if="detail.timeline?.length" dense bordered separator
-            ><q-item v-for="(event, index) in detail.timeline" :key="index"
-              ><q-item-section
-                ><q-item-label
-                  >{{ event.event_type }} · {{ event.source }}</q-item-label
-                ><q-item-label caption
-                  >{{ event.old_status || '—' }} →
-                  {{ event.new_status || '—' }} ·
-                  {{ formatDate(event.created_at) }}</q-item-label
-                ></q-item-section
-              ></q-item
-            ></q-list
-          ><p v-else class="detail-note"
-            >Belum ada event status yang aman untuk ditampilkan.</p
-          ></div
-        >
-        <div
-          ><h4>Webhook</h4
-          ><q-list v-if="webhooks.length" dense bordered separator
-            ><q-item v-for="(webhook, index) in webhooks" :key="index"
-              ><q-item-section
-                ><q-item-label
-                  >{{ webhook.processing_status }} · signature
-                  {{
-                    webhook.signature_valid ? 'valid' : 'invalid'
-                  }}</q-item-label
-                ><q-item-label caption
-                  >{{ formatDate(webhook.received_at)
-                  }}<span v-if="webhook.error_code">
-                    · {{ webhook.error_code }}</span
-                  ></q-item-label
-                ></q-item-section
-              ></q-item
-            ></q-list
-          ><p v-else class="detail-note"
-            >Belum ada webhook tercatat untuk transaksi ini.</p
-          ></div
+              }}</q-badge
+            ><span>{{
+              detail.gateway_verified_at
+                ? 'Terverifikasi gateway'
+                : 'Menunggu verifikasi gateway'
+            }}</span></div
+          >
+        </div>
+        <div class="audit-meta-grid q-mt-md">
+          <div class="audit-meta-item"
+            ><q-icon name="tag" /><div
+              ><span>Referensi pembayaran</span
+              ><strong>{{ detail.id }}</strong></div
+            ></div
+          >
+          <div class="audit-meta-item"
+            ><q-icon name="account_balance_wallet" /><div
+              ><span>Referensi provider</span
+              ><strong>{{
+                detail.provider_order_reference || '-'
+              }}</strong></div
+            ></div
+          >
+          <div class="audit-meta-item"
+            ><q-icon name="schedule" /><div
+              ><span>Dibuat</span
+              ><strong>{{ formatDate(detail.created_at) }}</strong></div
+            ></div
+          >
+          <div class="audit-meta-item"
+            ><q-icon name="verified_user" /><div
+              ><span>Terverifikasi gateway</span
+              ><strong>{{
+                formatDate(detail.gateway_verified_at)
+              }}</strong></div
+            ></div
+          >
+        </div>
+        <section class="audit-section">
+          <div class="section-heading"
+            ><q-icon name="timeline" color="warning" size="21px" /><div
+              ><h4>Timeline status</h4
+              ><p>Jejak perubahan status pembayaran yang aman.</p></div
+            ></div
+          >
+          <div v-if="detail.timeline?.length" class="audit-timeline">
+            <article
+              v-for="(event, index) in detail.timeline"
+              :key="index"
+              class="timeline-item"
+            >
+              <div class="timeline-rail"
+                ><q-icon :name="eventIcon(event)" :color="eventColor(event)"
+              /></div>
+              <div class="timeline-content"
+                ><div
+                  class="row items-start justify-between q-col-gutter-sm no-wrap"
+                  ><div class="col"
+                    ><strong>{{ eventTitle(event) }}</strong
+                    ><span class="timeline-source">{{
+                      sourceLabel(event.source)
+                    }}</span></div
+                  ><time>{{ formatDate(event.created_at) }}</time></div
+                ><div class="timeline-transition"
+                  ><q-badge outline :color="eventColor(event)">{{
+                    labelFor(event.old_status)
+                  }}</q-badge
+                  ><q-icon name="arrow_forward" size="16px" /><q-badge
+                    :color="eventColor(event)"
+                    >{{ labelFor(event.new_status) }}</q-badge
+                  ></div
+                ></div
+              >
+            </article>
+          </div>
+          <div v-else class="empty-audit"
+            ><q-icon name="timeline" size="22px" /><span
+              >Belum ada event status yang aman untuk ditampilkan.</span
+            ></div
+          >
+        </section>
+        <section class="audit-section">
+          <div class="section-heading"
+            ><q-icon name="webhook" color="warning" size="21px" /><div
+              ><h4>Webhook</h4
+              ><p>Riwayat notifikasi DANA, tanpa payload sensitif.</p></div
+            ></div
+          >
+          <div v-if="webhooks.length" class="webhook-list"
+            ><article
+              v-for="(webhook, index) in webhooks"
+              :key="index"
+              class="webhook-row"
+              ><q-avatar
+                :color="webhookColor(webhook)"
+                text-color="white"
+                size="34px"
+                ><q-icon
+                  :name="
+                    webhook.signature_valid ? 'verified' : 'gpp_maybe'
+                  " /></q-avatar
+              ><div class="webhook-content"
+                ><div class="row items-center justify-between q-col-gutter-sm"
+                  ><strong>{{ webhookLabel(webhook) }}</strong
+                  ><q-badge outline :color="webhookColor(webhook)">{{
+                    webhook.signature_valid
+                      ? 'Signature valid'
+                      : 'Signature invalid'
+                  }}</q-badge></div
+                ><span>{{ formatDate(webhook.received_at) }}</span
+                ><small v-if="webhook.error_code"
+                  >Kode: {{ webhook.error_code }}</small
+                ></div
+              ></article
+            ></div
+          >
+          <div v-else class="empty-audit"
+            ><q-icon name="webhook" size="22px" /><span
+              >Belum ada webhook tercatat untuk transaksi ini.</span
+            ></div
+          >
+        </section>
+      </q-card-section>
+      <q-card-section v-else class="text-center q-pa-xl"
+        ><q-spinner color="warning" size="32px" /><p class="q-mt-sm text-grey-7"
+          >Memuat detail audit...</p
         ></q-card-section
       >
-      <q-card-section v-else class="text-center q-pa-xl"
-        ><q-spinner color="warning" size="32px" /></q-card-section></q-card
-  ></q-dialog>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup>
@@ -244,6 +332,7 @@ import { computed, ref, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { danaGatewayMerchantService } from '@/services/udev-billing'
 import { getApiErrorMessage } from '@/utils/api-error'
+
 const props = defineProps({ merchant: { type: Object, required: true } })
 const $q = useQuasar()
 const payments = ref([])
@@ -290,7 +379,7 @@ const paidAmounts = computed(
           currency: item.currency
         })
       )
-      .join(' · ') || '—'
+      .join(' · ') || '-'
 )
 const columns = [
   {
@@ -308,13 +397,14 @@ const columns = [
   {
     name: 'provider',
     label: 'Referensi provider',
-    field: row => row.provider_order_reference || '—',
+    field: row => row.provider_order_reference || '-',
     align: 'left'
   },
   { name: 'amount', label: 'Nominal', align: 'right' },
   { name: 'status', label: 'Status', align: 'left' },
   { name: 'actions', label: 'Aksi', align: 'right' }
 ]
+
 watch(
   merchantId,
   value => {
@@ -325,7 +415,7 @@ watch(
   { immediate: true }
 )
 function labelFor(value) {
-  return value ? String(value).replaceAll('_', ' ') : 'Tidak diketahui'
+  return value ? String(value).replaceAll('_', ' ') : 'Belum ada status'
 }
 function statusColor(status) {
   return status === 'paid'
@@ -334,13 +424,45 @@ function statusColor(status) {
       ? 'negative'
       : 'warning'
 }
+function eventColor(event) {
+  return statusColor(event.new_status)
+}
+function eventIcon(event) {
+  return event.new_status === 'paid'
+    ? 'check_circle'
+    : event.new_status === 'pending'
+      ? 'hourglass_top'
+      : 'receipt_long'
+}
+function eventTitle(event) {
+  return event.event_type
+    ? String(event.event_type).replaceAll('.', ' ').replaceAll('_', ' ')
+    : 'Perubahan pembayaran'
+}
+function sourceLabel(source) {
+  return (
+    { merchant: 'Admin', provider: 'DANA gateway', system: 'Sistem' }[source] ||
+    source ||
+    'Sistem'
+  )
+}
+function webhookColor(webhook) {
+  return webhook.processing_status === 'processed' && webhook.signature_valid
+    ? 'positive'
+    : 'negative'
+}
+function webhookLabel(webhook) {
+  return webhook.processing_status === 'processed'
+    ? 'Webhook berhasil diproses'
+    : 'Webhook ditolak'
+}
 function formatDate(value) {
   return value
     ? new Intl.DateTimeFormat('id-ID', {
         dateStyle: 'medium',
         timeStyle: 'short'
       }).format(new Date(value))
-    : '—'
+    : '-'
 }
 function formatAmount(payment) {
   return new Intl.NumberFormat('id-ID', {
@@ -406,14 +528,14 @@ async function openDetail(payment) {
   }
 }
 </script>
+
 <style scoped>
 h3,
 h4 {
   margin: 0;
   color: #20180b;
 }
-.section-description,
-.detail-note {
+.section-description {
   margin: 4px 0 0;
   color: #746b5c;
   font-size: 0.82rem;
@@ -439,29 +561,208 @@ h4 {
   color: #5d4710;
 }
 .payment-detail-dialog {
-  width: min(700px, 94vw);
+  width: min(760px, 94vw);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.dialog-header {
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #16120d, #3c2c12);
+  color: #fff;
+}
+.dialog-header h3 {
+  color: #fff;
+  font-size: 1.32rem;
 }
 .eyebrow {
   margin: 0 0 4px;
-  color: #b88924;
-  font-size: 0.68rem;
+  color: #f6c65d;
+  font-size: 0.67rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
 }
-dl {
-  display: grid;
-  grid-template-columns: minmax(145px, 0.7fr) minmax(0, 1.3fr);
-  gap: 8px 16px;
-  margin: 8px 0 0;
-  font-size: 0.83rem;
+.dialog-body {
+  padding: 20px 24px 26px;
 }
-dt {
-  color: #746b5c;
+.payment-overview {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid #ebd18d;
+  border-radius: 14px;
+  background: linear-gradient(125deg, #fffaf0, #fff);
 }
-dd {
+.overview-label,
+.overview-reference {
   margin: 0;
+  color: #746b5c;
+  font-size: 0.76rem;
+}
+.overview-amount {
+  margin: 4px 0;
+  color: #281d0c;
+  font-size: 1.55rem;
+  font-weight: 800;
+}
+.overview-status {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 7px;
+  text-align: right;
+  color: #746b5c;
+  font-size: 0.75rem;
+}
+.status-badge {
+  padding: 7px 10px;
+  font-weight: 700;
+}
+.audit-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.audit-meta-item {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid #eee6d9;
+  border-radius: 10px;
+  background: #fff;
+}
+.audit-meta-item > .q-icon {
+  margin-top: 2px;
+  color: #b88924;
+}
+.audit-meta-item span,
+.webhook-content span {
+  display: block;
+  color: #817866;
+  font-size: 0.72rem;
+}
+.audit-meta-item strong {
+  display: block;
   overflow-wrap: anywhere;
-  color: #302619;
+  color: #342918;
+  font-size: 0.79rem;
+  font-weight: 600;
+}
+.audit-section {
+  margin-top: 24px;
+}
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 11px;
+}
+.section-heading h4 {
+  font-size: 0.95rem;
+}
+.section-heading p {
+  margin: 2px 0 0;
+  color: #817866;
+  font-size: 0.76rem;
+}
+.audit-timeline {
+  padding: 4px 0;
+}
+.timeline-item {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  min-height: 70px;
+}
+.timeline-item:not(:last-child)::before {
+  position: absolute;
+  top: 27px;
+  bottom: 0;
+  left: 11px;
+  width: 2px;
+  background: #eadfc9;
+  content: '';
+}
+.timeline-rail {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff8e8;
+}
+.timeline-content {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 0 12px;
+}
+.timeline-content strong {
+  display: block;
+  color: #362a18;
+  font-size: 0.83rem;
+  text-transform: capitalize;
+}
+.timeline-source {
+  display: block;
+  margin-top: 2px;
+  color: #8b6e2f;
+  font-size: 0.71rem;
+}
+.timeline-content time {
+  color: #817866;
+  font-size: 0.71rem;
+  white-space: nowrap;
+}
+.timeline-transition {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.timeline-transition .q-badge {
+  font-size: 0.68rem;
+}
+.webhook-list {
+  overflow: hidden;
+  border: 1px solid #eee6d9;
+  border-radius: 12px;
+}
+.webhook-row {
+  display: flex;
+  gap: 11px;
+  padding: 11px 12px;
+  background: #fff;
+}
+.webhook-row + .webhook-row {
+  border-top: 1px solid #f0eadf;
+}
+.webhook-content {
+  flex: 1;
+  min-width: 0;
+}
+.webhook-content strong {
+  color: #352918;
+  font-size: 0.82rem;
+}
+.webhook-content small {
+  display: block;
+  margin-top: 3px;
+  color: #a13d2e;
+  font-size: 0.7rem;
+}
+.empty-audit {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 14px;
+  border: 1px dashed #dfd2bb;
+  border-radius: 10px;
+  color: #817866;
+  font-size: 0.78rem;
 }
 @media (max-width: 800px) {
   .summary-grid {
@@ -469,12 +770,27 @@ dd {
   }
 }
 @media (max-width: 599px) {
-  dl {
-    grid-template-columns: 1fr;
-    gap: 2px;
+  .dialog-header,
+  .dialog-body {
+    padding-right: 16px;
+    padding-left: 16px;
   }
-  dd {
-    margin-bottom: 8px;
+  .payment-overview {
+    flex-direction: column;
+  }
+  .overview-status {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .audit-meta-grid {
+    grid-template-columns: 1fr;
+  }
+  .timeline-content time {
+    white-space: normal;
+    text-align: right;
+  }
+  .webhook-content .q-badge {
+    margin-top: 4px;
   }
 }
 </style>
