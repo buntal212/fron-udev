@@ -17,7 +17,7 @@ test('riwayat aktivitas mengirim halaman yang dipilih dan mengabaikan respons la
   assert.doesNotMatch(panel, /historyLoading\.value\) return/)
 })
 
-test('riwayat pembayaran memakai status transaksi gateway, bukan status aktivitas', async () => {
+test('riwayat pembayaran memakai audit gateway yang terverifikasi dan metadata webhook aman', async () => {
   const [history, service] = await Promise.all([
     readFile(
       new URL(
@@ -32,10 +32,15 @@ test('riwayat pembayaran memakai status transaksi gateway, bukan status aktivita
     )
   ])
 
-  assert.match(history, /Riwayat Pembayaran/)
-  assert.match(history, /bukan hasil aktivitas teknis/)
+  assert.match(history, /Audit Pembayaran Sandbox/)
+  assert.match(history, /gateway yang telah\s+diverifikasi/)
   assert.match(history, /status === 'paid'/)
+  assert.match(history, /gateway_verified_at/)
+  assert.match(history, /sandboxPaymentWebhooks/)
+  assert.match(history, /sandboxPaymentSummary/)
   assert.match(history, /sandboxPaymentDetail/)
   assert.match(service, /sandboxPayments:/)
   assert.match(service, /sandboxPaymentDetail:/)
+  assert.match(service, /sandboxPaymentWebhooks:/)
+  assert.match(service, /sandboxPaymentSummary:/)
 })
