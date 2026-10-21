@@ -173,13 +173,16 @@
       </div>
     </q-banner>
 
+    <DanaSandboxPaymentHistory :merchant="merchant" />
+
     <q-separator class="q-my-lg" />
     <div class="row items-center justify-between q-col-gutter-sm">
       <div class="col-12 col-sm">
-        <h3>Riwayat pengujian Sandbox</h3>
+        <h3>Riwayat Aktivitas Sandbox</h3>
         <p class="section-description">
-          Riwayat hanya berisi metadata dan pesan aman; credential tidak
-          dicatat.
+          Menunjukkan hasil operasi teknis. Label
+          <strong>succeeded</strong> bukan bukti pembayaran
+          <strong>paid</strong>.
         </p>
       </div>
       <div class="col-12 col-sm-auto">
@@ -287,6 +290,7 @@ import { Notify, useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
 import { danaGatewayMerchantService } from '@/services/udev-billing'
 import { getApiErrorMessage } from '@/utils/api-error'
+import DanaSandboxPaymentHistory from './DanaSandboxPaymentHistory.vue'
 
 const props = defineProps({
   merchant: { type: Object, required: true }
@@ -311,6 +315,7 @@ const historyMeta = ref({
   per_page: 15,
   total: 0
 })
+const historyRequestId = ref(0)
 const requiredFieldLabels = [
   { key: 'merchant_id', label: 'Merchant ID' },
   { key: 'partner_id', label: 'X-PARTNER-ID' },
@@ -345,7 +350,12 @@ const historyColumns = [
     field: row => labelFor(row.operation),
     align: 'left'
   },
-  { name: 'status', label: 'Status', field: 'status', align: 'left' },
+  {
+    name: 'status',
+    label: 'Hasil aktivitas',
+    field: 'status',
+    align: 'left'
+  },
   { name: 'actions', label: 'Aksi', field: 'actions', align: 'right' },
   { name: 'message', label: 'Pesan aman', field: 'message', align: 'left' }
 ]
@@ -531,22 +541,29 @@ async function checkTransactionStatus() {
 }
 
 async function refreshHistory(page = historyMeta.value.current_page) {
-  if (!merchantId.value || historyLoading.value) return
+  if (!merchantId.value) return
+  const requestedPage = Number.isInteger(page) && page > 0 ? page : 1
+  const requestId = ++historyRequestId.value
   historyLoading.value = true
   try {
     const response = await danaGatewayMerchantService.sandboxTestHistory(
       merchantId.value,
       {
-        page,
+        page: requestedPage,
         per_page: 15
       }
     )
+    if (requestId !== historyRequestId.value) return
     history.value = response.data?.data ?? []
     historyMeta.value = response.data?.meta ?? historyMeta.value
+    if (historyMeta.value.last_page < requestedPage) {
+      await refreshHistory(historyMeta.value.last_page)
+    }
   } catch (requestError) {
+    if (requestId !== historyRequestId.value) return
     error.value = getApiErrorMessage(requestError)
   } finally {
-    historyLoading.value = false
+    if (requestId === historyRequestId.value) historyLoading.value = false
   }
 }
 </script>

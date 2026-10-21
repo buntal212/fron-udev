@@ -128,6 +128,19 @@ export const danaGatewayMerchantService = {
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions/${paymentId}/status`,
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  sandboxPayments: (merchantId, params) =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/payments`,
+      {
+        params,
+        headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+      }
+    ),
+  sandboxPaymentDetail: (merchantId, paymentId) =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/payments/${paymentId}`,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   sandboxPaymentResult: context =>
     api.get(
       `/v1/admin/dana-gateway-merchants/sandbox-payment-results/${encodeURIComponent(context)}`,
