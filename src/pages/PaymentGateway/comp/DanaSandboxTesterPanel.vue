@@ -491,12 +491,10 @@ function openCheckout() {
     return
   }
 
-  const checkoutWindow = globalThis.open(
-    checkoutUrl,
-    '_blank',
-    'noopener,noreferrer'
-  )
-  if (checkoutWindow) checkoutWindow.opener = null
+  // Tetap gunakan konteks tab admin yang sama. `sessionStorage` bersifat per
+  // tab; membuka checkout dengan noopener membuat tab callback DANA tidak
+  // memiliki sesi admin saat kembali ke UDEV.
+  globalThis.location.assign(checkoutUrl)
 }
 
 function viewResult(context) {

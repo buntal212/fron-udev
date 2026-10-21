@@ -87,6 +87,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLoginStore } from '@/stores/login'
+import { getSafePostLoginRedirect } from '@/utils/admin-session'
 
 const store = useLoginStore()
 const router = useRouter()
@@ -104,15 +105,7 @@ async function handleSubmit() {
   await store.submit()
 
   if (store.submitted) {
-    const redirect = route.query.redirect
-    const target =
-      typeof redirect === 'string' &&
-      redirect.startsWith('/') &&
-      !redirect.startsWith('//')
-        ? redirect
-        : '/'
-
-    await router.push(target)
+    await router.push(getSafePostLoginRedirect(route.query.redirect))
   }
 }
 </script>

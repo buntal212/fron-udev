@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { api } from '@/boot/axios'
 import { authService } from '@/services/udev-billing'
 import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
+import { hasAdminSession, isAdminSessionRejected } from '@/utils/admin-session'
 
 const userStorageKey = 'udumbara-payment:admin-user'
 const tokenStorageKey = 'udumbara-payment:admin-token'
@@ -68,7 +69,7 @@ export const useLoginStore = defineStore('login', {
     },
 
     async restoreSession() {
-      if (this.sessionChecked) return Boolean(this.user)
+      if (this.sessionChecked) return hasAdminSession(this.token, this.user)
 
       this.sessionChecked = true
 
@@ -83,9 +84,17 @@ export const useLoginStore = defineStore('login', {
         window.sessionStorage.setItem(userStorageKey, JSON.stringify(this.user))
 
         return true
-      } catch {
-        this.clearSession()
-        return false
+      } catch (error) {
+        if (isAdminSessionRejected(error)) {
+          this.clearSession()
+          return false
+        }
+
+        // Jangan menghapus sesi saat jaringan/backend sedang tidak tersedia.
+        // Endpoint terproteksi tetap memverifikasi token di server pada setiap
+        // permintaan, sedangkan guard dapat mencoba memulihkan sesi lagi nanti.
+        this.sessionChecked = false
+        return hasAdminSession(this.token, this.user)
       }
     },
 
