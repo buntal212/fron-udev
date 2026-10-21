@@ -10,6 +10,25 @@ const emptyForm = () => ({
   environment: 'sandbox'
 })
 
+let pendingMerchantRequest = null
+let merchantRequestSequence = 0
+
+function retryAfterMilliseconds(error) {
+  const retryAfter = error?.response?.headers?.['retry-after']
+  if (typeof retryAfter !== 'string' && typeof retryAfter !== 'number') return 0
+
+  const seconds = Number(retryAfter)
+  if (Number.isFinite(seconds) && seconds > 0) return Math.ceil(seconds * 1000)
+
+  const retryAt = Date.parse(retryAfter)
+  return Number.isNaN(retryAt) ? 0 : Math.max(0, retryAt - Date.now())
+}
+
+function rateLimitMessage(until) {
+  const seconds = Math.max(1, Math.ceil((until - Date.now()) / 1000))
+  return `Terlalu banyak permintaan. Tunggu sekitar ${seconds} detik sebelum memuat ulang.`
+}
+
 function merchantErrorMessage(error) {
   if (error?.response?.status === 409) {
     return 'Kode merchant sudah digunakan atau permintaan sebelumnya berbeda.'
@@ -25,6 +44,7 @@ export const useDanaGatewayMerchantStore = defineStore(
       items: [],
       loading: false,
       error: null,
+      rateLimitedUntil: 0,
       search: '',
       environment: null,
       pagination: {
@@ -43,31 +63,67 @@ export const useDanaGatewayMerchantStore = defineStore(
 
     actions: {
       async fetchMerchants(nextPagination = {}) {
+        const pagination = { ...this.pagination, ...nextPagination }
+        const params = {
+          page: pagination.page,
+          per_page: pagination.rowsPerPage,
+          search: this.search || undefined,
+          environment: this.environment || undefined
+        }
+        const requestKey = JSON.stringify(params)
+
+        if (this.rateLimitedUntil > Date.now()) {
+          this.error = rateLimitMessage(this.rateLimitedUntil)
+          return
+        }
+
+        if (pendingMerchantRequest?.key === requestKey) {
+          return pendingMerchantRequest.promise
+        }
+
         this.loading = true
         this.error = null
-        this.pagination = { ...this.pagination, ...nextPagination }
+        this.pagination = pagination
+        const requestSequence = ++merchantRequestSequence
 
-        try {
-          const response = await danaGatewayMerchantService.list({
-            page: this.pagination.page,
-            per_page: this.pagination.rowsPerPage,
-            search: this.search || undefined,
-            environment: this.environment || undefined
+        const request = danaGatewayMerchantService
+          .list(params)
+          .then(response => {
+            if (requestSequence !== merchantRequestSequence) return
+            const { data, meta } = response.data
+            this.items = data ?? []
+            this.pagination = {
+              ...this.pagination,
+              page: meta?.current_page ?? this.pagination.page,
+              rowsPerPage: meta?.per_page ?? this.pagination.rowsPerPage,
+              rowsNumber: meta?.total ?? 0
+            }
+            this.rateLimitedUntil = 0
           })
-          const { data, meta } = response.data
-          this.items = data ?? []
-          this.pagination = {
-            ...this.pagination,
-            page: meta?.current_page ?? this.pagination.page,
-            rowsPerPage: meta?.per_page ?? this.pagination.rowsPerPage,
-            rowsNumber: meta?.total ?? 0
-          }
-        } catch (error) {
-          this.items = []
-          this.error = merchantErrorMessage(error)
-        } finally {
-          this.loading = false
-        }
+          .catch(error => {
+            if (requestSequence !== merchantRequestSequence) return
+            if (error?.response?.status === 429) {
+              const retryAfter = retryAfterMilliseconds(error)
+              this.rateLimitedUntil = Date.now() + retryAfter
+              this.error = retryAfter
+                ? rateLimitMessage(this.rateLimitedUntil)
+                : merchantErrorMessage(error)
+              return
+            }
+
+            // Pertahankan data terakhir agar QTable tidak memicu request baru
+            // hanya karena respons sebelumnya gagal.
+            this.error = merchantErrorMessage(error)
+          })
+          .finally(() => {
+            if (requestSequence === merchantRequestSequence) {
+              pendingMerchantRequest = null
+              this.loading = false
+            }
+          })
+
+        pendingMerchantRequest = { key: requestKey, promise: request }
+        return request
       },
 
       openCreateDialog() {
