@@ -5,8 +5,14 @@ const routes = [
     meta: { guestOnly: true }
   },
   {
-    path: '/payment/result',
-    component: () => import('@/pages/PaymentResult/IndexPage.vue')
+    path: '/payment',
+    component: () => import('@/layouts/PaymentResultLayout.vue'),
+    children: [
+      {
+        path: 'result',
+        component: () => import('@/pages/PaymentResult/IndexPage.vue')
+      }
+    ]
   },
   {
     path: '/',

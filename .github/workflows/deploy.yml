@@ -69,7 +69,16 @@ jobs:
           echo "Dependencies installed."
 
       # ------------------------------------------------------
-      # 4. BUILD QUASAR PWA
+      # 4. VERIFY ROUTE AND LAYOUT CONTRACTS
+      # ------------------------------------------------------
+      - name: Verify frontend route contracts
+        run: |
+          set -euo pipefail
+
+          node --test test/*.test.js
+
+      # ------------------------------------------------------
+      # 5. BUILD QUASAR PWA
       # ------------------------------------------------------
       - name: Build Quasar PWA
         env:
@@ -84,7 +93,7 @@ jobs:
           echo "Build completed."
 
       # ------------------------------------------------------
-      # 5. VALIDATE BUILD
+      # 6. VALIDATE BUILD
       # ------------------------------------------------------
       - name: Validate PWA build
         run: |
@@ -99,7 +108,7 @@ jobs:
           echo "Build validated."
 
       # ------------------------------------------------------
-      # 6. VERIFY API URL
+      # 7. VERIFY API URL
       # ------------------------------------------------------
       - name: Verify production API URL
         run: |
@@ -116,7 +125,7 @@ jobs:
           echo "Production API URL verified."
 
       # ------------------------------------------------------
-      # 7. UPLOAD ARTIFACT
+      # 8. UPLOAD ARTIFACT
       # ------------------------------------------------------
       - name: Upload production artifact
         uses: actions/upload-artifact@v4
