@@ -19,7 +19,10 @@ api.interceptors.response.use(
     error.userMessage = getApiErrorMessage(error)
     error.validationErrors = getApiValidationErrors(error)
 
-    if (error.response?.status !== 422) {
+    if (
+      error.response?.status !== 422 &&
+      !error.config?.suppressErrorNotification
+    ) {
       notifyApiError(error)
     }
 

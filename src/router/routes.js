@@ -5,6 +5,10 @@ const routes = [
     meta: { guestOnly: true }
   },
   {
+    path: '/payment/result',
+    component: () => import('@/pages/PaymentResult/IndexPage.vue')
+  },
+  {
     path: '/',
     component: () => import('@/layouts/MainLayout.vue'),
     meta: { requiresAuth: true },

@@ -58,6 +58,14 @@ export const paymentAttemptService = {
   get: id => api.get(`/v1/admin/payment-attempts/${id}`)
 }
 
+export const paymentResultService = {
+  get: reference =>
+    api.get(`/v1/payment-results/${encodeURIComponent(reference)}`, {
+      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' },
+      suppressErrorNotification: true
+    })
+}
+
 export const paymentGatewayService = {
   list: params => getList('/v1/admin/payment-gateways', params),
   merchantOptions: environment =>
