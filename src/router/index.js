@@ -36,6 +36,17 @@ export default defineRouter(({ store /* ssrContext */ }) => {
   })
 
   Router.beforeEach(async to => {
+    if (
+      to.path === '/payment/result' &&
+      typeof to.query.context === 'string' &&
+      /^[A-Za-z0-9_-]{43}$/.test(to.query.context)
+    ) {
+      return {
+        path: '/payment/sandbox-result',
+        query: { context: to.query.context }
+      }
+    }
+
     const loginStore = useLoginStore(store)
     const requiresAuth = to.matched.some(route => route.meta.requiresAuth)
     const isAuthenticated = await loginStore.restoreSession()

@@ -21,6 +21,16 @@
           @click="validateConfiguration"
         />
       </div>
+      <div v-if="sandboxResultContext" class="col-12 col-sm-auto">
+        <q-btn
+          outline
+          color="warning"
+          icon="open_in_new"
+          label="Lihat Hasil"
+          no-caps
+          @click="viewResult(sandboxResultContext)"
+        />
+      </div>
     </div>
 
     <q-banner v-if="error" rounded class="error-banner q-mt-md">
@@ -32,8 +42,12 @@
       <div class="tester-status-grid">
         <div class="tester-status-item">
           <span>Konfigurasi Sandbox</span>
-          <q-badge :color="validation.configuration_exists ? 'positive' : 'warning'">
-            {{ validation.configuration_exists ? 'Tersedia' : 'Belum tersedia' }}
+          <q-badge
+            :color="validation.configuration_exists ? 'positive' : 'warning'"
+          >
+            {{
+              validation.configuration_exists ? 'Tersedia' : 'Belum tersedia'
+            }}
           </q-badge>
         </div>
         <div class="tester-status-item">
@@ -75,10 +89,16 @@
         <span
           v-for="field in requiredFieldLabels"
           :key="field.key"
-          :class="validation.required_fields?.[field.key] ? 'is-valid' : 'is-missing'"
+          :class="
+            validation.required_fields?.[field.key] ? 'is-valid' : 'is-missing'
+          "
         >
           <q-icon
-            :name="validation.required_fields?.[field.key] ? 'check_circle' : 'cancel'"
+            :name="
+              validation.required_fields?.[field.key]
+                ? 'check_circle'
+                : 'cancel'
+            "
           />
           {{ field.label }}
         </span>
@@ -158,7 +178,8 @@
       <div class="col-12 col-sm">
         <h3>Riwayat pengujian Sandbox</h3>
         <p class="section-description">
-          Riwayat hanya berisi metadata dan pesan aman; credential tidak dicatat.
+          Riwayat hanya berisi metadata dan pesan aman; credential tidak
+          dicatat.
         </p>
       </div>
       <div class="col-12 col-sm-auto">
@@ -192,18 +213,47 @@
             </q-badge>
           </q-td>
         </template>
+        <template #body-cell-actions="props">
+          <q-td :props="props">
+            <q-btn
+              v-if="props.row.payment_id"
+              flat
+              round
+              dense
+              color="warning"
+              icon="visibility"
+              aria-label="Lihat hasil transaksi"
+              @click="viewHistoryResult(props.row.payment_id)"
+            />
+          </q-td>
+        </template>
       </q-table>
       <div v-else-if="history.length" class="q-gutter-y-sm">
         <q-card v-for="run in history" :key="run.id" flat bordered>
           <q-card-section class="q-pa-sm">
-            <div class="row items-start justify-between no-wrap q-col-gutter-sm">
+            <div
+              class="row items-start justify-between no-wrap q-col-gutter-sm"
+            >
               <div class="col">
                 <div class="text-caption text-grey-7">
                   {{ formatDate(run.created_at) }} · {{ run.merchant_code }} ·
                   {{ run.environment }}
                 </div>
-                <div class="text-weight-medium">{{ labelFor(run.operation) }}</div>
+                <div class="text-weight-medium">{{
+                  labelFor(run.operation)
+                }}</div>
                 <div class="text-caption q-mt-xs">{{ run.message }}</div>
+                <q-btn
+                  v-if="run.payment_id"
+                  class="q-mt-sm"
+                  flat
+                  dense
+                  color="warning"
+                  icon="visibility"
+                  label="Lihat Hasil"
+                  no-caps
+                  @click="viewHistoryResult(run.payment_id)"
+                />
               </div>
               <div class="col-auto">
                 <q-badge :color="runStatusColor(run.status)">
@@ -234,6 +284,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { Notify, useQuasar } from 'quasar'
+import { useRouter } from 'vue-router'
 import { danaGatewayMerchantService } from '@/services/udev-billing'
 import { getApiErrorMessage } from '@/utils/api-error'
 
@@ -242,6 +293,7 @@ const props = defineProps({
 })
 
 const $q = useQuasar()
+const router = useRouter()
 const validating = ref(false)
 const creatingTransaction = ref(false)
 const checkingStatus = ref(false)
@@ -252,7 +304,13 @@ const history = ref([])
 const error = ref(null)
 const amountMinor = ref(10000)
 const idempotencyKey = ref(null)
-const historyMeta = ref({ current_page: 1, last_page: 1, per_page: 15, total: 0 })
+const sandboxResultContext = ref(null)
+const historyMeta = ref({
+  current_page: 1,
+  last_page: 1,
+  per_page: 15,
+  total: 0
+})
 const requiredFieldLabels = [
   { key: 'merchant_id', label: 'Merchant ID' },
   { key: 'partner_id', label: 'X-PARTNER-ID' },
@@ -263,11 +321,32 @@ const requiredFieldLabels = [
   { key: 'mcc', label: 'MCC' }
 ]
 const historyColumns = [
-  { name: 'created_at', label: 'Waktu', field: row => formatDate(row.created_at), align: 'left' },
-  { name: 'merchant_code', label: 'Merchant', field: 'merchant_code', align: 'left' },
-  { name: 'environment', label: 'Environment', field: 'environment', align: 'left' },
-  { name: 'operation', label: 'Aktivitas', field: row => labelFor(row.operation), align: 'left' },
+  {
+    name: 'created_at',
+    label: 'Waktu',
+    field: row => formatDate(row.created_at),
+    align: 'left'
+  },
+  {
+    name: 'merchant_code',
+    label: 'Merchant',
+    field: 'merchant_code',
+    align: 'left'
+  },
+  {
+    name: 'environment',
+    label: 'Environment',
+    field: 'environment',
+    align: 'left'
+  },
+  {
+    name: 'operation',
+    label: 'Aktivitas',
+    field: row => labelFor(row.operation),
+    align: 'left'
+  },
   { name: 'status', label: 'Status', field: 'status', align: 'left' },
+  { name: 'actions', label: 'Aksi', field: 'actions', align: 'right' },
   { name: 'message', label: 'Pesan aman', field: 'message', align: 'left' }
 ]
 
@@ -288,6 +367,7 @@ function reset() {
   history.value = []
   error.value = null
   idempotencyKey.value = null
+  sandboxResultContext.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
 
@@ -306,7 +386,8 @@ function keyStatusLabel(key) {
 }
 
 function authenticationLabel(status) {
-  if (status === 'confirmed_by_checkout_response') return 'Terkonfirmasi checkout'
+  if (status === 'confirmed_by_checkout_response')
+    return 'Terkonfirmasi checkout'
   return 'Belum diuji'
 }
 
@@ -350,7 +431,9 @@ async function validateConfiguration() {
   validating.value = true
   error.value = null
   try {
-    const response = await danaGatewayMerchantService.validateSandboxTester(merchantId.value)
+    const response = await danaGatewayMerchantService.validateSandboxTester(
+      merchantId.value
+    )
     validation.value = response.data?.data ?? null
     await refreshHistory()
   } catch (requestError) {
@@ -367,7 +450,8 @@ async function createTransaction() {
     return
   }
   if (typeof globalThis.crypto?.randomUUID !== 'function') {
-    error.value = 'Browser tidak mendukung pembuatan identitas tindakan yang aman.'
+    error.value =
+      'Browser tidak mendukung pembuatan identitas tindakan yang aman.'
     return
   }
 
@@ -375,15 +459,18 @@ async function createTransaction() {
   creatingTransaction.value = true
   error.value = null
   try {
-    const response = await danaGatewayMerchantService.createSandboxTestTransaction(
-      merchantId.value,
-      { amount_minor: amountMinor.value },
-      idempotencyKey.value
-    )
+    const response =
+      await danaGatewayMerchantService.createSandboxTestTransaction(
+        merchantId.value,
+        { amount_minor: amountMinor.value },
+        idempotencyKey.value
+      )
     transaction.value = response.data?.data?.transaction ?? null
+    sandboxResultContext.value = response.data?.data?.result_context ?? null
     idempotencyKey.value = null
     Notify.create({
-      message: 'Transaksi Sandbox dibuat. Pembayaran masih menunggu verifikasi DANA.',
+      message:
+        'Transaksi Sandbox dibuat. Pembayaran masih menunggu verifikasi DANA.',
       color: 'positive',
       icon: 'check_circle',
       position: 'top'
@@ -404,19 +491,38 @@ function openCheckout() {
     return
   }
 
-  const checkoutWindow = globalThis.open(checkoutUrl, '_blank', 'noopener,noreferrer')
+  const checkoutWindow = globalThis.open(
+    checkoutUrl,
+    '_blank',
+    'noopener,noreferrer'
+  )
   if (checkoutWindow) checkoutWindow.opener = null
 }
 
+function viewResult(context) {
+  router.push({ path: '/payment/sandbox-result', query: { context } })
+}
+
+function viewHistoryResult(paymentId) {
+  if (!merchantId.value || !paymentId) return
+
+  router.push({
+    path: '/payment/sandbox-result',
+    query: { merchant: merchantId.value, payment: paymentId }
+  })
+}
+
 async function checkTransactionStatus() {
-  if (!merchantId.value || !transaction.value?.id || checkingStatus.value) return
+  if (!merchantId.value || !transaction.value?.id || checkingStatus.value)
+    return
   checkingStatus.value = true
   error.value = null
   try {
-    const response = await danaGatewayMerchantService.sandboxTestTransactionStatus(
-      merchantId.value,
-      transaction.value.id
-    )
+    const response =
+      await danaGatewayMerchantService.sandboxTestTransactionStatus(
+        merchantId.value,
+        transaction.value.id
+      )
     transaction.value = response.data?.data?.transaction ?? transaction.value
     await refreshHistory()
   } catch (requestError) {
@@ -430,10 +536,13 @@ async function refreshHistory(page = historyMeta.value.current_page) {
   if (!merchantId.value || historyLoading.value) return
   historyLoading.value = true
   try {
-    const response = await danaGatewayMerchantService.sandboxTestHistory(merchantId.value, {
-      page,
-      per_page: 15
-    })
+    const response = await danaGatewayMerchantService.sandboxTestHistory(
+      merchantId.value,
+      {
+        page,
+        per_page: 15
+      }
+    )
     history.value = response.data?.data ?? []
     historyMeta.value = response.data?.meta ?? historyMeta.value
   } catch (requestError) {

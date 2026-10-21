@@ -69,7 +69,16 @@ jobs:
           echo "Dependencies installed."
 
       # ------------------------------------------------------
-      # 4. VERIFY ROUTE AND LAYOUT CONTRACTS
+      # 4. LINT
+      # ------------------------------------------------------
+      - name: Lint frontend
+        run: |
+          set -euo pipefail
+
+          npm run lint:check
+
+      # ------------------------------------------------------
+      # 5. VERIFY ROUTE AND LAYOUT CONTRACTS
       # ------------------------------------------------------
       - name: Verify frontend route contracts
         run: |
@@ -78,7 +87,7 @@ jobs:
           node --test test/*.test.js
 
       # ------------------------------------------------------
-      # 5. BUILD QUASAR PWA
+      # 6. BUILD QUASAR PWA
       # ------------------------------------------------------
       - name: Build Quasar PWA
         env:
@@ -93,7 +102,7 @@ jobs:
           echo "Build completed."
 
       # ------------------------------------------------------
-      # 6. VALIDATE BUILD
+      # 7. VALIDATE BUILD
       # ------------------------------------------------------
       - name: Validate PWA build
         run: |
@@ -108,7 +117,7 @@ jobs:
           echo "Build validated."
 
       # ------------------------------------------------------
-      # 7. VERIFY API URL
+      # 8. VERIFY API URL
       # ------------------------------------------------------
       - name: Verify production API URL
         run: |
@@ -125,7 +134,7 @@ jobs:
           echo "Production API URL verified."
 
       # ------------------------------------------------------
-      # 8. UPLOAD ARTIFACT
+      # 9. UPLOAD ARTIFACT
       # ------------------------------------------------------
       - name: Upload production artifact
         uses: actions/upload-artifact@v4
@@ -256,7 +265,20 @@ jobs:
           du -sh "$DEPLOY_PATH"
 
       # ------------------------------------------------------
-      # 6. CLEANUP ARTIFACT
+      # 6. VERIFY HISTORY-MODE DEEP LINK
+      # ------------------------------------------------------
+      - name: Verify Sandbox result deep link
+        run: |
+          set -euo pipefail
+
+          curl --fail --silent --show-error --location --max-time 20 \
+            --output /dev/null \
+            "https://udev.udumbara.my.id/payment/sandbox-result?context=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+          echo "Sandbox result deep link verified."
+
+      # ------------------------------------------------------
+      # 7. CLEANUP ARTIFACT
       # ------------------------------------------------------
       - name: Cleanup temporary artifact
         if: always()
@@ -274,7 +296,7 @@ jobs:
           fi
 
       # ------------------------------------------------------
-      # 7. DEPLOYMENT SUMMARY
+      # 8. DEPLOYMENT SUMMARY
       # ------------------------------------------------------
       - name: Deployment summary
         if: success()

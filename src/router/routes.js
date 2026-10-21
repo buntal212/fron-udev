@@ -11,6 +11,11 @@ const routes = [
       {
         path: 'result',
         component: () => import('@/pages/PaymentResult/IndexPage.vue')
+      },
+      {
+        path: 'sandbox-result',
+        component: () => import('@/pages/SandboxPaymentResult/IndexPage.vue'),
+        meta: { requiresAuth: true }
       }
     ]
   },
