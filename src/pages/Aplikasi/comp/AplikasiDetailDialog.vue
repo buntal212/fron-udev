@@ -179,6 +179,216 @@
             >
           </q-list>
         </q-card-section>
+        <q-separator />
+        <q-card-section class="test-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">UAT INTERNAL</p>
+              <h3>Uji Integrasi Pelanggan</h3>
+            </div>
+            <q-badge color="dark" text-color="warning" label="Admin internal" />
+          </div>
+          <q-banner rounded class="test-notice q-mb-md">
+            Pengujian ini memakai otorisasi admin UDEV. Hasilnya tidak
+            membuktikan autentikasi Bearer token server-to-server Larissama.
+          </q-banner>
+          <q-form
+            class="row q-col-gutter-sm"
+            @submit.prevent="store.sendIntegrationTestCustomer"
+          >
+            <div class="col-12 col-md-4">
+              <q-input
+                v-model="store.integrationTest.form.external_customer_id"
+                outlined
+                dense
+                label="External customer ID"
+                :rules="[requiredTestId]"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <q-input
+                v-model="store.integrationTest.form.name"
+                outlined
+                dense
+                label="Nama pelanggan"
+                :rules="[requiredTestName]"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <q-input
+                v-model="store.integrationTest.form.owner_name"
+                outlined
+                dense
+                label="Nama pemilik"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <q-input
+                v-model="store.integrationTest.form.phone"
+                outlined
+                dense
+                label="Nomor telepon (opsional)"
+                type="tel"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <q-input
+                v-model="store.integrationTest.form.email"
+                outlined
+                dense
+                label="Email (opsional)"
+                type="email"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <q-select
+                v-model="store.integrationTest.form.status"
+                outlined
+                dense
+                emit-value
+                map-options
+                label="Status"
+                :options="testStatusOptions"
+              />
+            </div>
+            <div class="col-12 row q-gutter-sm">
+              <q-btn
+                color="warning"
+                text-color="dark"
+                no-caps
+                label="Kirim Pelanggan Uji"
+                type="submit"
+                :loading="store.integrationTest.saving"
+              />
+              <q-btn
+                outline
+                color="brown-8"
+                no-caps
+                label="Cek Pelanggan"
+                type="button"
+                :loading="store.integrationTest.loading"
+                @click="store.checkIntegrationTestCustomer"
+              />
+              <q-btn
+                outline
+                color="brown-8"
+                no-caps
+                label="Perbarui Pelanggan Uji"
+                type="button"
+                :loading="store.integrationTest.saving"
+                @click="store.updateIntegrationTestCustomer"
+              />
+              <q-btn
+                outline
+                color="brown-8"
+                no-caps
+                label="Uji Duplikasi"
+                type="button"
+                :loading="store.integrationTest.saving"
+                @click="store.duplicateIntegrationTestCustomer"
+              />
+              <q-btn
+                flat
+                color="brown-8"
+                no-caps
+                label="Lihat Riwayat Pengujian"
+                type="button"
+                :loading="store.integrationTest.auditsLoading"
+                @click="store.fetchIntegrationTestAudits"
+              />
+            </div>
+          </q-form>
+          <q-banner
+            v-if="store.integrationTest.error"
+            rounded
+            class="bg-red-1 text-negative q-mt-md"
+          >
+            {{ store.integrationTest.error }}
+          </q-banner>
+          <q-card
+            v-if="store.integrationTest.result"
+            flat
+            bordered
+            class="test-result q-mt-md"
+          >
+            <q-card-section>
+              <div class="row items-center justify-between q-mb-sm">
+                <div class="text-weight-bold">Hasil pengujian</div>
+                <q-badge
+                  :color="
+                    store.integrationTest.result.data ? 'positive' : 'negative'
+                  "
+                  :label="
+                    store.integrationTest.result.data ? 'Berhasil' : 'Gagal'
+                  "
+                />
+              </div>
+              <div v-if="store.integrationTest.result.data" class="result-grid">
+                <span>Customer ID UDEV</span
+                ><strong>{{ store.integrationTest.result.data.id }}</strong>
+                <span>External ID</span
+                ><strong>{{
+                  store.integrationTest.result.data.external_customer_id
+                }}</strong>
+                <span>Nama pelanggan</span
+                ><strong>{{ store.integrationTest.result.data.name }}</strong>
+                <span>Aplikasi</span><strong>{{ application?.name }}</strong>
+                <span>Operasi</span
+                ><strong>{{
+                  store.integrationTest.result.test?.operation ||
+                  'customer.read'
+                }}</strong>
+                <span>Waktu</span
+                ><strong>{{
+                  formatDateTime(store.integrationTest.result.data.updated_at)
+                }}</strong>
+                <span>Request ID</span
+                ><strong class="break-value">{{
+                  store.integrationTest.result.request_id
+                }}</strong>
+                <span>Duplikasi</span
+                ><strong>{{
+                  store.integrationTest.result.duplicate_check
+                    ? 'Tidak membuat record kedua'
+                    : '—'
+                }}</strong>
+              </div>
+              <q-btn
+                v-if="store.integrationTest.result.data"
+                flat
+                no-caps
+                color="brown-8"
+                label="Buka di Master Pelanggan"
+                class="q-mt-sm"
+                @click="openTestCustomer"
+              />
+            </q-card-section>
+          </q-card>
+          <q-list
+            v-if="store.integrationTest.audits.length"
+            dense
+            separator
+            class="q-mt-md"
+          >
+            <q-item
+              v-for="audit in store.integrationTest.audits"
+              :key="audit.id"
+            >
+              <q-item-section>
+                <q-item-label
+                  >{{ audit.operation }} - {{ audit.status }}</q-item-label
+                >
+                <q-item-label caption
+                  >{{ formatDateTime(audit.created_at) }} ·
+                  {{ audit.external_customer_id || '-'
+                  }}<span v-if="audit.error_code">
+                    · {{ audit.error_code }}</span
+                  ></q-item-label
+                >
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-card-section>
       </template>
       <q-card-actions align="right"
         ><q-btn
@@ -194,15 +404,24 @@
 <script setup>
 import { computed } from 'vue'
 import { Notify } from 'quasar'
+import { useRouter } from 'vue-router'
 import { useAplikasiStore } from '@/stores/aplikasi'
 
 const store = useAplikasiStore()
+const router = useRouter()
 const application = computed(() => store.selectedApplication)
 const scopeOptions = [
   { label: 'Baca pelanggan', value: 'customers:read' },
   { label: 'Tulis pelanggan', value: 'customers:write' }
 ]
 const requiredTokenName = value => !!value || 'Nama token wajib diisi.'
+const requiredTestId = value =>
+  /^UAT-[A-Za-z0-9._:-]+$/.test(value || '') || 'Gunakan ID berawalan UAT-.'
+const requiredTestName = value => !!value || 'Nama pelanggan wajib diisi.'
+const testStatusOptions = [
+  { label: 'Aktif', value: 'active' },
+  { label: 'Tidak aktif', value: 'inactive' }
+]
 const formatDateTime = value =>
   value
     ? new Intl.DateTimeFormat('id-ID', {
@@ -223,6 +442,17 @@ const copyToken = async () => {
     type: 'positive',
     message: 'Token disalin. Simpan di server aplikasi Anda.'
   })
+}
+const openTestCustomer = () => {
+  if (!application.value || !store.integrationTest.result?.data) return
+  router.push({
+    path: '/pelanggan-aplikasi',
+    query: {
+      application_id: application.value.id,
+      search: store.integrationTest.result.data.external_customer_id
+    }
+  })
+  store.detailDialogOpen = false
 }
 const details = computed(() =>
   application.value
@@ -296,5 +526,40 @@ h3 {
   margin-top: 6px;
   font-family: monospace;
   font-size: 0.8rem;
+}
+.test-panel {
+  background: #fffdf8;
+}
+.test-notice {
+  background: #fff6dc;
+  border: 1px solid #e5bd62;
+  color: #604b20;
+}
+.test-result {
+  border-color: #e0d7c6;
+  background: #fff;
+}
+.result-grid {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(0, 1.3fr);
+  gap: 6px 14px;
+  font-size: 0.82rem;
+}
+.result-grid span {
+  color: #746b5c;
+}
+.result-grid strong,
+.break-value {
+  overflow-wrap: anywhere;
+  color: #20180b;
+}
+@media (max-width: 599px) {
+  .result-grid {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .result-grid strong {
+    margin-bottom: 6px;
+  }
 }
 </style>

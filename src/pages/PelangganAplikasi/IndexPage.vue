@@ -63,6 +63,17 @@
             label="Sumber sinkronisasi"
             :options="sourceOptions"
             bg-color="white" /></div
+        ><div class="col-12 col-md-2"
+          ><q-select
+            v-model="store.isTest"
+            outlined
+            dense
+            clearable
+            emit-value
+            map-options
+            label="Jenis data"
+            :options="testOptions"
+            bg-color="white" /></div
       ></FilterPanel>
       <ErrorState
         v-if="store.error"
@@ -82,7 +93,7 @@
   ></q-page>
 </template>
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import AppBreadcrumb from '@/components/AppBreadcrumb.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
@@ -90,7 +101,10 @@ import { usePelangganAplikasiStore } from '@/stores/pelangganaplikasi'
 import PelangganDetailDialog from './comp/PelangganDetailDialog.vue'
 import PelangganFormDialog from './comp/PelangganFormDialog.vue'
 import PelangganTable from './comp/PelangganTable.vue'
+import { useRoute } from 'vue-router'
 const store = usePelangganAplikasiStore()
+const route = useRoute()
+const initializing = ref(true)
 const applicationOptions = computed(() =>
   store.applications.map(application => ({
     label: application.name,
@@ -105,18 +119,32 @@ const sourceOptions = [
   { label: 'Manual UDEV', value: 'manual' },
   { label: 'Integrasi aplikasi', value: 'integration' }
 ]
+const testOptions = [
+  { label: 'Data produksi', value: false },
+  { label: 'Data uji UAT', value: true }
+]
 onMounted(async () => {
+  if (route.query.application_id) {
+    store.applicationId = Number(route.query.application_id)
+  }
+  if (route.query.search) {
+    store.search = String(route.query.search)
+  }
   await store.fetchApplications()
   await store.fetchCustomers()
+  initializing.value = false
 })
 watch(
   [
     () => store.search,
     () => store.applicationId,
     () => store.status,
-    () => store.source
+    () => store.source,
+    () => store.isTest
   ],
-  () => store.fetchCustomers({ page: 1 })
+  () => {
+    if (!initializing.value) store.fetchCustomers({ page: 1 })
+  }
 )
 </script>
 <style scoped>

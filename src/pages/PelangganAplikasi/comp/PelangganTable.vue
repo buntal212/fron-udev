@@ -28,6 +28,13 @@
         ><q-td :props="props">{{
           props.value === 'integration' ? 'Integrasi' : 'Manual'
         }}</q-td></template
+      ><template #body-cell-is_test="props"
+        ><q-td :props="props"
+          ><q-badge
+            rounded
+            :color="props.value ? 'warning' : 'grey-7'"
+            :text-color="props.value ? 'dark' : 'white'"
+            :label="props.value ? 'Uji UAT' : 'Produksi'" /></q-td></template
       ><template #body-cell-sync_status="props"
         ><q-td :props="props">{{ props.value || '-' }}</q-td></template
       ><template #body-cell-actions="props"
@@ -86,6 +93,7 @@ const columns = [
   },
   { name: 'is_active', label: 'Status', field: 'is_active', align: 'left' },
   { name: 'source', label: 'Sumber', field: 'source', align: 'left' },
+  { name: 'is_test', label: 'Jenis data', field: 'is_test', align: 'left' },
   {
     name: 'sync_status',
     label: 'Sinkronisasi',

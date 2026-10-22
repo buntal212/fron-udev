@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import {
   applicationIntegrationService,
+  applicationIntegrationTestService,
   applicationService
 } from '@/services/udev-billing'
 import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
@@ -49,7 +50,23 @@ export const useAplikasiStore = defineStore('aplikasi', {
       scopes: ['customers:read', 'customers:write'],
       expires_at: ''
     },
-    newTokenPlaintext: null
+    newTokenPlaintext: null,
+    integrationTest: {
+      form: {
+        external_customer_id: 'UAT-CUSTOMER-001',
+        name: '',
+        owner_name: '',
+        phone: '',
+        email: '',
+        status: 'active'
+      },
+      saving: false,
+      loading: false,
+      error: null,
+      result: null,
+      audits: [],
+      auditsLoading: false
+    }
   }),
 
   actions: {
@@ -115,10 +132,12 @@ export const useAplikasiStore = defineStore('aplikasi', {
       this.integrationAudits = []
       this.integrationError = null
       this.newTokenPlaintext = null
+      this.resetIntegrationTest()
 
       try {
         const response = await applicationService.get(application.id)
         this.selectedApplication = response.data.data
+        this.resetIntegrationTest(this.selectedApplication)
         await this.fetchIntegrationData(this.selectedApplication.id)
       } catch (error) {
         this.error = requestError(error)
@@ -200,6 +219,139 @@ export const useAplikasiStore = defineStore('aplikasi', {
 
     clearNewToken() {
       this.newTokenPlaintext = null
+    },
+
+    resetIntegrationTest(application = null) {
+      const code = application?.code || 'CUSTOMER'
+      this.integrationTest = {
+        form: {
+          external_customer_id: `UAT-${code}-001`,
+          name: '',
+          owner_name: '',
+          phone: '',
+          email: '',
+          status: 'active'
+        },
+        saving: false,
+        loading: false,
+        error: null,
+        result: null,
+        audits: [],
+        auditsLoading: false
+      }
+    },
+
+    async sendIntegrationTestCustomer() {
+      if (!this.selectedApplication) return
+      this.integrationTest.saving = true
+      this.integrationTest.error = null
+      try {
+        const response = await applicationIntegrationTestService.create(
+          this.selectedApplication.id,
+          this.testCustomerPayload()
+        )
+        this.integrationTest.result = response.data
+        await this.fetchIntegrationTestAudits()
+      } catch (error) {
+        this.integrationTest.error = requestError(error)
+      } finally {
+        this.integrationTest.saving = false
+      }
+    },
+
+    async duplicateIntegrationTestCustomer() {
+      if (!this.selectedApplication) return
+      this.integrationTest.saving = true
+      this.integrationTest.error = null
+      try {
+        await applicationIntegrationTestService.create(
+          this.selectedApplication.id,
+          this.testCustomerPayload()
+        )
+        const response = await applicationIntegrationTestService.create(
+          this.selectedApplication.id,
+          this.testCustomerPayload()
+        )
+        this.integrationTest.result = {
+          ...response.data,
+          duplicate_check: response.data.test?.created === false
+        }
+        await this.fetchIntegrationTestAudits()
+      } catch (error) {
+        this.integrationTest.error = requestError(error)
+      } finally {
+        this.integrationTest.saving = false
+      }
+    },
+
+    async checkIntegrationTestCustomer() {
+      if (!this.selectedApplication) return
+      this.integrationTest.loading = true
+      this.integrationTest.error = null
+      try {
+        const response = await applicationIntegrationTestService.get(
+          this.selectedApplication.id,
+          this.integrationTest.form.external_customer_id
+        )
+        this.integrationTest.result = response.data
+        await this.fetchIntegrationTestAudits()
+      } catch (error) {
+        this.integrationTest.error = requestError(error)
+      } finally {
+        this.integrationTest.loading = false
+      }
+    },
+
+    async updateIntegrationTestCustomer() {
+      if (!this.selectedApplication) return
+      this.integrationTest.saving = true
+      this.integrationTest.error = null
+      try {
+        const response = await applicationIntegrationTestService.update(
+          this.selectedApplication.id,
+          this.integrationTest.form.external_customer_id,
+          {
+            name: this.integrationTest.form.name,
+            owner_name: this.integrationTest.form.owner_name || null,
+            phone: this.integrationTest.form.phone || null,
+            email: this.integrationTest.form.email || null,
+            status: this.integrationTest.form.status
+          }
+        )
+        this.integrationTest.result = response.data
+        await this.fetchIntegrationTestAudits()
+      } catch (error) {
+        this.integrationTest.error = requestError(error)
+      } finally {
+        this.integrationTest.saving = false
+      }
+    },
+
+    async fetchIntegrationTestAudits() {
+      if (!this.selectedApplication) return
+      this.integrationTest.auditsLoading = true
+      try {
+        const response = await applicationIntegrationTestService.audits(
+          this.selectedApplication.id,
+          { per_page: 20 }
+        )
+        this.integrationTest.audits = response.data.data
+      } catch (error) {
+        this.integrationTest.error = requestError(error)
+      } finally {
+        this.integrationTest.auditsLoading = false
+      }
+    },
+
+    testCustomerPayload() {
+      return {
+        external_customer_id: this.integrationTest.form.external_customer_id,
+        name: this.integrationTest.form.name,
+        owner_name: this.integrationTest.form.owner_name || null,
+        phone: this.integrationTest.form.phone || null,
+        email: this.integrationTest.form.email || null,
+        status: this.integrationTest.form.status
+      }
     },
 
     async saveApplication() {

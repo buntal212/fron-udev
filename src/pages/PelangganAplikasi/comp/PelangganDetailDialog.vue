@@ -51,6 +51,10 @@ const details = computed(() =>
               ? 'Integrasi aplikasi'
               : 'Manual UDEV'
         },
+        {
+          label: 'Jenis data',
+          value: customer.value.is_test ? 'Data uji UAT' : 'Data produksi'
+        },
         { label: 'Status sinkronisasi', value: customer.value.sync_status },
         {
           label: 'Sinkronisasi terakhir',

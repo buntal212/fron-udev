@@ -45,6 +45,31 @@ export const applicationIntegrationService = {
     )
 }
 
+export const applicationIntegrationTestService = {
+  create: (applicationId, payload) =>
+    api.post(
+      `/v1/admin/applications/${applicationId}/integration-tests/customers`,
+      payload,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  get: (applicationId, externalId) =>
+    api.get(
+      `/v1/admin/applications/${applicationId}/integration-tests/customers/${encodeURIComponent(externalId)}`,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  update: (applicationId, externalId, payload) =>
+    api.patch(
+      `/v1/admin/applications/${applicationId}/integration-tests/customers/${encodeURIComponent(externalId)}`,
+      payload,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  audits: (applicationId, params) =>
+    getList(
+      `/v1/admin/applications/${applicationId}/integration-tests/audits`,
+      params
+    )
+}
+
 export const applicationCustomerService = {
   list: params => getList('/v1/admin/application-customers', params),
   get: id => api.get(`/v1/admin/application-customers/${id}`),

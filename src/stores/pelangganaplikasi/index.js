@@ -26,6 +26,7 @@ export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
     applicationId: null,
     status: null,
     source: null,
+    isTest: null,
     pagination: {
       page: 1,
       rowsPerPage: 15,
@@ -69,6 +70,7 @@ export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
           application_id: this.applicationId || undefined,
           is_active: this.status ?? undefined,
           source: this.source || undefined,
+          is_test: this.isTest ?? undefined,
           sort: this.pagination.sortBy || 'created_at',
           direction: this.pagination.descending ? 'desc' : 'asc'
         })
