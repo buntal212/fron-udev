@@ -50,6 +50,23 @@
           />
         </q-td>
       </template>
+      <template #body-cell-latest_invoice="props">
+        <q-td :props="props">
+          <div>{{ props.row.latest_invoice?.invoice_number || '—' }}</div>
+          <small v-if="props.row.latest_invoice?.paid_at" class="text-grey-7">
+            {{ formatSubscriptionDate(props.row.latest_invoice.paid_at) }}
+          </small>
+        </q-td>
+      </template>
+      <template #body-cell-activation="props">
+        <q-td :props="props">
+          <q-badge
+            rounded
+            :color="getActivationStatus(props.row.activation?.status).color"
+            :label="getActivationStatus(props.row.activation?.status).label"
+          />
+        </q-td>
+      </template>
       <template #body-cell-actions="props">
         <q-td :props="props" class="text-right">
           <q-btn
@@ -83,7 +100,8 @@ import EmptyState from '@/components/EmptyState.vue'
 import {
   formatSubscriptionDate,
   getDatabaseStatus,
-  getPeriodStatus
+  getPeriodStatus,
+  getActivationStatus
 } from '@/utils/subscription'
 
 const props = defineProps({
@@ -128,6 +146,18 @@ const columns = [
     name: 'period_status',
     label: 'Masa aktif',
     field: 'period_status',
+    align: 'left'
+  },
+  {
+    name: 'latest_invoice',
+    label: 'Invoice terakhir',
+    field: 'latest_invoice',
+    align: 'left'
+  },
+  {
+    name: 'activation',
+    label: 'Sinkronisasi',
+    field: 'activation',
     align: 'left'
   },
   { name: 'actions', label: 'Aksi', field: 'actions', align: 'right' }

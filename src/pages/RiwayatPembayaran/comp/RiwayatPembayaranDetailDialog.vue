@@ -29,6 +29,14 @@
           <template #avatar><q-icon name="error_outline" /></template>
           {{ store.retryCheckoutError }}
         </q-banner>
+        <q-banner
+          v-if="store.recoverSubscriptionError"
+          rounded
+          class="sync-banner sync-banner--error"
+        >
+          <template #avatar><q-icon name="error_outline" /></template>
+          {{ store.recoverSubscriptionError }}
+        </q-banner>
         <div class="row q-col-gutter-md">
           <div class="col-12 col-sm-6">
             <p class="label">Nomor invoice</p>
@@ -175,6 +183,19 @@
 
         <q-card-actions align="between" class="q-px-none">
           <q-btn
+            v-if="canRecoverSubscription"
+            outline
+            color="warning"
+            icon="autorenew"
+            label="Pulihkan Langganan"
+            no-caps
+            :loading="store.recoverSubscriptionLoading"
+            :disable="
+              store.recoverSubscriptionLoading || recoverSubscriptionBlocked
+            "
+            @click="store.recoverSubscriptionSelected"
+          />
+          <q-btn
             v-if="canRetryCheckout"
             outline
             color="warning"
@@ -231,6 +252,18 @@ const canRetryCheckout = computed(
     ['initiated', 'pending'].includes(attempt.value.status) &&
     attempt.value.invoice?.status === 'pending' &&
     attempt.value.checkout?.status === 'failed'
+)
+const canRecoverSubscription = computed(
+  () =>
+    attempt.value.invoice?.status === 'paid' &&
+    !attempt.value.invoice?.subscription &&
+    Boolean(attempt.value.settlement) &&
+    attempt.value.settlement_history?.some(
+      event => event.status === 'completed'
+    )
+)
+const recoverSubscriptionBlocked = computed(
+  () => Date.now() < store.recoverSubscriptionBlockedUntil
 )
 const retryCheckoutBlocked = computed(
   () => Date.now() < store.retryCheckoutBlockedUntil

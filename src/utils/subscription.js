@@ -88,6 +88,16 @@ export const getReconciliationStatus = status => {
   return statuses[status] || { label: 'Belum disinkronkan', color: 'grey-7' }
 }
 
+export const getActivationStatus = status => {
+  const statuses = {
+    completed: { label: 'Tersinkronisasi', color: 'positive' },
+    not_recorded: { label: 'Belum tercatat', color: 'warning' },
+    failed: { label: 'Gagal', color: 'negative' }
+  }
+
+  return statuses[status] || { label: 'Belum diketahui', color: 'grey-7' }
+}
+
 export const getRetryAfterMilliseconds = error => {
   const header = error?.response?.headers?.['retry-after']
   const retryAfter =

@@ -61,6 +61,24 @@
               :label="getPeriodStatus(subscription.expires_at).label"
             />
           </div>
+          <div class="col-12 col-sm-6">
+            <p class="label">Status sinkronisasi</p>
+            <q-badge
+              rounded
+              :color="
+                getActivationStatus(subscription.activation?.status).color
+              "
+              :label="
+                getActivationStatus(subscription.activation?.status).label
+              "
+            />
+          </div>
+          <div class="col-12 col-sm-6">
+            <p class="label">Invoice terakhir</p>
+            <p class="value">
+              {{ subscription.latest_invoice?.invoice_number || '—' }}
+            </p>
+          </div>
         </div>
         <q-separator />
         <section v-if="subscription.period_events?.length">
@@ -136,6 +154,7 @@ import {
   formatSubscriptionDate,
   formatSubscriptionPrice,
   getDatabaseStatus,
+  getActivationStatus,
   getInvoiceStatus,
   getPaymentAttemptStatus,
   getPeriodStatus,

@@ -37,6 +37,9 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
     retryCheckoutLoading: false,
     retryCheckoutError: '',
     retryCheckoutBlockedUntil: 0,
+    recoverSubscriptionLoading: false,
+    recoverSubscriptionError: '',
+    recoverSubscriptionBlockedUntil: 0,
     syncLoading: false,
     syncError: '',
     syncBlockedUntil: 0
@@ -142,6 +145,8 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
       this.selectedAttempt = null
       this.retryCheckoutError = ''
       this.retryCheckoutBlockedUntil = 0
+      this.recoverSubscriptionError = ''
+      this.recoverSubscriptionBlockedUntil = 0
       this.syncError = ''
       this.syncBlockedUntil = 0
 
@@ -250,6 +255,55 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
         }
       } finally {
         this.retryCheckoutLoading = false
+      }
+    },
+
+    async recoverSubscriptionSelected() {
+      if (
+        this.recoverSubscriptionLoading ||
+        !this.selectedAttempt?.invoice?.id ||
+        this.selectedAttempt.invoice.status !== 'paid' ||
+        this.selectedAttempt.invoice.subscription ||
+        !this.selectedAttempt.settlement ||
+        Date.now() < this.recoverSubscriptionBlockedUntil
+      ) {
+        return
+      }
+
+      this.recoverSubscriptionLoading = true
+      this.recoverSubscriptionError = ''
+
+      try {
+        const response = await invoiceService.recoverSubscription(
+          this.selectedAttempt.invoice.id
+        )
+        const recoveredInvoice = response.data.data
+        this.selectedAttempt = {
+          ...this.selectedAttempt,
+          invoice: {
+            ...this.selectedAttempt.invoice,
+            ...recoveredInvoice,
+            subscription: recoveredInvoice.subscription || null
+          }
+        }
+        const index = this.items.findIndex(
+          item => item.id === this.selectedAttempt.id
+        )
+        if (index >= 0) this.items[index] = this.selectedAttempt
+      } catch (error) {
+        this.recoverSubscriptionError = getApiErrorMessage(error)
+        const retryAfter = getRetryAfterMilliseconds(error)
+        if (error.response?.status === 429 && retryAfter > 0) {
+          this.recoverSubscriptionBlockedUntil = Date.now() + retryAfter
+          this.recoverSubscriptionError = `${this.recoverSubscriptionError} Coba lagi dalam ${formatRetryAfter(retryAfter)}.`
+          if (typeof window !== 'undefined') {
+            window.setTimeout(() => {
+              this.recoverSubscriptionBlockedUntil = 0
+            }, retryAfter)
+          }
+        }
+      } finally {
+        this.recoverSubscriptionLoading = false
       }
     }
   }

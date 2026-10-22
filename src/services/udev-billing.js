@@ -49,6 +49,12 @@ export const subscriptionService = {
 export const invoiceService = {
   list: params => getList('/v1/admin/invoices', params),
   get: id => api.get(`/v1/admin/invoices/${id}`),
+  recoverSubscription: id =>
+    api.post(
+      `/v1/admin/invoices/${id}/subscription/recover`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   create: (payload, headers) =>
     api.post('/v1/admin/invoices', payload, { headers }),
   checkout: (id, idempotencyKey) =>
