@@ -24,6 +24,16 @@ const createIdempotencyKey = () => {
   return `invoice-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
 }
 
+const isSecureCheckoutUrl = value => {
+  if (typeof value !== 'string' || !value) return false
+
+  try {
+    return new URL(value).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 async function fetchAllPages(request) {
   const records = []
   let page = 1
@@ -81,7 +91,12 @@ export const useInvoiceStore = defineStore('invoice', {
     idempotencyKey: '',
     detailDialogOpen: false,
     detailLoading: false,
-    selectedInvoice: null
+    selectedInvoice: null,
+    checkoutLoading: false,
+    checkoutError: '',
+    checkoutAttempt: null,
+    checkoutUrl: null,
+    checkoutIdempotencyKey: null
   }),
 
   actions: {
@@ -425,6 +440,10 @@ export const useInvoiceStore = defineStore('invoice', {
       this.detailDialogOpen = true
       this.detailLoading = true
       this.selectedInvoice = null
+      this.checkoutError = ''
+      this.checkoutAttempt = null
+      this.checkoutUrl = null
+      this.checkoutIdempotencyKey = createIdempotencyKey()
 
       try {
         const response = await invoiceService.get(invoice.id)
@@ -434,6 +453,52 @@ export const useInvoiceStore = defineStore('invoice', {
         this.detailDialogOpen = false
       } finally {
         this.detailLoading = false
+      }
+    },
+
+    async startCheckout() {
+      if (
+        this.checkoutLoading ||
+        !this.selectedInvoice?.id ||
+        this.selectedInvoice.status !== 'pending'
+      ) {
+        return
+      }
+
+      this.checkoutLoading = true
+      this.checkoutError = ''
+      this.checkoutUrl = null
+
+      try {
+        const response = await invoiceService.checkout(
+          this.selectedInvoice.id,
+          this.checkoutIdempotencyKey || createIdempotencyKey()
+        )
+        const checkout = response.data?.data || {}
+        this.checkoutAttempt = checkout
+        this.checkoutUrl = checkout.checkout_url || null
+
+        const detailResponse = await invoiceService.get(this.selectedInvoice.id)
+        this.selectedInvoice = detailResponse.data.data
+
+        if (
+          isSecureCheckoutUrl(this.checkoutUrl) &&
+          typeof window !== 'undefined'
+        ) {
+          window.location.assign(this.checkoutUrl)
+          return
+        }
+
+        this.checkoutError =
+          this.checkoutUrl && !isSecureCheckoutUrl(this.checkoutUrl)
+            ? 'Tautan checkout yang diterima tidak aman. Silakan coba lagi atau hubungi administrator.'
+            : checkout.checkout_status === 'processing'
+              ? 'Checkout sedang disiapkan. Muat detail beberapa saat lagi.'
+              : 'Tautan checkout belum tersedia. Silakan coba lagi nanti.'
+      } catch (error) {
+        this.checkoutError = getApiErrorMessage(error)
+      } finally {
+        this.checkoutLoading = false
       }
     }
   }

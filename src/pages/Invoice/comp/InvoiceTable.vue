@@ -37,6 +37,9 @@
       <template #body-cell-due_at="props">
         <q-td :props="props">{{ formatSubscriptionDate(props.value) }}</q-td>
       </template>
+      <template #body-cell-paid_at="props">
+        <q-td :props="props">{{ formatSubscriptionDate(props.value) }}</q-td>
+      </template>
       <template #body-cell-status="props">
         <q-td :props="props">
           <q-badge
@@ -124,6 +127,13 @@ const columns = [
     name: 'due_at',
     label: 'Jatuh tempo',
     field: 'due_at',
+    align: 'left',
+    sortable: true
+  },
+  {
+    name: 'paid_at',
+    label: 'Dibayar',
+    field: 'paid_at',
     align: 'left',
     sortable: true
   },

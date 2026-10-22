@@ -50,12 +50,30 @@ export const invoiceService = {
   list: params => getList('/v1/admin/invoices', params),
   get: id => api.get(`/v1/admin/invoices/${id}`),
   create: (payload, headers) =>
-    api.post('/v1/admin/invoices', payload, { headers })
+    api.post('/v1/admin/invoices', payload, { headers }),
+  checkout: (id, idempotencyKey) =>
+    api.post(
+      `/v1/admin/invoices/${id}/checkout`,
+      {},
+      {
+        headers: {
+          'Idempotency-Key': idempotencyKey,
+          'Cache-Control': 'no-store',
+          Pragma: 'no-cache'
+        }
+      }
+    )
 }
 
 export const paymentAttemptService = {
   list: params => getList('/v1/admin/payment-attempts', params),
-  get: id => api.get(`/v1/admin/payment-attempts/${id}`)
+  get: id => api.get(`/v1/admin/payment-attempts/${id}`),
+  reconcile: id =>
+    api.post(
+      `/v1/admin/payment-attempts/${id}/reconcile`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    )
 }
 
 export const paymentResultService = {

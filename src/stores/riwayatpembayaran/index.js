@@ -6,6 +6,10 @@ import {
   paymentAttemptService
 } from '@/services/udev-billing'
 import { getApiErrorMessage } from '@/utils/api-error'
+import {
+  formatRetryAfter,
+  getRetryAfterMilliseconds
+} from '@/utils/subscription'
 
 export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
   state: () => ({
@@ -29,7 +33,10 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
     },
     detailDialogOpen: false,
     detailLoading: false,
-    selectedAttempt: null
+    selectedAttempt: null,
+    syncLoading: false,
+    syncError: '',
+    syncBlockedUntil: 0
   }),
 
   actions: {
@@ -130,6 +137,8 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
       this.detailDialogOpen = true
       this.detailLoading = true
       this.selectedAttempt = null
+      this.syncError = ''
+      this.syncBlockedUntil = 0
 
       try {
         const response = await paymentAttemptService.get(paymentAttempt.id)
@@ -139,6 +148,44 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
         this.detailDialogOpen = false
       } finally {
         this.detailLoading = false
+      }
+    },
+
+    async synchronizeSelected() {
+      if (
+        this.syncLoading ||
+        !this.selectedAttempt?.id ||
+        Date.now() < this.syncBlockedUntil
+      ) {
+        return
+      }
+
+      this.syncLoading = true
+      this.syncError = ''
+
+      try {
+        const response = await paymentAttemptService.reconcile(
+          this.selectedAttempt.id
+        )
+        this.selectedAttempt = response.data.data
+        const index = this.items.findIndex(
+          item => item.id === this.selectedAttempt.id
+        )
+        if (index >= 0) this.items[index] = this.selectedAttempt
+      } catch (error) {
+        this.syncError = getApiErrorMessage(error)
+        const retryAfter = getRetryAfterMilliseconds(error)
+        if (error.response?.status === 429 && retryAfter > 0) {
+          this.syncBlockedUntil = Date.now() + retryAfter
+          this.syncError = `${this.syncError} Coba lagi dalam ${formatRetryAfter(retryAfter)}.`
+          if (typeof window !== 'undefined') {
+            window.setTimeout(() => {
+              this.syncBlockedUntil = 0
+            }, retryAfter)
+          }
+        }
+      } finally {
+        this.syncLoading = false
       }
     }
   }

@@ -63,6 +63,38 @@
             />
           </div>
         </div>
+        <q-banner
+          v-if="store.checkoutError"
+          rounded
+          class="checkout-banner checkout-banner--error"
+        >
+          <template #avatar><q-icon name="error_outline" /></template>
+          {{ store.checkoutError }}
+        </q-banner>
+        <q-banner v-if="canStartCheckout" rounded class="checkout-banner">
+          <template #avatar><q-icon name="account_balance_wallet" /></template>
+          <div class="row items-center justify-between q-col-gutter-md">
+            <div class="col-12 col-sm">
+              <strong>Siap membayar melalui DANA Sandbox?</strong>
+              <div class="text-caption q-mt-xs">
+                Tautan checkout berasal dari backend. Status lunas hanya berubah
+                setelah pembayaran diverifikasi.
+              </div>
+            </div>
+            <div class="col-12 col-sm-auto">
+              <q-btn
+                color="warning"
+                text-color="dark"
+                icon="payments"
+                label="Bayar melalui DANA Sandbox"
+                no-caps
+                :loading="store.checkoutLoading"
+                :disable="store.checkoutLoading"
+                @click="store.startCheckout"
+              />
+            </div>
+          </div>
+        </q-banner>
         <q-separator />
         <div>
           <p class="section-title">Riwayat percobaan pembayaran</p>
@@ -85,13 +117,41 @@
                 <q-item-label caption>{{
                   formatSubscriptionDate(attempt.requested_at)
                 }}</q-item-label>
+                <q-item-label caption>
+                  {{
+                    formatSubscriptionPrice(attempt.amount, attempt.currency)
+                  }}
+                  <span v-if="attempt.reconciliation">
+                    ·
+                    {{
+                      reconciliationLabel(attempt.reconciliation.status).label
+                    }}
+                  </span>
+                </q-item-label>
+                <q-item-label v-if="attempt.settlement" caption>
+                  Settlement
+                  {{ formatSubscriptionDate(attempt.settlement.allocated_at) }}
+                </q-item-label>
               </q-item-section>
               <q-item-section side>
-                <q-badge
-                  rounded
-                  :color="getPaymentAttemptStatus(attempt.status).color"
-                  :label="getPaymentAttemptStatus(attempt.status).label"
-                />
+                <div class="column items-end q-gutter-y-xs">
+                  <q-badge
+                    rounded
+                    :color="getPaymentAttemptStatus(attempt.status).color"
+                    :label="getPaymentAttemptStatus(attempt.status).label"
+                  />
+                  <q-badge
+                    v-if="attempt.reconciliation"
+                    rounded
+                    outline
+                    :color="
+                      reconciliationLabel(attempt.reconciliation.status).color
+                    "
+                    :label="
+                      reconciliationLabel(attempt.reconciliation.status).label
+                    "
+                  />
+                </div>
               </q-item-section>
             </q-item>
           </q-list>
@@ -109,11 +169,20 @@ import {
   formatSubscriptionDate,
   formatSubscriptionPrice,
   getInvoiceStatus,
-  getPaymentAttemptStatus
+  getPaymentAttemptStatus,
+  getReconciliationStatus
 } from '@/utils/subscription'
 
 const store = useInvoiceStore()
 const invoice = computed(() => store.selectedInvoice || {})
+const reconciliationLabel = status => getReconciliationStatus(status)
+const canStartCheckout = computed(
+  () =>
+    invoice.value.status === 'pending' &&
+    !invoice.value.payment_attempts?.some(
+      attempt => attempt.status === 'succeeded'
+    )
+)
 </script>
 
 <style scoped>
@@ -153,5 +222,15 @@ h2 {
   margin: 0;
   color: #746b5c;
   font-size: 0.85rem;
+}
+.checkout-banner {
+  border: 1px solid #e0c37c;
+  background: #fff8e4;
+  color: #4b3813;
+}
+.checkout-banner--error {
+  border-color: #e8b4ad;
+  background: #fff1f1;
+  color: #7b2222;
 }
 </style>

@@ -46,6 +46,25 @@
             :color="getPaymentAttemptStatus(props.value).color"
             :label="getPaymentAttemptStatus(props.value).label" /></q-td
       ></template>
+      <template #body-cell-reconciliation="props">
+        <q-td :props="props">
+          <q-badge
+            rounded
+            outline
+            :color="
+              getReconciliationStatus(props.row.reconciliation?.status).color
+            "
+            :label="
+              getReconciliationStatus(props.row.reconciliation?.status).label
+            "
+          />
+        </q-td>
+      </template>
+      <template #body-cell-synced_at="props">
+        <q-td :props="props">
+          {{ formatSubscriptionDate(props.row.reconciliation?.last_synced_at) }}
+        </q-td>
+      </template>
       <template #body-cell-actions="props"
         ><q-td :props="props" class="text-right"
           ><q-btn
@@ -76,7 +95,8 @@ import EmptyState from '@/components/EmptyState.vue'
 import {
   formatSubscriptionDate,
   formatSubscriptionPrice,
-  getPaymentAttemptStatus
+  getPaymentAttemptStatus,
+  getReconciliationStatus
 } from '@/utils/subscription'
 
 defineProps({
@@ -109,6 +129,18 @@ const columns = [
     field: 'status',
     align: 'left',
     sortable: true
+  },
+  {
+    name: 'reconciliation',
+    label: 'Sinkronisasi',
+    field: row => row.reconciliation?.status,
+    align: 'left'
+  },
+  {
+    name: 'synced_at',
+    label: 'Sinkron terakhir',
+    field: row => row.reconciliation?.last_synced_at,
+    align: 'left'
   },
   {
     name: 'requested_at',

@@ -73,3 +73,43 @@ export const getPaymentAttemptStatus = status => {
 
   return statuses[status] || { label: 'Tidak diketahui', color: 'grey-7' }
 }
+
+export const getReconciliationStatus = status => {
+  const statuses = {
+    processing: { label: 'Sedang disinkronkan', color: 'info' },
+    pending: { label: 'Menunggu sinkronisasi', color: 'warning' },
+    retryable: { label: 'Akan dicoba lagi', color: 'warning' },
+    paid: { label: 'Terverifikasi dan lunas', color: 'positive' },
+    terminal: { label: 'Gateway selesai', color: 'grey-7' },
+    failed: { label: 'Sinkronisasi gagal', color: 'negative' },
+    skipped: { label: 'Tidak perlu disinkronkan', color: 'grey-7' }
+  }
+
+  return statuses[status] || { label: 'Belum disinkronkan', color: 'grey-7' }
+}
+
+export const getRetryAfterMilliseconds = error => {
+  const header = error?.response?.headers?.['retry-after']
+  const retryAfter =
+    header ??
+    (typeof error?.response?.headers?.get === 'function'
+      ? error.response.headers.get('retry-after')
+      : null)
+
+  if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
+    return Math.max(0, Math.ceil(retryAfter * 1000))
+  }
+
+  if (typeof retryAfter !== 'string' || !retryAfter.trim()) return 0
+
+  const seconds = Number(retryAfter)
+  if (Number.isFinite(seconds)) return Math.max(0, Math.ceil(seconds * 1000))
+
+  const retryAt = Date.parse(retryAfter)
+  return Number.isNaN(retryAt) ? 0 : Math.max(0, retryAt - Date.now())
+}
+
+export const formatRetryAfter = milliseconds => {
+  const seconds = Math.max(1, Math.ceil(milliseconds / 1000))
+  return seconds < 60 ? `${seconds} detik` : `${Math.ceil(seconds / 60)} menit`
+}
