@@ -17,7 +17,7 @@
           label="Refresh"
           no-caps
           :loading="loading"
-          @click="refreshPayments(1)"
+          @click="refreshPayments(1, true)"
       /></div>
     </div>
     <div class="row q-col-gutter-sm q-mt-xs">
@@ -179,7 +179,23 @@
           v-close-popup
         />
       </q-card-section>
-      <q-card-section v-if="detail" class="dialog-body">
+      <q-card-section v-if="detailError" class="q-pa-lg">
+        <q-banner rounded class="error-banner">
+          <template #avatar><q-icon name="error_outline" /></template>
+          {{ detailError }}
+          <template #action>
+            <q-btn
+              flat
+              color="negative"
+              label="Coba lagi"
+              no-caps
+              :loading="detailLoading || webhookLoading"
+              @click="retryDetail"
+            />
+          </template>
+        </q-banner>
+      </q-card-section>
+      <q-card-section v-else-if="detail" class="dialog-body">
         <div class="payment-overview">
           <div
             ><p class="overview-label">Nominal pembayaran</p
@@ -283,7 +299,25 @@
               ><p>Riwayat notifikasi DANA, tanpa payload sensitif.</p></div
             ></div
           >
-          <div v-if="webhooks.length" class="webhook-list"
+          <div v-if="webhookLoading" class="empty-audit"
+            ><q-spinner color="warning" size="22px" /><span
+              >Memuat metadata webhook...</span
+            ></div
+          >
+          <q-banner v-else-if="webhookError" rounded class="error-banner"
+            ><template #avatar><q-icon name="error_outline" /></template
+            >{{ webhookError
+            }}<template #action
+              ><q-btn
+                flat
+                color="negative"
+                label="Coba lagi"
+                no-caps
+                @click="
+                  loadWebhooks(webhookMeta.current_page, true)
+                " /></template
+          ></q-banner>
+          <div v-else-if="webhooks.length" class="webhook-list"
             ><article
               v-for="(webhook, index) in webhooks"
               :key="index"
@@ -316,6 +350,16 @@
               >Belum ada webhook tercatat untuk transaksi ini.</span
             ></div
           >
+          <q-pagination
+            v-if="webhookMeta.last_page > 1"
+            class="q-mt-md justify-center"
+            color="warning"
+            :model-value="webhookMeta.current_page"
+            :max="webhookMeta.last_page"
+            :max-pages="6"
+            :disable="webhookLoading"
+            @update:model-value="loadWebhooks"
+          />
         </section>
       </q-card-section>
       <q-card-section v-else class="text-center q-pa-xl"
@@ -333,15 +377,84 @@ import { useQuasar } from 'quasar'
 import { danaGatewayMerchantService } from '@/services/udev-billing'
 import { getApiErrorMessage } from '@/utils/api-error'
 
+const AUDIT_CACHE_TTL_MS = 10_000
+const pendingAuditRequests = new Map()
+const auditResponseCache = new Map()
+const pendingHistoryRequests = new Map()
+const historyResponseCache = new Map()
+
+function deduplicatedRequest(cache, pending, key, request, force = false) {
+  if (force) cache.delete(key)
+  const cached = cache.get(key)
+  if (cached && cached.expiresAt > Date.now()) {
+    return Promise.resolve(cached.value)
+  }
+
+  if (pending.has(key)) return pending.get(key)
+
+  const promise = request()
+    .then(value => {
+      cache.set(key, { value, expiresAt: Date.now() + AUDIT_CACHE_TTL_MS })
+      while (cache.size > 100) cache.delete(cache.keys().next().value)
+      return value
+    })
+    .finally(() => pending.delete(key))
+
+  pending.set(key, promise)
+  return promise
+}
+
+function retryAfterMilliseconds(error) {
+  const headers = error?.response?.headers
+  const retryAfter =
+    headers?.['retry-after'] ??
+    (typeof headers?.get === 'function' ? headers.get('retry-after') : null)
+  if (typeof retryAfter !== 'string' && typeof retryAfter !== 'number') return 0
+
+  const seconds = Number(retryAfter)
+  if (Number.isFinite(seconds) && seconds > 0) return Math.ceil(seconds * 1000)
+
+  const retryAt = Date.parse(retryAfter)
+  return Number.isNaN(retryAt) ? 0 : Math.max(0, retryAt - Date.now())
+}
+
+function isRateLimitError(error) {
+  return (
+    error?.response?.status === 429 ||
+    (error?.response?.status >= 500 && retryAfterMilliseconds(error) > 0)
+  )
+}
+
+function rateLimitMessage(milliseconds) {
+  const seconds = Math.max(1, Math.ceil(milliseconds / 1000))
+  return `Terlalu banyak permintaan. Tunggu sekitar ${seconds} detik sebelum mencoba lagi.`
+}
+
 const props = defineProps({ merchant: { type: Object, required: true } })
 const $q = useQuasar()
 const payments = ref([])
 const loading = ref(false)
 const error = ref(null)
 const detail = ref(null)
+const detailError = ref(null)
+const detailLoading = ref(false)
 const webhooks = ref([])
+const webhookError = ref(null)
+const webhookLoading = ref(false)
+const webhookMeta = ref({
+  current_page: 1,
+  last_page: 1,
+  per_page: 25,
+  total: 0
+})
 const detailOpen = ref(false)
 const requestId = ref(0)
+const detailRequestId = ref(0)
+const webhookRequestId = ref(0)
+const selectedPayment = ref(null)
+const detailLoadedAt = ref(0)
+const webhookLoadedAt = ref(0)
+const rateLimitedUntil = ref(0)
 const filters = ref({
   status: null,
   from: null,
@@ -410,6 +523,19 @@ watch(
   value => {
     payments.value = []
     error.value = null
+    detail.value = null
+    detailError.value = null
+    webhooks.value = []
+    webhookError.value = null
+    selectedPayment.value = null
+    detailLoadedAt.value = 0
+    webhookLoadedAt.value = 0
+    requestId.value++
+    detailRequestId.value++
+    webhookRequestId.value++
+    loading.value = false
+    detailLoading.value = false
+    webhookLoading.value = false
     if (value) refreshPayments(1)
   },
   { immediate: true }
@@ -480,52 +606,194 @@ function params(page) {
     )
   }
 }
-async function refreshPayments(page = meta.value.current_page) {
+function auditAvailable(target) {
+  if (rateLimitedUntil.value <= Date.now()) return true
+
+  target.value = rateLimitMessage(rateLimitedUntil.value - Date.now())
+  return false
+}
+function rememberRateLimit(error) {
+  if (!isRateLimitError(error)) return
+
+  const retryAfter = retryAfterMilliseconds(error)
+  if (retryAfter > 0) {
+    rateLimitedUntil.value = Math.max(
+      rateLimitedUntil.value,
+      Date.now() + retryAfter
+    )
+  }
+}
+function auditErrorMessage(exception) {
+  const retryAfter = retryAfterMilliseconds(exception)
+  if (retryAfter > 0) return rateLimitMessage(retryAfter)
+  return getApiErrorMessage(exception)
+}
+async function refreshPayments(page = meta.value.current_page, force = false) {
   if (!merchantId.value) return
+  if (!auditAvailable(error)) return
+
+  const query = params(page)
+  const requestKey = `${merchantId.value}:history:${JSON.stringify(query)}`
   const id = ++requestId.value
   loading.value = true
   error.value = null
   try {
-    const query = params(page)
-    const [listResponse, summaryResponse] = await Promise.all([
-      danaGatewayMerchantService.sandboxPayments(merchantId.value, query),
-      danaGatewayMerchantService.sandboxPaymentSummary(merchantId.value, query)
-    ])
+    const [listResponse, summaryResponse] = await deduplicatedRequest(
+      historyResponseCache,
+      pendingHistoryRequests,
+      requestKey,
+      () =>
+        Promise.all([
+          danaGatewayMerchantService.sandboxPayments(merchantId.value, query),
+          danaGatewayMerchantService.sandboxPaymentSummary(
+            merchantId.value,
+            query
+          )
+        ]),
+      force
+    )
     if (id !== requestId.value) return
     payments.value = listResponse.data?.data ?? []
     meta.value = listResponse.data?.meta ?? meta.value
     summary.value = summaryResponse.data?.data ?? summary.value
   } catch (exception) {
     if (id === requestId.value) {
-      error.value = getApiErrorMessage(exception)
+      rememberRateLimit(exception)
+      error.value = auditErrorMessage(exception)
       payments.value = []
     }
   } finally {
     if (id === requestId.value) loading.value = false
   }
 }
-async function openDetail(payment) {
-  detailOpen.value = true
-  detail.value = null
-  webhooks.value = []
+function webhookRequestKey(paymentId, page) {
+  return `${merchantId.value}:webhooks:${paymentId}:${page}:25`
+}
+async function loadWebhooks(
+  page = webhookMeta.value.current_page,
+  force = false
+) {
+  if (!merchantId.value || !selectedPayment.value?.id) return
+  if (!auditAvailable(webhookError)) return
+
+  const paymentId = selectedPayment.value.id
+  const id = ++webhookRequestId.value
+  webhookLoading.value = true
+  webhookError.value = null
+
   try {
-    const [detailResponse, webhookResponse] = await Promise.all([
+    const response = await deduplicatedRequest(
+      auditResponseCache,
+      pendingAuditRequests,
+      webhookRequestKey(paymentId, page),
+      () =>
+        danaGatewayMerchantService.sandboxPaymentWebhooks(
+          merchantId.value,
+          paymentId,
+          { page, per_page: 25 }
+        ),
+      force
+    )
+    if (id !== webhookRequestId.value) return
+    webhooks.value = response.data?.data ?? []
+    webhookMeta.value = response.data?.meta ?? webhookMeta.value
+    webhookLoadedAt.value = Date.now()
+  } catch (exception) {
+    if (id === webhookRequestId.value) {
+      rememberRateLimit(exception)
+      webhookError.value = auditErrorMessage(exception)
+    }
+  } finally {
+    if (id === webhookRequestId.value) webhookLoading.value = false
+  }
+}
+async function openDetail(payment, force = false) {
+  if (!merchantId.value || !payment?.id) return
+  detailOpen.value = true
+  if (!auditAvailable(detailError)) return
+
+  const sameLoadedPayment =
+    !force &&
+    selectedPayment.value?.id === payment.id &&
+    detail.value &&
+    detailLoadedAt.value + AUDIT_CACHE_TTL_MS > Date.now() &&
+    webhookLoadedAt.value + AUDIT_CACHE_TTL_MS > Date.now()
+  if (sameLoadedPayment) return
+
+  selectedPayment.value = payment
+  detail.value = null
+  detailError.value = null
+  webhooks.value = []
+  webhookError.value = null
+  webhookMeta.value = {
+    current_page: 1,
+    last_page: 1,
+    per_page: 25,
+    total: 0
+  }
+  detailLoadedAt.value = 0
+  webhookLoadedAt.value = 0
+
+  const detailRequest = ++detailRequestId.value
+  const webhookRequest = ++webhookRequestId.value
+  detailLoading.value = true
+  webhookLoading.value = true
+
+  const detailPromise = deduplicatedRequest(
+    auditResponseCache,
+    pendingAuditRequests,
+    `${merchantId.value}:detail:${payment.id}`,
+    () =>
       danaGatewayMerchantService.sandboxPaymentDetail(
         merchantId.value,
         payment.id
       ),
+    force
+  )
+  const webhookPromise = deduplicatedRequest(
+    auditResponseCache,
+    pendingAuditRequests,
+    webhookRequestKey(payment.id, 1),
+    () =>
       danaGatewayMerchantService.sandboxPaymentWebhooks(
         merchantId.value,
         payment.id,
-        { per_page: 25 }
-      )
-    ])
-    detail.value = detailResponse.data?.data ?? null
-    webhooks.value = webhookResponse.data?.data ?? []
-  } catch (exception) {
-    detailOpen.value = false
-    error.value = getApiErrorMessage(exception)
+        { page: 1, per_page: 25 }
+      ),
+    force
+  )
+
+  const [detailResult, webhookResult] = await Promise.allSettled([
+    detailPromise,
+    webhookPromise
+  ])
+  if (detailRequest !== detailRequestId.value) return
+
+  if (detailResult.status === 'fulfilled') {
+    detail.value = detailResult.value.data?.data ?? null
+    detailLoadedAt.value = Date.now()
+  } else {
+    rememberRateLimit(detailResult.reason)
+    detailError.value = auditErrorMessage(detailResult.reason)
   }
+
+  if (webhookRequest === webhookRequestId.value) {
+    if (webhookResult.status === 'fulfilled') {
+      webhooks.value = webhookResult.value.data?.data ?? []
+      webhookMeta.value = webhookResult.value.data?.meta ?? webhookMeta.value
+      webhookLoadedAt.value = Date.now()
+      webhookError.value = null
+    } else {
+      rememberRateLimit(webhookResult.reason)
+      webhookError.value = auditErrorMessage(webhookResult.reason)
+    }
+  }
+
+  detailLoading.value = false
+  webhookLoading.value = false
+}
+function retryDetail() {
+  if (selectedPayment.value) openDetail(selectedPayment.value, true)
 }
 </script>
 
