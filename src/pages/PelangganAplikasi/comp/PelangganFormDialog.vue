@@ -34,6 +34,12 @@
             :rules="[requiredName]"
             :error="hasError('name')"
             :error-message="errorFor('name')" /><q-input
+            v-model="store.form.owner_name"
+            outlined
+            dense
+            label="Nama pemilik (opsional)"
+            :error="hasError('owner_name')"
+            :error-message="errorFor('owner_name')" /><q-input
             v-model="store.form.external_customer_id"
             outlined
             dense

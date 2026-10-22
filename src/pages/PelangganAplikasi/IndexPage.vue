@@ -52,6 +52,17 @@
             label="Status"
             :options="statusOptions"
             bg-color="white" /></div
+        ><div class="col-12 col-md-3"
+          ><q-select
+            v-model="store.source"
+            outlined
+            dense
+            clearable
+            emit-value
+            map-options
+            label="Sumber sinkronisasi"
+            :options="sourceOptions"
+            bg-color="white" /></div
       ></FilterPanel>
       <ErrorState
         v-if="store.error"
@@ -90,12 +101,22 @@ const statusOptions = [
   { label: 'Aktif', value: true },
   { label: 'Tidak aktif', value: false }
 ]
+const sourceOptions = [
+  { label: 'Manual UDEV', value: 'manual' },
+  { label: 'Integrasi aplikasi', value: 'integration' }
+]
 onMounted(async () => {
   await store.fetchApplications()
   await store.fetchCustomers()
 })
-watch([() => store.search, () => store.applicationId, () => store.status], () =>
-  store.fetchCustomers({ page: 1 })
+watch(
+  [
+    () => store.search,
+    () => store.applicationId,
+    () => store.status,
+    () => store.source
+  ],
+  () => store.fetchCustomers({ page: 1 })
 )
 </script>
 <style scoped>

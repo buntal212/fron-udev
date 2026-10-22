@@ -24,6 +24,27 @@ export const applicationService = {
   update: (id, payload) => api.patch(`/v1/admin/applications/${id}`, payload)
 }
 
+export const applicationIntegrationService = {
+  tokens: applicationId =>
+    getList(`/v1/admin/applications/${applicationId}/integration-tokens`, {
+      per_page: 100
+    }),
+  audits: (applicationId, params) =>
+    getList(
+      `/v1/admin/applications/${applicationId}/integration-audits`,
+      params
+    ),
+  createToken: (applicationId, payload) =>
+    api.post(
+      `/v1/admin/applications/${applicationId}/integration-tokens`,
+      payload
+    ),
+  revokeToken: (applicationId, tokenId) =>
+    api.delete(
+      `/v1/admin/applications/${applicationId}/integration-tokens/${tokenId}`
+    )
+}
+
 export const applicationCustomerService = {
   list: params => getList('/v1/admin/application-customers', params),
   get: id => api.get(`/v1/admin/application-customers/${id}`),

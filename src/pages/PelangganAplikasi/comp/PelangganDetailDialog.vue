@@ -41,8 +41,27 @@ const details = computed(() =>
   customer.value
     ? [
         { label: 'ID eksternal', value: customer.value.external_customer_id },
+        { label: 'Nama pemilik', value: customer.value.owner_name },
         { label: 'Email', value: customer.value.email },
         { label: 'Nomor telepon', value: customer.value.phone_number },
+        {
+          label: 'Sumber data',
+          value:
+            customer.value.source === 'integration'
+              ? 'Integrasi aplikasi'
+              : 'Manual UDEV'
+        },
+        { label: 'Status sinkronisasi', value: customer.value.sync_status },
+        {
+          label: 'Sinkronisasi terakhir',
+          value: customer.value.last_synced_at || '-'
+        },
+        { label: 'Error sinkronisasi', value: customer.value.sync_error_code },
+        { label: 'Invoice', value: String(customer.value.invoices_count ?? 0) },
+        {
+          label: 'Langganan',
+          value: String(customer.value.subscriptions_count ?? 0)
+        },
         {
           label: 'Status',
           value: customer.value.is_active ? 'Aktif' : 'Tidak aktif'

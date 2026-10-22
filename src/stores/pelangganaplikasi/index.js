@@ -9,6 +9,7 @@ const emptyForm = () => ({
   application_id: null,
   external_customer_id: '',
   name: '',
+  owner_name: '',
   email: '',
   phone_number: '',
   is_active: true
@@ -24,6 +25,7 @@ export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
     search: '',
     applicationId: null,
     status: null,
+    source: null,
     pagination: {
       page: 1,
       rowsPerPage: 15,
@@ -66,6 +68,7 @@ export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
           search: this.search || undefined,
           application_id: this.applicationId || undefined,
           is_active: this.status ?? undefined,
+          source: this.source || undefined,
           sort: this.pagination.sortBy || 'created_at',
           direction: this.pagination.descending ? 'desc' : 'asc'
         })
@@ -96,6 +99,7 @@ export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
         application_id: customer.application_id,
         external_customer_id: customer.external_customer_id,
         name: customer.name,
+        owner_name: customer.owner_name || '',
         email: customer.email || '',
         phone_number: customer.phone_number || '',
         is_active: customer.is_active

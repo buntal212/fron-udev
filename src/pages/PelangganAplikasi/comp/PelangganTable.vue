@@ -24,6 +24,12 @@
             :label="props.value ? 'Aktif' : 'Tidak aktif'" /></q-td></template
       ><template #body-cell-created_at="props"
         ><q-td :props="props">{{ formatDate(props.value) }}</q-td></template
+      ><template #body-cell-source="props"
+        ><q-td :props="props">{{
+          props.value === 'integration' ? 'Integrasi' : 'Manual'
+        }}</q-td></template
+      ><template #body-cell-sync_status="props"
+        ><q-td :props="props">{{ props.value || '-' }}</q-td></template
       ><template #body-cell-actions="props"
         ><q-td :props="props" class="text-right"
           ><q-btn
@@ -79,6 +85,13 @@ const columns = [
     sortable: true
   },
   { name: 'is_active', label: 'Status', field: 'is_active', align: 'left' },
+  { name: 'source', label: 'Sumber', field: 'source', align: 'left' },
+  {
+    name: 'sync_status',
+    label: 'Sinkronisasi',
+    field: 'sync_status',
+    align: 'left'
+  },
   {
     name: 'created_at',
     label: 'Terdaftar',

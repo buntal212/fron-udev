@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia'
-import { applicationService } from '@/services/udev-billing'
+import {
+  applicationIntegrationService,
+  applicationService
+} from '@/services/udev-billing'
 import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
 
 const emptyForm = () => ({
@@ -35,7 +38,18 @@ export const useAplikasiStore = defineStore('aplikasi', {
     editingId: null,
     detailDialogOpen: false,
     detailLoading: false,
-    selectedApplication: null
+    selectedApplication: null,
+    integrationTokens: [],
+    integrationAudits: [],
+    integrationLoading: false,
+    integrationError: null,
+    tokenSaving: false,
+    tokenForm: {
+      name: '',
+      scopes: ['customers:read', 'customers:write'],
+      expires_at: ''
+    },
+    newTokenPlaintext: null
   }),
 
   actions: {
@@ -97,16 +111,95 @@ export const useAplikasiStore = defineStore('aplikasi', {
       this.detailDialogOpen = true
       this.detailLoading = true
       this.selectedApplication = null
+      this.integrationTokens = []
+      this.integrationAudits = []
+      this.integrationError = null
+      this.newTokenPlaintext = null
 
       try {
         const response = await applicationService.get(application.id)
         this.selectedApplication = response.data.data
+        await this.fetchIntegrationData(this.selectedApplication.id)
       } catch (error) {
         this.error = requestError(error)
         this.detailDialogOpen = false
       } finally {
         this.detailLoading = false
       }
+    },
+
+    async fetchIntegrationData(applicationId) {
+      this.integrationLoading = true
+      this.integrationError = null
+      try {
+        const [tokensResponse, auditsResponse] = await Promise.all([
+          applicationIntegrationService.tokens(applicationId),
+          applicationIntegrationService.audits(applicationId, {
+            per_page: 10
+          })
+        ])
+        this.integrationTokens = tokensResponse.data.data
+        this.integrationAudits = auditsResponse.data.data
+      } catch (error) {
+        this.integrationError = requestError(error)
+      } finally {
+        this.integrationLoading = false
+      }
+    },
+
+    resetTokenForm() {
+      this.tokenForm = {
+        name: '',
+        scopes: ['customers:read', 'customers:write'],
+        expires_at: ''
+      }
+    },
+
+    async createIntegrationToken() {
+      if (!this.selectedApplication) return
+      this.tokenSaving = true
+      this.integrationError = null
+      try {
+        const response = await applicationIntegrationService.createToken(
+          this.selectedApplication.id,
+          {
+            ...this.tokenForm,
+            expires_at: this.tokenForm.expires_at || null
+          }
+        )
+        this.newTokenPlaintext = response.data.token
+        this.integrationTokens.unshift(response.data.data)
+        this.resetTokenForm()
+      } catch (error) {
+        this.integrationError = requestError(error)
+      } finally {
+        this.tokenSaving = false
+      }
+    },
+
+    async revokeIntegrationToken(token) {
+      if (!this.selectedApplication) return
+      this.tokenSaving = true
+      this.integrationError = null
+      try {
+        const response = await applicationIntegrationService.revokeToken(
+          this.selectedApplication.id,
+          token.id
+        )
+        const index = this.integrationTokens.findIndex(
+          item => item.id === token.id
+        )
+        if (index !== -1) this.integrationTokens[index] = response.data.data
+        await this.fetchIntegrationData(this.selectedApplication.id)
+      } catch (error) {
+        this.integrationError = requestError(error)
+      } finally {
+        this.tokenSaving = false
+      }
+    },
+
+    clearNewToken() {
+      this.newTokenPlaintext = null
     },
 
     async saveApplication() {
