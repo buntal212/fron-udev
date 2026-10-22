@@ -14,11 +14,11 @@ test('daftar merchant tidak dimuat dua kali pada pembukaan halaman dan request i
     )
   ])
 
-  assert.doesNotMatch(
+  assert.match(
     page,
     /Promise\.all\(\[store\.fetchMappings\(\), merchantStore\.fetchMerchants\(\)\]\)/
   )
-  assert.match(page, /QTable memicu request awal/)
+  assert.match(page, /store merchant mendeduplikasi request identik/)
   assert.match(store, /pendingMerchantRequest\?\.key === requestKey/)
   assert.match(store, /merchantRequestSequence/)
 })

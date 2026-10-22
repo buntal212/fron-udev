@@ -228,9 +228,10 @@ onMounted(async () => {
   } catch (error) {
     store.error = 'Daftar aplikasi tidak dapat dimuat.'
   }
-  // QTable memicu request awal untuk daftar merchant. Memuatnya lagi di sini
-  // menyebabkan dua GET identik saat halaman pertama kali dibuka.
-  await store.fetchMappings()
+  // Fetch eksplisit memastikan tabel siap saat menu dibuka. QTable juga dapat
+  // memicu request awal; store merchant mendeduplikasi request identik agar
+  // tetap hanya ada satu GET jaringan.
+  await Promise.all([store.fetchMappings(), merchantStore.fetchMerchants()])
 })
 
 watch([() => store.applicationId, () => store.environment], () =>
