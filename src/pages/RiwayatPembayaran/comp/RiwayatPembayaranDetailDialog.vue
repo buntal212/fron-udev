@@ -21,6 +21,14 @@
           <template #avatar><q-icon name="error_outline" /></template>
           {{ store.syncError }}
         </q-banner>
+        <q-banner
+          v-if="store.retryCheckoutError"
+          rounded
+          class="sync-banner sync-banner--error"
+        >
+          <template #avatar><q-icon name="error_outline" /></template>
+          {{ store.retryCheckoutError }}
+        </q-banner>
         <div class="row q-col-gutter-md">
           <div class="col-12 col-sm-6">
             <p class="label">Nomor invoice</p>
@@ -94,6 +102,15 @@
             />
           </div>
           <div class="col-12 col-sm-6">
+            <p class="label">Status outbox checkout</p>
+            <p class="value">
+              {{ attempt.checkout?.status || 'â€”' }}
+              <span v-if="attempt.checkout?.error_code">
+                Â· {{ attempt.checkout.error_code }}
+              </span>
+            </p>
+          </div>
+          <div class="col-12 col-sm-6">
             <p class="label">Sinkronisasi terakhir</p>
             <p class="value">
               {{
@@ -158,6 +175,17 @@
 
         <q-card-actions align="between" class="q-px-none">
           <q-btn
+            v-if="canRetryCheckout"
+            outline
+            color="warning"
+            icon="replay"
+            label="Coba Checkout Lagi"
+            no-caps
+            :loading="store.retryCheckoutLoading"
+            :disable="store.retryCheckoutLoading || retryCheckoutBlocked"
+            @click="store.retryCheckoutSelected"
+          />
+          <q-btn
             v-if="canSynchronize"
             outline
             color="warning"
@@ -197,6 +225,15 @@ const canSynchronize = computed(
   () =>
     ['initiated', 'pending'].includes(attempt.value.status) ||
     ['retryable', 'failed'].includes(attempt.value.reconciliation?.status)
+)
+const canRetryCheckout = computed(
+  () =>
+    ['initiated', 'pending'].includes(attempt.value.status) &&
+    attempt.value.invoice?.status === 'pending' &&
+    attempt.value.checkout?.status === 'failed'
+)
+const retryCheckoutBlocked = computed(
+  () => Date.now() < store.retryCheckoutBlockedUntil
 )
 const syncBlocked = computed(() => Date.now() < store.syncBlockedUntil)
 </script>

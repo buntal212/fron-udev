@@ -34,6 +34,9 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
     detailDialogOpen: false,
     detailLoading: false,
     selectedAttempt: null,
+    retryCheckoutLoading: false,
+    retryCheckoutError: '',
+    retryCheckoutBlockedUntil: 0,
     syncLoading: false,
     syncError: '',
     syncBlockedUntil: 0
@@ -137,6 +140,8 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
       this.detailDialogOpen = true
       this.detailLoading = true
       this.selectedAttempt = null
+      this.retryCheckoutError = ''
+      this.retryCheckoutBlockedUntil = 0
       this.syncError = ''
       this.syncBlockedUntil = 0
 
@@ -186,6 +191,65 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
         }
       } finally {
         this.syncLoading = false
+      }
+    },
+
+    async retryCheckoutSelected() {
+      if (
+        this.retryCheckoutLoading ||
+        !this.selectedAttempt?.id ||
+        this.selectedAttempt.checkout?.status !== 'failed' ||
+        Date.now() < this.retryCheckoutBlockedUntil
+      ) {
+        return
+      }
+
+      this.retryCheckoutLoading = true
+      this.retryCheckoutError = ''
+
+      try {
+        const response = await paymentAttemptService.retryCheckout(
+          this.selectedAttempt.id
+        )
+        this.selectedAttempt = response.data.data
+        const index = this.items.findIndex(
+          item => item.id === this.selectedAttempt.id
+        )
+        if (index >= 0) this.items[index] = this.selectedAttempt
+
+        const checkoutUrl = this.selectedAttempt.checkout_url
+        if (typeof checkoutUrl === 'string' && checkoutUrl) {
+          try {
+            if (
+              new URL(checkoutUrl).protocol === 'https:' &&
+              typeof window !== 'undefined'
+            ) {
+              window.location.assign(checkoutUrl)
+              return
+            }
+          } catch {
+            // Fall through to the safe error below.
+          }
+        }
+
+        this.retryCheckoutError =
+          this.selectedAttempt.checkout?.status === 'processing'
+            ? 'Checkout sedang diproses. Buka detail lagi beberapa saat kemudian.'
+            : 'Retry checkout belum menghasilkan tautan yang aman. Silakan coba lagi nanti.'
+      } catch (error) {
+        this.retryCheckoutError = getApiErrorMessage(error)
+        const retryAfter = getRetryAfterMilliseconds(error)
+        if (error.response?.status === 429 && retryAfter > 0) {
+          this.retryCheckoutBlockedUntil = Date.now() + retryAfter
+          this.retryCheckoutError = `${this.retryCheckoutError} Coba lagi dalam ${formatRetryAfter(retryAfter)}.`
+          if (typeof window !== 'undefined') {
+            window.setTimeout(() => {
+              this.retryCheckoutBlockedUntil = 0
+            }, retryAfter)
+          }
+        }
+      } finally {
+        this.retryCheckoutLoading = false
       }
     }
   }

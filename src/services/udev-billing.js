@@ -68,6 +68,12 @@ export const invoiceService = {
 export const paymentAttemptService = {
   list: params => getList('/v1/admin/payment-attempts', params),
   get: id => api.get(`/v1/admin/payment-attempts/${id}`),
+  retryCheckout: id =>
+    api.post(
+      `/v1/admin/payment-attempts/${id}/checkout/retry`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   reconcile: id =>
     api.post(
       `/v1/admin/payment-attempts/${id}/reconcile`,

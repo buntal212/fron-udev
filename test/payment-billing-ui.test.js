@@ -53,9 +53,18 @@ test('UI riwayat menyediakan retry rekonsiliasi admin dan tidak memaksa paid', a
   )
 
   assert.match(service, /payment-attempts\/\$\{id\}\/reconcile/)
+  assert.match(service, /payment-attempts\/\$\{id\}\/checkout\/retry/)
   assert.match(detail, /Sinkronkan Ulang/)
+  assert.match(detail, /Coba Checkout Lagi/)
   assert.match(detail, /store\.synchronizeSelected/)
   assert.doesNotMatch(detail, /status\s*=\s*['"]paid['"]|status: ['"]paid['"]/)
+
+  const store = await readFile(
+    new URL('../src/stores/riwayatpembayaran/index.js', import.meta.url),
+    'utf8'
+  )
+  assert.match(store, /retryCheckoutBlockedUntil/)
+  assert.match(store, /getRetryAfterMilliseconds\(error\)/)
 })
 
 test('detail subscription menampilkan period event serta invoice terkait', async () => {
