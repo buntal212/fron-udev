@@ -53,3 +53,47 @@ test('riwayat pembayaran memakai audit gateway yang terverifikasi dan metadata w
   assert.match(service, /sandboxPaymentWebhooks:/)
   assert.match(service, /sandboxPaymentSummary:/)
 })
+
+test('payment gateway menyediakan tab transaksi billing read-only tanpa mengganti audit sandbox', async () => {
+  const [page, sandboxTester, panel, service, detail] = await Promise.all([
+    readFile(
+      new URL('../src/pages/PaymentGateway/IndexPage.vue', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/BillingGatewayTransactions.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/services/udev-billing.js', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL(
+        '../src/pages/RiwayatPembayaran/comp/RiwayatPembayaranDetailDialog.vue',
+        import.meta.url
+      ),
+      'utf8'
+    )
+  ])
+
+  assert.match(page, /Transaksi Billing/)
+  assert.match(sandboxTester, /DanaSandboxPaymentHistory/)
+  assert.match(panel, /Monitoring read-only pembayaran invoice DANA Sandbox/)
+  assert.match(panel, /gateway tidak dihubungi saat membuka halaman ini/i)
+  assert.match(panel, /gateway_not_found/)
+  assert.match(panel, /sync_failed/)
+  assert.match(service, /payment-gateway\/billing-transactions/)
+  assert.match(detail, /Buka di Payment Gateway/)
+  assert.match(detail, /billing_transaction/)
+})

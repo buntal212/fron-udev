@@ -183,6 +183,20 @@
 
         <q-card-actions align="between" class="q-px-none">
           <q-btn
+            flat
+            color="brown-7"
+            icon="open_in_new"
+            label="Buka di Payment Gateway"
+            no-caps
+            :to="{
+              path: '/payment-gateway',
+              query: {
+                tab: 'billing-transactions',
+                billing_transaction: attempt.id
+              }
+            }"
+          />
+          <q-btn
             v-if="canRecoverSubscription"
             outline
             color="warning"

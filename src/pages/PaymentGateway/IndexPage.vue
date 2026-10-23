@@ -25,6 +25,11 @@
       >
         <q-tab name="merchants" icon="storefront" label="Daftar Merchant" />
         <q-tab name="mappings" icon="account_tree" label="Mapping Aplikasi" />
+        <q-tab
+          name="billing-transactions"
+          icon="receipt_long"
+          label="Transaksi Billing"
+        />
       </q-tabs>
       <q-separator />
 
@@ -186,6 +191,10 @@
             @change-status="store.setMappingActive"
           />
         </q-tab-panel>
+
+        <q-tab-panel name="billing-transactions" class="q-px-none q-pt-lg">
+          <BillingGatewayTransactions :applications="store.applications" />
+        </q-tab-panel>
       </q-tab-panels>
 
       <PaymentGatewayFormDialog />
@@ -197,6 +206,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppBreadcrumb from '@/components/AppBreadcrumb.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
@@ -205,12 +215,18 @@ import { usePaymentGatewayStore } from '@/stores/paymentgateway'
 import DanaGatewayMerchantDetailDialog from './comp/DanaGatewayMerchantDetailDialog.vue'
 import DanaGatewayMerchantFormDialog from './comp/DanaGatewayMerchantFormDialog.vue'
 import DanaGatewayMerchantTable from './comp/DanaGatewayMerchantTable.vue'
+import BillingGatewayTransactions from './comp/BillingGatewayTransactions.vue'
 import PaymentGatewayFormDialog from './comp/PaymentGatewayFormDialog.vue'
 import PaymentGatewayTable from './comp/PaymentGatewayTable.vue'
 
 const store = usePaymentGatewayStore()
 const merchantStore = useDanaGatewayMerchantStore()
-const activeTab = ref('merchants')
+const route = useRoute()
+const activeTab = ref(
+  route.query.tab === 'billing-transactions'
+    ? 'billing-transactions'
+    : 'merchants'
+)
 const applicationOptions = computed(() =>
   store.applications.map(application => ({
     label: application.name,
@@ -236,6 +252,13 @@ onMounted(async () => {
 
 watch([() => store.applicationId, () => store.environment], () =>
   store.fetchMappings({ page: 1 })
+)
+
+watch(
+  () => route.query.tab,
+  tab => {
+    if (tab === 'billing-transactions') activeTab.value = tab
+  }
 )
 </script>
 

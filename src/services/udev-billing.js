@@ -144,6 +144,10 @@ export const paymentResultService = {
 
 export const paymentGatewayService = {
   list: params => getList('/v1/admin/payment-gateways', params),
+  billingTransactions: params =>
+    getList('/v1/admin/payment-gateway/billing-transactions', params),
+  billingTransaction: id =>
+    api.get(`/v1/admin/payment-gateway/billing-transactions/${id}`),
   merchantOptions: environment =>
     api.get('/v1/admin/payment-gateways/merchants', {
       params: { environment }
