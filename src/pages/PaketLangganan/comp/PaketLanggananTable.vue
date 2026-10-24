@@ -20,8 +20,8 @@
       <template #body-cell-application_id="props">
         <q-td :props="props">{{ applicationName(props.value) }}</q-td>
       </template>
-      <template #body-cell-duration_months="props">
-        <q-td :props="props">{{ props.value }} bulan</q-td>
+      <template #body-cell-duration_days="props">
+        <q-td :props="props">{{ props.value }} hari</q-td>
       </template>
       <template #body-cell-price="props">
         <q-td :props="props">{{
@@ -109,9 +109,9 @@ const columns = [
     align: 'left'
   },
   {
-    name: 'duration_months',
+    name: 'duration_days',
     label: 'Durasi',
-    field: 'duration_months',
+    field: 'duration_days',
     align: 'left',
     sortable: true
   },

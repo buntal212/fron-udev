@@ -157,7 +157,7 @@
               formatSubscriptionPrice(selectedPlan.price, selectedPlan.currency)
             }}</div>
             <div class="text-caption"
-              >Durasi {{ selectedPlan.duration_months }} bulan</div
+              >Durasi {{ selectedPlan.duration_days }} hari</div
             >
           </q-banner>
           <q-select

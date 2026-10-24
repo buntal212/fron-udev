@@ -21,6 +21,7 @@ test('kontrak UI integrasi pelanggan tidak mengekspos token selain saat dibuat',
   assert.match(dialog, /Salin/)
   assert.match(dialog, /customers:read/)
   assert.match(dialog, /customers:write/)
+  assert.match(dialog, /subscription-plans:read/)
   assert.match(dialog, /Pelanggan tersinkronisasi/)
 })
 

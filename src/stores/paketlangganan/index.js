@@ -10,7 +10,7 @@ const emptyForm = () => ({
   code: '',
   name: '',
   description: '',
-  duration_months: '',
+  duration_days: '',
   price: '',
   currency: 'IDR',
   is_active: true
@@ -111,7 +111,7 @@ export const usePaketLanggananStore = defineStore('paket-langganan', {
           code: detail.code,
           name: detail.name,
           description: detail.description || '',
-          duration_months: String(detail.duration_months),
+          duration_days: String(detail.duration_days),
           price: String(detail.price),
           currency: detail.currency || 'IDR',
           is_active: detail.is_active
@@ -132,7 +132,7 @@ export const usePaketLanggananStore = defineStore('paket-langganan', {
           code: this.form.code.trim().toUpperCase(),
           name: this.form.name.trim(),
           description: this.form.description || null,
-          duration_months: Number(this.form.duration_months),
+          duration_days: Number(this.form.duration_days),
           price: String(this.form.price).trim().replace(',', '.'),
           currency: this.form.currency.toUpperCase()
         }

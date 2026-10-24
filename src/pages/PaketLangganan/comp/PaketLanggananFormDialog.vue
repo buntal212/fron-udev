@@ -60,16 +60,17 @@
           <div class="row q-col-gutter-md">
             <div class="col-12 col-sm-6">
               <q-input
-                v-model="store.form.duration_months"
+                v-model="store.form.duration_days"
                 outlined
                 dense
                 type="number"
                 min="1"
                 step="1"
-                label="Durasi (bulan)"
+                label="Durasi (Hari)"
+                hint="Kelipatan 30 hari, misalnya 30, 60, 90, atau 180."
                 :rules="[validDuration]"
-                :error="hasError('duration_months')"
-                :error-message="errorFor('duration_months')"
+                :error="hasError('duration_days')"
+                :error-message="errorFor('duration_days')"
               />
             </div>
             <div class="col-12 col-sm-6">
@@ -148,8 +149,8 @@ const requiredApplication = value => !!value || 'Aplikasi wajib dipilih.'
 const requiredCode = value => !!value || 'Kode paket wajib diisi.'
 const requiredName = value => !!value || 'Nama paket wajib diisi.'
 const validDuration = value =>
-  /^[1-9]\d*$/.test(String(value)) ||
-  'Durasi harus berupa jumlah bulan yang valid.'
+  (/^[1-9]\d*$/.test(String(value)) && Number(value) % 30 === 0) ||
+  'Durasi harus berupa kelipatan 30 hari.'
 const validPrice = value =>
   /^\d+(?:[,.]\d{1,2})?$/.test(String(value)) ||
   'Harga harus berupa nominal Rupiah yang valid.'

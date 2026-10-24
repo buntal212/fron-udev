@@ -36,7 +36,7 @@
           <div class="section-heading">
             <div>
               <p class="eyebrow">SERVER-TO-SERVER</p>
-              <h3>Token integrasi pelanggan</h3>
+              <h3>Token integrasi aplikasi</h3>
             </div>
             <q-badge color="dark" text-color="warning" label="HTTPS + scope" />
           </div>
@@ -412,7 +412,8 @@ const router = useRouter()
 const application = computed(() => store.selectedApplication)
 const scopeOptions = [
   { label: 'Baca pelanggan', value: 'customers:read' },
-  { label: 'Tulis pelanggan', value: 'customers:write' }
+  { label: 'Tulis pelanggan', value: 'customers:write' },
+  { label: 'Baca paket langganan', value: 'subscription-plans:read' }
 ]
 const requiredTokenName = value => !!value || 'Nama token wajib diisi.'
 const requiredTestId = value =>

@@ -28,7 +28,7 @@
           >
           <div class="col-12 col-sm-6"
             ><p class="label">Durasi snapshot</p
-            ><p class="value">{{ invoice.duration_months }} bulan</p></div
+            ><p class="value">{{ invoice.duration_days }} hari</p></div
           >
           <div class="col-12 col-sm-6"
             ><p class="label">Nominal snapshot</p
