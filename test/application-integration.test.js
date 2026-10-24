@@ -14,6 +14,10 @@ test('kontrak UI integrasi pelanggan tidak mengekspos token selain saat dibuat',
     ),
     'utf8'
   )
+  const store = await readFile(
+    new URL('../src/stores/aplikasi/index.js', import.meta.url),
+    'utf8'
+  )
 
   assert.match(service, /integration-tokens/)
   assert.match(service, /integration-audits/)
@@ -22,6 +26,8 @@ test('kontrak UI integrasi pelanggan tidak mengekspos token selain saat dibuat',
   assert.match(dialog, /customers:read/)
   assert.match(dialog, /customers:write/)
   assert.match(dialog, /subscription-plans:read/)
+  assert.match(dialog, /Metadata scope \(opsional\)/)
+  assert.match(store, /scopes: \[\]/)
   assert.match(dialog, /Pelanggan tersinkronisasi/)
 })
 

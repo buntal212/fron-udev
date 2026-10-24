@@ -38,7 +38,11 @@
               <p class="eyebrow">SERVER-TO-SERVER</p>
               <h3>Token integrasi aplikasi</h3>
             </div>
-            <q-badge color="dark" text-color="warning" label="HTTPS + scope" />
+            <q-badge
+              color="dark"
+              text-color="warning"
+              label="HTTPS + token aplikasi"
+            />
           </div>
           <q-banner
             v-if="store.newTokenPlaintext"
@@ -80,7 +84,7 @@
                 use-chips
                 emit-value
                 map-options
-                label="Scope"
+                label="Metadata scope (opsional)"
                 :options="scopeOptions"
               />
             </div>

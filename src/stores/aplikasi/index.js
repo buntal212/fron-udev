@@ -47,7 +47,7 @@ export const useAplikasiStore = defineStore('aplikasi', {
     tokenSaving: false,
     tokenForm: {
       name: '',
-      scopes: ['customers:read', 'customers:write'],
+      scopes: [],
       expires_at: ''
     },
     newTokenPlaintext: null,
@@ -169,7 +169,7 @@ export const useAplikasiStore = defineStore('aplikasi', {
     resetTokenForm() {
       this.tokenForm = {
         name: '',
-        scopes: ['customers:read', 'customers:write'],
+        scopes: [],
         expires_at: ''
       }
     },
