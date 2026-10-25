@@ -50,6 +50,8 @@ const sections = [
     items: [
       { label: 'Dashboard', icon: 'space_dashboard', to: '/' },
       { label: 'Aplikasi', icon: 'apps', to: '/aplikasi' },
+      { label: 'Mitra Mandiri', icon: 'handshake', to: '/mitra-mandiri' },
+      { label: 'Referral', icon: 'sell', to: '/referral' },
       {
         label: 'Pelanggan Aplikasi',
         icon: 'groups',

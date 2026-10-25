@@ -30,6 +30,14 @@ const routes = [
         component: () => import('@/pages/Aplikasi/IndexPage.vue')
       },
       {
+        path: 'mitra-mandiri',
+        component: () => import('@/pages/MitraMandiri/IndexPage.vue')
+      },
+      {
+        path: 'referral',
+        component: () => import('@/pages/Referral/IndexPage.vue')
+      },
+      {
         path: 'pelanggan-aplikasi',
         component: () => import('@/pages/PelangganAplikasi/IndexPage.vue')
       },

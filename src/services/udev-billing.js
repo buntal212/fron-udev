@@ -24,6 +24,23 @@ export const applicationService = {
   update: (id, payload) => api.patch(`/v1/admin/applications/${id}`, payload)
 }
 
+export const partnerService = {
+  list: params => getList('/v1/admin/partners', params),
+  get: id => api.get(`/v1/admin/partners/${id}`),
+  create: payload => api.post('/v1/admin/partners', payload),
+  update: (id, payload) => api.patch(`/v1/admin/partners/${id}`, payload),
+  remove: id => api.delete(`/v1/admin/partners/${id}`)
+}
+
+export const referralCodeService = {
+  list: params => getList('/v1/admin/referral-codes', params),
+  get: id => api.get(`/v1/admin/referral-codes/${id}`),
+  usages: id =>
+    getList(`/v1/admin/referral-codes/${id}/usages`, { per_page: 15 }),
+  create: payload => api.post('/v1/admin/referral-codes', payload),
+  update: (id, payload) => api.patch(`/v1/admin/referral-codes/${id}`, payload)
+}
+
 export const applicationIntegrationService = {
   tokens: applicationId =>
     getList(`/v1/admin/applications/${applicationId}/integration-tokens`, {
