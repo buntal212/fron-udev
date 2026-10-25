@@ -152,10 +152,31 @@
             </template>
           </q-banner>
           <q-banner v-if="selectedPlan" rounded class="price-preview">
-            <div class="text-weight-bold">Harga paket</div>
+            <div class="text-weight-bold">Rincian pembayaran</div>
             <div>{{
-              formatSubscriptionPrice(selectedPlan.price, selectedPlan.currency)
+              selectedCustomer?.referral
+                ? `Harga normal ${formatSubscriptionPrice(selectedCustomer.referral.base_price, selectedPlan.currency)}`
+                : formatSubscriptionPrice(
+                    selectedPlan.price,
+                    selectedPlan.currency
+                  )
             }}</div>
+            <div v-if="selectedCustomer?.referral" class="text-caption"
+              >Diskon referral
+              {{
+                formatSubscriptionPrice(
+                  selectedCustomer.referral.discount_amount,
+                  selectedPlan.currency
+                )
+              }}
+              · Total
+              {{
+                formatSubscriptionPrice(
+                  selectedCustomer.referral.customer_price,
+                  selectedPlan.currency
+                )
+              }}</div
+            >
             <div class="text-caption"
               >Durasi {{ selectedPlan.duration_days }} hari</div
             >
@@ -279,6 +300,11 @@ const subscriptionOptions = computed(() =>
 )
 const selectedPlan = computed(() =>
   store.plans.find(plan => plan.id === store.form.subscription_plan_id)
+)
+const selectedCustomer = computed(() =>
+  store.formCustomers.find(
+    customer => customer.id === store.form.application_customer_id
+  )
 )
 const applicationNoOptionMessage = computed(() => {
   if (store.applicationsLoading) return 'Memuat aplikasi...'
