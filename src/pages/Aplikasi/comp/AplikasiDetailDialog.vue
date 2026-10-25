@@ -35,6 +35,62 @@
         <q-card-section>
           <div class="section-heading">
             <div>
+              <p class="eyebrow">KONFIGURASI DEFAULT</p>
+              <h3>Global API Token</h3>
+            </div>
+            <q-badge color="dark" text-color="warning" label="Bearer token" />
+          </div>
+          <q-banner rounded class="token-banner q-mb-md">
+            Satu token utama per aplikasi untuk integrasi server-to-server.
+            Rotasi mempertahankan token lama selama 15 menit.
+          </q-banner>
+          <div class="row items-center justify-between q-gutter-sm">
+            <div v-if="store.globalIntegrationToken">
+              <div class="text-weight-bold">
+                {{ store.globalIntegrationToken.token_prefix }}••••
+              </div>
+              <div class="text-caption text-grey-7">
+                {{ tokenStatus(store.globalIntegrationToken) }} · terakhir
+                dipakai
+                {{ formatDateTime(store.globalIntegrationToken.last_used_at) }}
+              </div>
+            </div>
+            <div v-else class="text-grey-7">Belum ada Global API Token.</div>
+            <div class="row q-gutter-sm">
+              <q-btn
+                v-if="!store.globalIntegrationToken"
+                color="warning"
+                text-color="dark"
+                no-caps
+                label="Generate"
+                :loading="store.tokenSaving"
+                @click="confirmGlobalAction('generate')"
+              />
+              <q-btn
+                v-else
+                outline
+                color="brown-8"
+                no-caps
+                label="Rotasi"
+                :loading="store.tokenSaving"
+                @click="confirmGlobalAction('rotate')"
+              />
+              <q-btn
+                v-if="store.globalIntegrationToken"
+                flat
+                color="negative"
+                no-caps
+                label="Cabut"
+                :loading="store.tokenSaving"
+                @click="confirmGlobalAction('revoke')"
+              />
+            </div>
+          </div>
+        </q-card-section>
+        <q-separator />
+        <q-card-section>
+          <div class="section-heading">
+            <div>
               <p class="eyebrow">SERVER-TO-SERVER</p>
               <h3>Token integrasi aplikasi</h3>
             </div>
@@ -403,17 +459,30 @@
       /></q-card-actions>
     </q-card>
   </q-dialog>
+  <ConfirmDialog
+    v-model="globalConfirmation.open"
+    :title="globalConfirmation.title"
+    :message="globalConfirmation.message"
+    @confirm="applyGlobalAction"
+  />
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, reactive } from 'vue'
 import { Notify } from 'quasar'
 import { useRouter } from 'vue-router'
 import { useAplikasiStore } from '@/stores/aplikasi'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 
 const store = useAplikasiStore()
 const router = useRouter()
 const application = computed(() => store.selectedApplication)
+const globalConfirmation = reactive({
+  open: false,
+  action: '',
+  title: '',
+  message: ''
+})
 const scopeOptions = [
   { label: 'Baca pelanggan', value: 'customers:read' },
   { label: 'Tulis pelanggan', value: 'customers:write' },
@@ -447,6 +516,26 @@ const copyToken = async () => {
     type: 'positive',
     message: 'Token disalin. Simpan di server aplikasi Anda.'
   })
+}
+const confirmGlobalAction = action => {
+  globalConfirmation.open = true
+  globalConfirmation.action = action
+  globalConfirmation.title =
+    action === 'revoke'
+      ? 'Cabut Global API Token?'
+      : action === 'rotate'
+        ? 'Rotasi Global API Token?'
+        : 'Generate Global API Token?'
+  globalConfirmation.message =
+    action === 'revoke'
+      ? 'Integrasi aplikasi akan ditolak sampai token baru dibuat.'
+      : action === 'rotate'
+        ? 'Token lama tetap dapat digunakan selama 15 menit.'
+        : 'Token lengkap hanya akan ditampilkan satu kali.'
+}
+const applyGlobalAction = () => {
+  globalConfirmation.open = false
+  store.manageGlobalToken(globalConfirmation.action)
 }
 const openTestCustomer = () => {
   if (!application.value || !store.integrationTest.result?.data) return

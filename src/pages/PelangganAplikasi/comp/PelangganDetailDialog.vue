@@ -61,6 +61,28 @@ const details = computed(() =>
           value: customer.value.last_synced_at || '-'
         },
         { label: 'Error sinkronisasi', value: customer.value.sync_error_code },
+        { label: 'Kode referral', value: customer.value.referral?.code },
+        {
+          label: 'Mitra referral',
+          value: customer.value.referral?.partner_name
+        },
+        { label: 'Jenis referral', value: customer.value.referral?.type },
+        {
+          label: 'Harga normal referral',
+          value: money(customer.value.referral?.base_price)
+        },
+        {
+          label: 'Diskon permanen',
+          value: money(customer.value.referral?.discount_amount)
+        },
+        {
+          label: 'Harga terkunci',
+          value: money(customer.value.referral?.customer_price)
+        },
+        {
+          label: 'Referral dikunci',
+          value: customer.value.referral?.locked_at || '-'
+        },
         { label: 'Invoice', value: String(customer.value.invoices_count ?? 0) },
         {
           label: 'Langganan',
@@ -79,6 +101,14 @@ const details = computed(() =>
       ]
     : []
 )
+const money = value =>
+  value === undefined || value === null
+    ? '-'
+    : new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0
+      }).format(Number(value))
 </script>
 <style scoped>
 .detail-dialog {

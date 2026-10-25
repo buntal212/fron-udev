@@ -41,6 +41,7 @@ export const useAplikasiStore = defineStore('aplikasi', {
     detailLoading: false,
     selectedApplication: null,
     integrationTokens: [],
+    globalIntegrationToken: null,
     integrationAudits: [],
     integrationLoading: false,
     integrationError: null,
@@ -129,6 +130,7 @@ export const useAplikasiStore = defineStore('aplikasi', {
       this.detailLoading = true
       this.selectedApplication = null
       this.integrationTokens = []
+      this.globalIntegrationToken = null
       this.integrationAudits = []
       this.integrationError = null
       this.newTokenPlaintext = null
@@ -151,14 +153,17 @@ export const useAplikasiStore = defineStore('aplikasi', {
       this.integrationLoading = true
       this.integrationError = null
       try {
-        const [tokensResponse, auditsResponse] = await Promise.all([
-          applicationIntegrationService.tokens(applicationId),
-          applicationIntegrationService.audits(applicationId, {
-            per_page: 10
-          })
-        ])
+        const [tokensResponse, auditsResponse, globalTokenResponse] =
+          await Promise.all([
+            applicationIntegrationService.tokens(applicationId),
+            applicationIntegrationService.audits(applicationId, {
+              per_page: 10
+            }),
+            applicationIntegrationService.globalToken(applicationId)
+          ])
         this.integrationTokens = tokensResponse.data.data
         this.integrationAudits = auditsResponse.data.data
+        this.globalIntegrationToken = globalTokenResponse.data.data
       } catch (error) {
         this.integrationError = requestError(error)
       } finally {
@@ -219,6 +224,28 @@ export const useAplikasiStore = defineStore('aplikasi', {
 
     clearNewToken() {
       this.newTokenPlaintext = null
+    },
+
+    async manageGlobalToken(action) {
+      if (!this.selectedApplication) return
+      this.tokenSaving = true
+      this.integrationError = null
+      try {
+        const service =
+          action === 'generate'
+            ? applicationIntegrationService.generateGlobalToken
+            : action === 'rotate'
+              ? applicationIntegrationService.rotateGlobalToken
+              : applicationIntegrationService.revokeGlobalToken
+        const response = await service(this.selectedApplication.id)
+        this.globalIntegrationToken = response.data.data
+        if (response.data.token) this.newTokenPlaintext = response.data.token
+        await this.fetchIntegrationData(this.selectedApplication.id)
+      } catch (error) {
+        this.integrationError = requestError(error)
+      } finally {
+        this.tokenSaving = false
+      }
     },
 
     resetIntegrationTest(application = null) {

@@ -42,6 +42,20 @@ export const referralCodeService = {
 }
 
 export const applicationIntegrationService = {
+  globalToken: applicationId =>
+    api.get(`/v1/admin/applications/${applicationId}/global-integration-token`),
+  generateGlobalToken: applicationId =>
+    api.post(
+      `/v1/admin/applications/${applicationId}/global-integration-token`
+    ),
+  rotateGlobalToken: applicationId =>
+    api.post(
+      `/v1/admin/applications/${applicationId}/global-integration-token/rotate`
+    ),
+  revokeGlobalToken: applicationId =>
+    api.delete(
+      `/v1/admin/applications/${applicationId}/global-integration-token`
+    ),
   tokens: applicationId =>
     getList(`/v1/admin/applications/${applicationId}/integration-tokens`, {
       per_page: 100
