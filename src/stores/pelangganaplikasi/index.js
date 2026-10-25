@@ -42,7 +42,14 @@ export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
     editingId: null,
     detailDialogOpen: false,
     detailLoading: false,
-    selectedCustomer: null
+    selectedCustomer: null,
+    referralForm: {
+      code: '',
+      preview: null,
+      error: null,
+      loading: false,
+      applying: false
+    }
   }),
 
   actions: {
@@ -115,6 +122,13 @@ export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
       this.detailDialogOpen = true
       this.detailLoading = true
       this.selectedCustomer = null
+      this.referralForm = {
+        code: '',
+        preview: null,
+        error: null,
+        loading: false,
+        applying: false
+      }
       try {
         this.selectedCustomer = (
           await applicationCustomerService.get(customer.id)
@@ -148,6 +162,49 @@ export const usePelangganAplikasiStore = defineStore('pelanggan-aplikasi', {
         }
       } finally {
         this.saving = false
+      }
+    },
+    async validateReferral() {
+      if (!this.selectedCustomer || !this.referralForm.code) return
+      this.referralForm.loading = true
+      this.referralForm.error = null
+      this.referralForm.preview = null
+      try {
+        this.referralForm.preview = (
+          await applicationCustomerService.validateReferral(
+            this.selectedCustomer.id,
+            { referral_code: this.referralForm.code.trim().toUpperCase() }
+          )
+        ).data.data
+      } catch (error) {
+        this.referralForm.error = requestError(error)
+      } finally {
+        this.referralForm.loading = false
+      }
+    },
+    async applyReferral() {
+      if (!this.selectedCustomer || !this.referralForm.preview) return
+      this.referralForm.applying = true
+      this.referralForm.error = null
+      try {
+        this.selectedCustomer = (
+          await applicationCustomerService.attachReferral(
+            this.selectedCustomer.id,
+            { referral_code: this.referralForm.preview.code }
+          )
+        ).data.data
+        this.referralForm = {
+          code: '',
+          preview: null,
+          error: null,
+          loading: false,
+          applying: false
+        }
+        await this.fetchCustomers()
+      } catch (error) {
+        this.referralForm.error = requestError(error)
+      } finally {
+        this.referralForm.applying = false
       }
     }
   }

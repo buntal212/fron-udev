@@ -106,7 +106,14 @@ export const applicationCustomerService = {
   get: id => api.get(`/v1/admin/application-customers/${id}`),
   create: payload => api.post('/v1/admin/application-customers', payload),
   update: (id, payload) =>
-    api.patch(`/v1/admin/application-customers/${id}`, payload)
+    api.patch(`/v1/admin/application-customers/${id}`, payload),
+  validateReferral: (id, payload) =>
+    api.post(
+      `/v1/admin/application-customers/${id}/referral/validate`,
+      payload
+    ),
+  attachReferral: (id, payload) =>
+    api.post(`/v1/admin/application-customers/${id}/referral`, payload)
 }
 
 export const subscriptionPlanService = {

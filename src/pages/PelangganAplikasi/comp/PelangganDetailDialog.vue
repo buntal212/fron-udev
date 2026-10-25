@@ -15,7 +15,49 @@
           @click="store.detailDialogOpen = false" /></q-card-section
       ><q-separator /><q-card-section v-if="store.detailLoading"
         ><q-spinner color="warning" size="28px" /></q-card-section
-      ><q-list v-else-if="customer" separator
+      ><q-card-section
+        v-else-if="customer && !customer.referral"
+        class="referral-panel"
+        ><p class="eyebrow">REFERRAL MANUAL</p
+        ><div class="text-weight-bold q-mb-sm">Terapkan referral pelanggan</div
+        ><q-input
+          v-model="store.referralForm.code"
+          outlined
+          dense
+          label="Kode referral"
+          placeholder="REF-XXXXXX"
+          :error="Boolean(store.referralForm.error)"
+          :error-message="store.referralForm.error"
+        />
+        ><div class="row q-gutter-sm q-mt-sm"
+          ><q-btn
+            outline
+            color="brown-8"
+            no-caps
+            label="Validasi"
+            :loading="store.referralForm.loading"
+            @click="store.validateReferral" /><q-btn
+            v-if="store.referralForm.preview"
+            color="warning"
+            text-color="dark"
+            no-caps
+            label="Terapkan"
+            :loading="store.referralForm.applying"
+            @click="store.applyReferral" /></div
+        ><div v-if="store.referralForm.preview" class="preview q-mt-sm"
+          ><strong>{{ store.referralForm.preview.code }}</strong> ·
+          {{ store.referralForm.preview.type === 'khusus' ? 'Khusus' : 'Umum'
+          }}<br />Mitra:
+          {{ store.referralForm.preview.partner_name || 'Mitra referral'
+          }}<br />Diskon
+          {{ money(store.referralForm.preview.discount_amount) }} · Harga akhir
+          <strong>{{
+            money(store.referralForm.preview.customer_price)
+          }}</strong></div
+        ></q-card-section
+      ><q-separator v-if="customer && !customer.referral" /> ><q-list
+        v-if="customer && !store.detailLoading"
+        separator
         ><q-item v-for="item in details" :key="item.label"
           ><q-item-section
             ><q-item-label caption>{{ item.label }}</q-item-label
@@ -112,7 +154,7 @@ const money = value =>
 </script>
 <style scoped>
 .detail-dialog {
-  width: min(500px, 96vw);
+  width: min(580px, 96vw);
   border-radius: 14px;
 }
 .eyebrow {
@@ -130,6 +172,17 @@ h2 {
 p {
   margin: 2px 0 0;
   color: #746b5c;
+  font-size: 0.82rem;
+}
+.referral-panel {
+  background: #fffdf8;
+}
+.preview {
+  padding: 10px;
+  border: 1px solid #e5bd62;
+  border-radius: 8px;
+  background: #fff6dc;
+  color: #604b20;
   font-size: 0.82rem;
 }
 </style>
