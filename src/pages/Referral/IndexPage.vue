@@ -129,14 +129,10 @@
                   :error="hasError('partner_id')"
                   :error-message="errorFor('partner_id')" /></div
               ><div class="col-12"
-                ><q-input
-                  v-model="store.form.code"
-                  outlined
-                  dense
-                  label="Kode referral *"
-                  hint="Huruf, angka, tanda hubung, atau garis bawah."
-                  :error="hasError('code')"
-                  :error-message="errorFor('code')" /></div
+                ><q-banner rounded class="automatic-code-banner"
+                  >Kode referral akan dibuat otomatis oleh sistem setelah
+                  disimpan.</q-banner
+                ></div
               ><div class="col-12"
                 ><q-select
                   v-model="store.form.type"
@@ -165,6 +161,31 @@
                 type="submit"
                 :loading="store.saving"
                 label="Buat kode" /></q-card-actions></q-form></q-card
+      ></q-dialog>
+      <q-dialog v-model="store.createdCodeOpen" persistent
+        ><q-card class="created-code-dialog"
+          ><q-card-section
+            ><p class="eyebrow">KODE BERHASIL DIBUAT</p
+            ><h2>Simpan kode referral ini</h2
+            ><p class="created-code-note"
+              >Bagikan kode ini kepada mitra. Kode juga tersedia pada daftar
+              referral.</p
+            ></q-card-section
+          ><q-card-section class="row items-center no-wrap q-gutter-sm"
+            ><code class="created-code">{{ store.createdCode }}</code
+            ><q-btn
+              color="warning"
+              text-color="dark"
+              no-caps
+              icon="content_copy"
+              label="Salin kode"
+              @click="copy(store.createdCode)" /></q-card-section
+          ><q-card-actions align="right"
+            ><q-btn
+              flat
+              no-caps
+              label="Selesai"
+              @click="store.createdCodeOpen = false" /></q-card-actions></q-card
       ></q-dialog>
       <q-dialog v-model="store.detailOpen"
         ><q-card class="dialog"
@@ -354,6 +375,27 @@ h1 {
   background: #fff6dc;
   border: 1px solid #e5bd62;
   color: #604b20;
+}
+.automatic-code-banner {
+  background: #fff6dc;
+  border: 1px solid #e5bd62;
+  color: #604b20;
+}
+.created-code-dialog {
+  width: min(520px, 96vw);
+  border-radius: 14px;
+}
+.created-code-note {
+  margin: 6px 0 0;
+  color: #716a5d;
+}
+.created-code {
+  flex: 1;
+  border: 1px solid #e5bd62;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff6dc;
+  font-size: 1.05rem;
 }
 .detail-grid {
   display: grid;

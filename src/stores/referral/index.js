@@ -4,7 +4,6 @@ import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
 
 const blank = () => ({
   partner_id: null,
-  code: '',
   type: 'umum',
   is_active: true
 })
@@ -29,6 +28,8 @@ export const useReferralStore = defineStore('referral', {
     form: blank(),
     formErrors: {},
     formOpen: false,
+    createdCode: null,
+    createdCodeOpen: false,
     detail: null,
     usages: [],
     detailOpen: false
@@ -84,8 +85,10 @@ export const useReferralStore = defineStore('referral', {
       this.saving = true
       this.formErrors = {}
       try {
-        await referralCodeService.create(this.form)
+        const response = await referralCodeService.create(this.form)
+        this.createdCode = response.data.data.code
         this.formOpen = false
+        this.createdCodeOpen = true
         await this.fetch()
       } catch (error) {
         this.formErrors = getApiValidationErrors(error)
