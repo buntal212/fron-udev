@@ -66,10 +66,35 @@
             }}</q-item-label></q-item-section
           ></q-item
         ></q-list
-      ><q-card-section v-if="customer && !store.detailLoading" class="timeline-panel"
-        ><p class="eyebrow">RIWAYAT TRANSAKSI</p><div class="text-weight-bold q-mb-sm">Pembayaran dan perubahan paket</div
-        ><q-list dense separator><q-item v-for="event in timeline" :key="event.key"><q-item-section avatar><q-icon :name="event.icon" :color="event.color" /></q-item-section><q-item-section><q-item-label>{{ event.title }}</q-item-label><q-item-label caption>{{ event.description }}</q-item-label></q-item-section><q-item-section side><q-badge outline :color="event.color" :label="event.status" /></q-item-section></q-item><q-item v-if="!timeline.length"><q-item-section class="text-grey-7">Belum ada pembayaran atau perubahan paket.</q-item-section></q-item></q-list>
-      ></q-card-section
+      ><q-card-section
+        v-if="customer && !store.detailLoading"
+        class="timeline-panel"
+        ><p class="eyebrow">RIWAYAT TRANSAKSI</p
+        ><div class="text-weight-bold q-mb-sm"
+          >Pembayaran dan perubahan paket</div
+        ><q-list dense separator
+          ><q-item v-for="event in timeline" :key="event.key"
+            ><q-item-section avatar
+              ><q-icon
+                :name="event.icon"
+                :color="event.color" /></q-item-section
+            ><q-item-section
+              ><q-item-label>{{ event.title }}</q-item-label
+              ><q-item-label caption>{{
+                event.description
+              }}</q-item-label></q-item-section
+            ><q-item-section side
+              ><q-badge
+                outline
+                :color="event.color"
+                :label="event.status" /></q-item-section></q-item
+          ><q-item v-if="!timeline.length"
+            ><q-item-section class="text-grey-7"
+              >Belum ada pembayaran atau perubahan paket.</q-item-section
+            ></q-item
+          ></q-list
+        >
+        ></q-card-section
       ><q-card-actions align="right"
         ><q-btn
           flat
@@ -157,8 +182,31 @@ const money = value =>
       }).format(Number(value))
 const timeline = computed(() => {
   if (!customer.value) return []
-  const periods = (customer.value.subscriptions || []).flatMap(subscription => (subscription.period_events || []).map(event => ({ key: `period-${event.id}`, icon: 'workspace_premium', color: 'warning', status: event.event_type === 'renewal' ? 'Diperpanjang' : 'Aktif', title: 'Perubahan paket / masa aktif', description: `${event.previous_expires_at || '-'} → ${event.new_expires_at || '-'} · ${event.notes || ''}` })))
-  const payments = (customer.value.invoices || []).flatMap(invoice => (invoice.payment_attempts || []).map(attempt => ({ key: `payment-${attempt.id}`, icon: attempt.status === 'succeeded' ? 'payments' : 'error_outline', color: attempt.status === 'succeeded' ? 'positive' : attempt.status === 'pending' ? 'warning' : 'negative', status: attempt.status, title: `Pembayaran ${invoice.invoice_number}`, description: `${attempt.failure_code || attempt.settlement?.id || 'Menunggu settlement'} · ${attempt.completed_at || attempt.requested_at || ''}` })))
+  const periods = (customer.value.subscriptions || []).flatMap(subscription =>
+    (subscription.period_events || []).map(event => ({
+      key: `period-${event.id}`,
+      icon: 'workspace_premium',
+      color: 'warning',
+      status: event.event_type === 'renewal' ? 'Diperpanjang' : 'Aktif',
+      title: 'Perubahan paket / masa aktif',
+      description: `${event.previous_expires_at || '-'} → ${event.new_expires_at || '-'} · ${event.notes || ''}`
+    }))
+  )
+  const payments = (customer.value.invoices || []).flatMap(invoice =>
+    (invoice.payment_attempts || []).map(attempt => ({
+      key: `payment-${attempt.id}`,
+      icon: attempt.status === 'succeeded' ? 'payments' : 'error_outline',
+      color:
+        attempt.status === 'succeeded'
+          ? 'positive'
+          : attempt.status === 'pending'
+            ? 'warning'
+            : 'negative',
+      status: attempt.status,
+      title: `Pembayaran ${invoice.invoice_number}`,
+      description: `${attempt.failure_code || attempt.settlement?.id || 'Menunggu settlement'} · ${attempt.completed_at || attempt.requested_at || ''}`
+    }))
+  )
   return [...payments, ...periods]
 })
 </script>
@@ -195,5 +243,11 @@ p {
   color: #604b20;
   font-size: 0.82rem;
 }
-.timeline-panel{background:#fffdf8}.timeline-panel .q-item__label--caption{white-space:normal;word-break:break-word}
+.timeline-panel {
+  background: #fffdf8;
+}
+.timeline-panel .q-item__label--caption {
+  white-space: normal;
+  word-break: break-word;
+}
 </style>
