@@ -135,10 +135,25 @@
           color="warning"
           text-color="dark"
           icon="receipt_long"
-          label="Buat Transaksi Sandbox"
+          :label="
+            pendingTransactionAction
+              ? 'Coba Ulang Transaksi Sandbox'
+              : 'Buat Transaksi Sandbox'
+          "
           no-caps
           :loading="creatingTransaction"
           @click="createTransaction"
+        />
+      </div>
+      <div v-if="pendingTransactionAction" class="col-12 col-sm-auto">
+        <q-btn
+          outline
+          color="grey-8"
+          icon="restart_alt"
+          label="Mulai Tindakan Baru"
+          no-caps
+          :disable="creatingTransaction"
+          @click="startNewTransactionAction"
         />
       </div>
       <div class="col-12 col-sm-auto">
@@ -475,7 +490,7 @@ const history = ref([])
 const error = ref(null)
 const amountMinor = ref(10000)
 const paymentMethod = ref('dana_wallet')
-const idempotencyKey = ref(null)
+const pendingTransactionAction = ref(null)
 const sandboxResultContext = ref(null)
 const danaStatus = ref(null)
 const qrisDataUrl = ref(null)
@@ -595,7 +610,7 @@ function reset() {
   transaction.value = null
   history.value = []
   error.value = null
-  idempotencyKey.value = null
+  pendingTransactionAction.value = null
   sandboxResultContext.value = null
   danaStatus.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
@@ -685,22 +700,29 @@ async function createTransaction() {
     return
   }
 
-  idempotencyKey.value ??= globalThis.crypto.randomUUID()
+  const payload = {
+    amount_minor: amountMinor.value,
+    payment_method: paymentMethod.value
+  }
+  if (!sameTransactionAction(pendingTransactionAction.value, payload)) {
+    pendingTransactionAction.value = {
+      ...payload,
+      idempotencyKey: globalThis.crypto.randomUUID()
+    }
+  }
+  const action = pendingTransactionAction.value
   creatingTransaction.value = true
   error.value = null
   try {
     const response =
       await danaGatewayMerchantService.createSandboxTestTransaction(
         merchantId.value,
-        {
-          amount_minor: amountMinor.value,
-          payment_method: paymentMethod.value
-        },
-        idempotencyKey.value
+        payload,
+        action.idempotencyKey
       )
     transaction.value = response.data?.data?.transaction ?? null
     sandboxResultContext.value = response.data?.data?.result_context ?? null
-    idempotencyKey.value = null
+    pendingTransactionAction.value = null
     Notify.create({
       message:
         'Transaksi Sandbox dibuat. Pembayaran masih menunggu verifikasi DANA.',
@@ -715,6 +737,19 @@ async function createTransaction() {
   } finally {
     creatingTransaction.value = false
   }
+}
+
+function sameTransactionAction(action, payload) {
+  return (
+    action?.amount_minor === payload.amount_minor &&
+    action?.payment_method === payload.payment_method &&
+    typeof action.idempotencyKey === 'string'
+  )
+}
+
+function startNewTransactionAction() {
+  pendingTransactionAction.value = null
+  error.value = null
 }
 
 function openCheckout() {

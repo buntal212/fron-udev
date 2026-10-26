@@ -56,3 +56,23 @@ test('riwayat Sandbox menampilkan metode tanpa mengekspos instruksi atau credent
   assert.doesNotMatch(history, /private_key/)
   assert.doesNotMatch(history, /dana_webhook_public_key/)
 })
+
+test('panel mengikat retry pada snapshot tindakan dan membuat key baru saat nominal atau metode berubah', async () => {
+  const panel = await readFile(
+    new URL(
+      '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  assert.match(panel, /pendingTransactionAction/)
+  assert.match(
+    panel,
+    /sameTransactionAction\(pendingTransactionAction\.value, payload\)/
+  )
+  assert.match(panel, /idempotencyKey: globalThis\.crypto\.randomUUID\(\)/)
+  assert.match(panel, /action\.idempotencyKey/)
+  assert.match(panel, /Mulai Tindakan Baru/)
+  assert.match(panel, /pendingTransactionAction\.value = null/)
+})
