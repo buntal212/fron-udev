@@ -177,7 +177,8 @@
               }}</div
             >
             <div class="text-caption">
-              {{ store.form.period_count }} periode × 30 hari =
+              {{ store.form.period_count }} periode ×
+              {{ selectedPlan.duration_days }} hari =
               {{ totalDurationDays }} hari
             </div>
             <div class="text-caption text-weight-bold">
@@ -326,7 +327,9 @@ const periodOptions = Array.from({ length: 12 }, (_, index) => ({
   value: index + 1
 }))
 const totalDurationDays = computed(
-  () => Number(store.form.period_count || 1) * 30
+  () =>
+    Number(store.form.period_count || 1) *
+    Number(selectedPlan.value?.duration_days || 30)
 )
 const unitPrice = computed(() => {
   if (selectedCustomer.value?.referral?.customer_price) {
