@@ -39,6 +39,18 @@ test('riwayat pembayaran memakai audit gateway yang terverifikasi dan metadata w
   assert.match(history, /sandboxPaymentWebhooks/)
   assert.match(history, /sandboxPaymentSummary/)
   assert.match(history, /sandboxPaymentDetail/)
+  assert.match(history, /queryDanaSandboxPaymentStatus/)
+  assert.match(history, /canQueryDanaStatus/)
+  assert.match(history, /'va_bri', 'va_pani', 'va_cimb', 'va_btpn'/)
+  assert.match(history, /payment\.status === 'pending'/)
+  assert.match(history, /label="Cek Status DANA"/)
+  assert.match(history, /Status lokal/)
+  assert.match(history, /Status DANA/)
+  assert.match(
+    history,
+    /Pemeriksaan read-only;[\s\S]*status pembayaran[\s\S]*lokal/
+  )
+  assert.doesNotMatch(history, /createSandboxTestTransaction/)
   assert.match(history, /Promise\.allSettled/)
   assert.match(history, /pendingAuditRequests/)
   assert.match(history, /AUDIT_CACHE_TTL_MS/)

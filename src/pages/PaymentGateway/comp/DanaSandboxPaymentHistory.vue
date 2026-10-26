@@ -110,7 +110,19 @@
               color="warning"
               icon="visibility"
               aria-label="Detail pembayaran"
-              @click="openDetail(props.row)" /></q-td
+              @click="openDetail(props.row)" />
+            <q-btn
+              v-if="canQueryDanaStatus(props.row)"
+              flat
+              dense
+              no-caps
+              color="primary"
+              icon="query_stats"
+              label="Cek Status DANA"
+              :loading="
+                danaStatusLoading && danaStatusPaymentId === props.row.id
+              "
+              @click="checkDanaStatus(props.row)" /></q-td
         ></template>
       </q-table>
       <div v-else-if="payments.length" class="q-gutter-y-sm"
@@ -144,7 +156,18 @@
               label="Detail audit"
               no-caps
               class="q-mt-sm"
-              @click="openDetail(payment)" /></q-card-section></q-card
+              @click="openDetail(payment)" />
+            <q-btn
+              v-if="canQueryDanaStatus(payment)"
+              flat
+              dense
+              no-caps
+              color="primary"
+              icon="query_stats"
+              label="Cek Status DANA"
+              class="q-mt-sm q-ml-sm"
+              :loading="danaStatusLoading && danaStatusPaymentId === payment.id"
+              @click="checkDanaStatus(payment)" /></q-card-section></q-card
       ></div>
       <q-banner v-else-if="!loading && !error" rounded class="warning-banner"
         >Belum ada transaksi Sandbox yang sesuai untuk akun admin ini.</q-banner
@@ -257,6 +280,88 @@
             ></div
           >
         </div>
+        <section
+          v-if="canQueryDanaStatus(selectedPayment)"
+          class="audit-section"
+        >
+          <div class="section-heading">
+            <q-icon name="query_stats" color="primary" size="21px" />
+            <div>
+              <h4>Status DANA Sandbox</h4>
+              <p
+                >Pemeriksaan read-only; tidak mengubah status pembayaran
+                lokal.</p
+              >
+            </div>
+          </div>
+          <q-btn
+            outline
+            dense
+            no-caps
+            color="primary"
+            icon="query_stats"
+            label="Cek Status DANA"
+            :loading="danaStatusLoading"
+            @click="checkDanaStatus(selectedPayment)"
+          />
+          <q-banner v-if="danaStatusError" rounded class="error-banner q-mt-sm">
+            <template #avatar><q-icon name="error_outline" /></template>
+            {{ danaStatusError }}
+          </q-banner>
+          <div
+            v-else-if="
+              danaStatus && danaStatusPaymentId === selectedPayment?.id
+            "
+            class="audit-meta-grid q-mt-sm"
+          >
+            <div class="audit-meta-item"
+              ><div
+                ><span>Status lokal</span
+                ><strong>{{ labelFor(danaStatus.local_status) }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><div
+                ><span>Status DANA</span
+                ><strong>{{
+                  danaStatus.dana_status?.latest_transaction_status || '-'
+                }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><div
+                ><span>Response code</span
+                ><strong>{{
+                  danaStatus.dana_status?.response_code || '-'
+                }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><div
+                ><span>HTTP DANA</span
+                ><strong>{{
+                  danaStatus.dana_status?.http_status || '-'
+                }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><div
+                ><span>Request ID</span
+                ><strong>{{
+                  danaStatus.dana_status?.request_id || '-'
+                }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><div
+                ><span>Waktu cek</span
+                ><strong>{{
+                  formatDate(danaStatus.dana_status?.checked_at)
+                }}</strong></div
+              ></div
+            >
+          </div>
+        </section>
         <section class="audit-section">
           <div class="section-heading"
             ><q-icon name="timeline" color="warning" size="21px" /><div
@@ -449,6 +554,10 @@ const detailLoading = ref(false)
 const webhooks = ref([])
 const webhookError = ref(null)
 const webhookLoading = ref(false)
+const danaStatus = ref(null)
+const danaStatusError = ref(null)
+const danaStatusLoading = ref(false)
+const danaStatusPaymentId = ref(null)
 const webhookMeta = ref({
   current_page: 1,
   last_page: 1,
@@ -541,6 +650,10 @@ watch(
     detailError.value = null
     webhooks.value = []
     webhookError.value = null
+    danaStatus.value = null
+    danaStatusError.value = null
+    danaStatusLoading.value = false
+    danaStatusPaymentId.value = null
     selectedPayment.value = null
     detailLoadedAt.value = 0
     webhookLoadedAt.value = 0
@@ -575,6 +688,13 @@ function statusColor(status) {
     : ['failed', 'expired', 'cancelled'].includes(status)
       ? 'negative'
       : 'warning'
+}
+function canQueryDanaStatus(payment) {
+  return (
+    ['qris', 'va_bri', 'va_pani', 'va_cimb', 'va_btpn'].includes(
+      payment?.payment_method
+    ) && payment.status === 'pending'
+  )
 }
 function eventColor(event) {
   return statusColor(event.new_status)
@@ -749,6 +869,9 @@ async function openDetail(payment, force = false) {
   selectedPayment.value = payment
   detail.value = null
   detailError.value = null
+  danaStatus.value = null
+  danaStatusError.value = null
+  danaStatusPaymentId.value = null
   webhooks.value = []
   webhookError.value = null
   webhookMeta.value = {
@@ -817,6 +940,34 @@ async function openDetail(payment, force = false) {
 
   detailLoading.value = false
   webhookLoading.value = false
+}
+async function checkDanaStatus(payment) {
+  if (!merchantId.value || !payment?.id || !canQueryDanaStatus(payment)) return
+  if (!auditAvailable(danaStatusError) || danaStatusLoading.value) return
+
+  await openDetail(payment)
+  if (selectedPayment.value?.id !== payment.id) return
+
+  danaStatusLoading.value = true
+  danaStatusError.value = null
+  danaStatusPaymentId.value = payment.id
+  try {
+    const response =
+      await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+        merchantId.value,
+        payment.id
+      )
+    if (selectedPayment.value?.id !== payment.id) return
+    danaStatus.value = response.data?.data ?? null
+  } catch (exception) {
+    if (selectedPayment.value?.id === payment.id) {
+      rememberRateLimit(exception)
+      danaStatusError.value = auditErrorMessage(exception)
+    }
+  } finally {
+    if (danaStatusPaymentId.value === payment.id)
+      danaStatusLoading.value = false
+  }
 }
 function retryDetail() {
   if (selectedPayment.value) openDetail(selectedPayment.value, true)
