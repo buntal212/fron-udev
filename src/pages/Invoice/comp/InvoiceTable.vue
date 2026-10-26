@@ -26,10 +26,32 @@
       <template #body-cell-plan="props">
         <q-td :props="props">{{ props.row.plan?.name || '—' }}</q-td>
       </template>
-      <template #body-cell-amount="props">
+      <template #body-cell-normal_price="props">
         <q-td :props="props">{{
-          formatSubscriptionPrice(props.value, props.row.currency)
+          formatSubscriptionPrice(
+            props.row.pricing?.normal_price,
+            props.row.currency
+          )
         }}</q-td>
+      </template>
+      <template #body-cell-discount_amount="props">
+        <q-td :props="props">{{
+          formatSubscriptionPrice(
+            props.row.pricing?.discount_amount,
+            props.row.currency
+          )
+        }}</q-td>
+      </template>
+      <template #body-cell-final_price="props">
+        <q-td :props="props">{{
+          formatSubscriptionPrice(
+            props.row.pricing?.final_price ?? props.row.amount,
+            props.row.currency
+          )
+        }}</q-td>
+      </template>
+      <template #body-cell-referral="props">
+        <q-td :props="props">{{ referralName(props.row) }}</q-td>
       </template>
       <template #body-cell-issued_at="props">
         <q-td :props="props">{{ formatSubscriptionDate(props.value) }}</q-td>
@@ -110,12 +132,27 @@ const columns = [
   { name: 'customer', label: 'Pelanggan', field: 'customer', align: 'left' },
   { name: 'plan', label: 'Paket', field: 'plan', align: 'left' },
   {
-    name: 'amount',
-    label: 'Nominal',
-    field: 'amount',
+    name: 'normal_price',
+    label: 'Harga sebelum potongan',
+    field: row => row.pricing?.normal_price ?? row.amount,
+    align: 'right',
+    sortable: false
+  },
+  {
+    name: 'discount_amount',
+    label: 'Potongan',
+    field: row => row.pricing?.discount_amount ?? '0.00',
+    align: 'right',
+    sortable: false
+  },
+  {
+    name: 'final_price',
+    label: 'Harga setelah potongan',
+    field: row => row.pricing?.final_price ?? row.amount,
     align: 'right',
     sortable: true
   },
+  { name: 'referral', label: 'Referral', field: 'referral', align: 'left' },
   {
     name: 'issued_at',
     label: 'Diterbitkan',
@@ -154,6 +191,14 @@ const applicationName = invoice => {
     props.applications.find(application => application.id === applicationId)
       ?.name || '—'
   )
+}
+
+const referralName = invoice => {
+  const { referral_partner_name: partnerName, referral_code: referralCode } =
+    invoice.pricing || {}
+
+  if (partnerName && referralCode) return `${partnerName} (${referralCode})`
+  return partnerName || referralCode || '—'
 }
 </script>
 

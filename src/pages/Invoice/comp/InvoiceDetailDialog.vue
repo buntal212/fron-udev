@@ -31,10 +31,35 @@
             ><p class="value">{{ invoice.duration_days }} hari</p></div
           >
           <div class="col-12 col-sm-6"
-            ><p class="label">Nominal snapshot</p
+            ><p class="label">Harga sebelum potongan</p
             ><p class="value">{{
-              formatSubscriptionPrice(invoice.amount, invoice.currency)
+              formatSubscriptionPrice(
+                invoice.pricing?.normal_price ?? invoice.amount,
+                invoice.currency
+              )
             }}</p></div
+          >
+          <div class="col-12 col-sm-6"
+            ><p class="label">Potongan</p
+            ><p class="value">{{
+              formatSubscriptionPrice(
+                invoice.pricing?.discount_amount ?? '0.00',
+                invoice.currency
+              )
+            }}</p></div
+          >
+          <div class="col-12 col-sm-6"
+            ><p class="label">Harga setelah potongan</p
+            ><p class="value">{{
+              formatSubscriptionPrice(
+                invoice.pricing?.final_price ?? invoice.amount,
+                invoice.currency
+              )
+            }}</p></div
+          >
+          <div class="col-12 col-sm-6"
+            ><p class="label">Referral</p
+            ><p class="value">{{ referralName }}</p></div
           >
           <div class="col-12 col-sm-6"
             ><p class="label">Tanggal terbit</p
@@ -175,6 +200,13 @@ import {
 
 const store = useInvoiceStore()
 const invoice = computed(() => store.selectedInvoice || {})
+const referralName = computed(() => {
+  const { referral_partner_name: partnerName, referral_code: referralCode } =
+    invoice.value.pricing || {}
+
+  if (partnerName && referralCode) return `${partnerName} (${referralCode})`
+  return partnerName || referralCode || '—'
+})
 const reconciliationLabel = status => getReconciliationStatus(status)
 const canStartCheckout = computed(
   () =>
