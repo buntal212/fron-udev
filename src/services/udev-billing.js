@@ -160,11 +160,9 @@ export const invoiceService = {
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
   simulateSandboxPayment: (id, payload) =>
-    api.post(
-      `/v1/admin/invoices/${id}/sandbox-simulate-payment`,
-      payload,
-      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
-    )
+    api.post(`/v1/admin/invoices/${id}/sandbox-simulate-payment`, payload, {
+      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+    })
 }
 
 export const paymentAttemptService = {

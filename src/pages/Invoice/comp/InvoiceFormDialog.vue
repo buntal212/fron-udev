@@ -157,7 +157,8 @@
               selectedCustomer?.referral
                 ? `Harga normal ${formatSubscriptionPrice(Number(selectedCustomer.referral.base_price) * Number(store.form.period_count || 1), selectedPlan.currency)}`
                 : formatSubscriptionPrice(
-                    Number(selectedPlan.price) * Number(store.form.period_count || 1),
+                    Number(selectedPlan.price) *
+                      Number(store.form.period_count || 1),
                     selectedPlan.currency
                   )
             }}</div>
@@ -165,16 +166,14 @@
               >Diskon referral
               {{
                 formatSubscriptionPrice(
-                  Number(selectedCustomer.referral.discount_amount) * Number(store.form.period_count || 1),
+                  Number(selectedCustomer.referral.discount_amount) *
+                    Number(store.form.period_count || 1),
                   selectedPlan.currency
                 )
               }}
               · Total
               {{
-                formatSubscriptionPrice(
-                  totalPrice,
-                  selectedPlan.currency
-                )
+                formatSubscriptionPrice(totalPrice, selectedPlan.currency)
               }}</div
             >
             <div class="text-caption">
@@ -182,7 +181,8 @@
               {{ totalDurationDays }} hari
             </div>
             <div class="text-caption text-weight-bold">
-              Total tagihan {{ formatSubscriptionPrice(totalPrice, selectedPlan.currency) }}
+              Total tagihan
+              {{ formatSubscriptionPrice(totalPrice, selectedPlan.currency) }}
             </div>
           </q-banner>
           <q-select
@@ -325,15 +325,17 @@ const periodOptions = Array.from({ length: 12 }, (_, index) => ({
   label: `${index + 1} periode (${(index + 1) * 30} hari)`,
   value: index + 1
 }))
-const totalDurationDays = computed(() => Number(store.form.period_count || 1) * 30)
+const totalDurationDays = computed(
+  () => Number(store.form.period_count || 1) * 30
+)
 const unitPrice = computed(() => {
   if (selectedCustomer.value?.referral?.customer_price) {
     return Number(selectedCustomer.value.referral.customer_price)
   }
   return Number(selectedPlan.value?.price || 0)
 })
-const totalPrice = computed(() =>
-  unitPrice.value * Number(store.form.period_count || 1)
+const totalPrice = computed(
+  () => unitPrice.value * Number(store.form.period_count || 1)
 )
 const applicationNoOptionMessage = computed(() => {
   if (store.applicationsLoading) return 'Memuat aplikasi...'

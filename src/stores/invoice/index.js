@@ -529,16 +529,23 @@ export const useInvoiceStore = defineStore('invoice', {
       }
     },
 
-    async simulateSandboxPayment(action = 'paid', invoiceId = this.selectedInvoice?.id) {
+    async simulateSandboxPayment(
+      action = 'paid',
+      invoiceId = this.selectedInvoice?.id
+    ) {
       if (!invoiceId || this.simulateLoading) return
 
       this.simulateLoading = true
       this.simulateError = ''
       this.simulateMessage = ''
       try {
-        const response = await invoiceService.simulateSandboxPayment(invoiceId, { action })
+        const response = await invoiceService.simulateSandboxPayment(
+          invoiceId,
+          { action }
+        )
         this.selectedInvoice = response.data.data
-        this.simulateMessage = response.data.test?.message || 'Simulasi berhasil diproses.'
+        this.simulateMessage =
+          response.data.test?.message || 'Simulasi berhasil diproses.'
         const index = this.items.findIndex(item => item.id === invoiceId)
         if (index !== -1) {
           this.items[index] = response.data.data

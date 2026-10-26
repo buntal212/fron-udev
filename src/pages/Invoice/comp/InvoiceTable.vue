@@ -27,7 +27,10 @@
         <q-td :props="props">
           <div>{{ props.row.plan?.name || '—' }}</div>
           <div class="text-caption text-grey-7">
-            {{ props.row.period_count || 1 }} periode ({{ props.row.duration_days }} hr)
+            {{ props.row.period_count || 1 }} periode ({{
+              props.row.duration_days
+            }}
+            hr)
           </div>
         </q-td>
       </template>

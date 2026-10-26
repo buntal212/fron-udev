@@ -28,7 +28,12 @@
           >
           <div class="col-12 col-sm-6"
             ><p class="label">Jumlah periode</p
-            ><p class="value">{{ invoice.period_count || 1 }} periode ({{ invoice.duration_days }} hari)</p></div
+            ><p class="value"
+              >{{ invoice.period_count || 1 }} periode ({{
+                invoice.duration_days
+              }}
+              hari)</p
+            ></div
           >
           <div class="col-12 col-sm-6"
             ><p class="label">Durasi snapshot</p
@@ -86,11 +91,16 @@
           <div v-if="invoice.subscription" class="col-12 col-sm-6">
             <p class="label">Masa aktif langganan</p>
             <p class="value">
-              Berakhir {{ formatSubscriptionDate(invoice.subscription.expires_at) }}
+              Berakhir
+              {{ formatSubscriptionDate(invoice.subscription.expires_at) }}
               <q-badge
                 rounded
                 class="q-ml-xs"
-                :color="invoice.subscription.status === 'active' ? 'positive' : 'grey-7'"
+                :color="
+                  invoice.subscription.status === 'active'
+                    ? 'positive'
+                    : 'grey-7'
+                "
                 :label="invoice.subscription.status"
               />
             </p>
@@ -138,7 +148,11 @@
         </q-banner>
 
         <!-- Admin Sandbox Testing & Controls Panel -->
-        <q-card flat bordered class="q-pa-md test-panel rounded-borders q-mt-sm">
+        <q-card
+          flat
+          bordered
+          class="q-pa-md test-panel rounded-borders q-mt-sm"
+        >
           <div class="row items-center justify-between q-mb-xs">
             <div class="text-weight-bold text-brown-9 row items-center">
               <q-icon name="science" class="q-mr-xs text-warning" size="20px" />
@@ -147,7 +161,10 @@
             <q-badge color="dark" text-color="warning" label="Sandbox UAT" />
           </div>
           <p class="section-description q-mb-sm">
-            Kontrol pengujian end-to-end: Lakukan checkout dan bayar melalui DANA Sandbox, lalu sinkronkan status untuk verifikasi gateway resmi. Settlement operasional hanya diproses dari konfirmasi gateway DANA yang valid.
+            Kontrol pengujian end-to-end: Lakukan checkout dan bayar melalui
+            DANA Sandbox, lalu sinkronkan status untuk verifikasi gateway resmi.
+            Settlement operasional hanya diproses dari konfirmasi gateway DANA
+            yang valid.
           </p>
           <div class="row q-gutter-sm items-center">
             <q-btn
@@ -189,10 +206,20 @@
               target="_blank"
             />
           </div>
-          <q-banner v-if="store.simulateMessage" rounded dense class="bg-positive text-white q-mt-sm">
+          <q-banner
+            v-if="store.simulateMessage"
+            rounded
+            dense
+            class="bg-positive text-white q-mt-sm"
+          >
             {{ store.simulateMessage }}
           </q-banner>
-          <q-banner v-if="store.simulateError || store.reconcileError" rounded dense class="bg-negative text-white q-mt-sm">
+          <q-banner
+            v-if="store.simulateError || store.reconcileError"
+            rounded
+            dense
+            class="bg-negative text-white q-mt-sm"
+          >
             {{ store.simulateError || store.reconcileError }}
           </q-banner>
         </q-card>
@@ -260,7 +287,9 @@
         </div>
         <q-separator v-if="invoice.subscription?.period_events?.length" />
         <div v-if="invoice.subscription?.period_events?.length">
-          <p class="section-title">Riwayat aktivasi dan perpanjangan langganan</p>
+          <p class="section-title"
+            >Riwayat aktivasi dan perpanjangan langganan</p
+          >
           <q-list bordered separator class="attempt-list">
             <q-item
               v-for="evt in invoice.subscription.period_events"
@@ -268,14 +297,20 @@
             >
               <q-item-section>
                 <q-item-label class="text-weight-bold">
-                  {{ evt.event_type === 'activation' ? 'Aktivasi Awal Langganan' : 'Perpanjangan Masa Aktif' }}
+                  {{
+                    evt.event_type === 'activation'
+                      ? 'Aktivasi Awal Langganan'
+                      : 'Perpanjangan Masa Aktif'
+                  }}
                 </q-item-label>
                 <q-item-label caption>
                   <span v-if="evt.previous_expires_at">
-                    {{ formatSubscriptionDate(evt.previous_expires_at) }} &rarr; {{ formatSubscriptionDate(evt.new_expires_at) }}
+                    {{ formatSubscriptionDate(evt.previous_expires_at) }} &rarr;
+                    {{ formatSubscriptionDate(evt.new_expires_at) }}
                   </span>
                   <span v-else>
-                    Masa aktif berakhir: {{ formatSubscriptionDate(evt.new_expires_at) }}
+                    Masa aktif berakhir:
+                    {{ formatSubscriptionDate(evt.new_expires_at) }}
                   </span>
                 </q-item-label>
                 <q-item-label v-if="evt.notes" caption class="text-grey-7">
@@ -286,9 +321,17 @@
                 <div class="column items-end q-gutter-y-xs">
                   <q-badge
                     rounded
-                    :color="evt.event_type === 'activation' ? 'positive' : 'warning'"
-                    :text-color="evt.event_type === 'activation' ? 'white' : 'dark'"
-                    :label="evt.event_type === 'activation' ? 'Aktivasi' : 'Perpanjangan'"
+                    :color="
+                      evt.event_type === 'activation' ? 'positive' : 'warning'
+                    "
+                    :text-color="
+                      evt.event_type === 'activation' ? 'white' : 'dark'
+                    "
+                    :label="
+                      evt.event_type === 'activation'
+                        ? 'Aktivasi'
+                        : 'Perpanjangan'
+                    "
                   />
                   <span class="text-caption text-grey-7">
                     {{ formatSubscriptionDate(evt.created_at) }}
