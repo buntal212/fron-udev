@@ -164,6 +164,18 @@
           @click="checkTransactionStatus"
         />
       </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          v-if="transaction?.id"
+          outline
+          color="primary"
+          icon="query_stats"
+          label="Cek Status DANA"
+          no-caps
+          :loading="checkingDanaStatus"
+          @click="checkDanaStatus"
+        />
+      </div>
     </div>
 
     <q-banner v-if="transaction" rounded class="tester-transaction q-mt-md">
@@ -182,6 +194,50 @@
       <div class="q-mt-xs text-caption">
         Status dibaca dari pembayaran tersimpan; status <strong>paid</strong>
         hanya berasal dari webhook DANA yang tervalidasi.
+      </div>
+      <div v-if="danaStatus" class="dana-status-result q-mt-md">
+        <div class="text-weight-bold">Hasil Query Payment DANA Sandbox</div>
+        <div class="text-caption q-mb-sm">
+          Pemeriksaan ini read-only dan tidak mengubah status lokal atau
+          pembayaran.
+        </div>
+        <div class="tester-status-grid">
+          <div class="tester-status-item">
+            <span>Status lokal</span>
+            <q-badge :color="paymentStatusColor(danaStatus.local_status)">
+              {{ labelFor(danaStatus.local_status) }}
+            </q-badge>
+          </div>
+          <div class="tester-status-item">
+            <span>Status DANA</span>
+            <q-badge color="blue-grey">
+              {{
+                danaStatus.dana_status.latest_transaction_status ||
+                'Tidak tersedia'
+              }}
+            </q-badge>
+          </div>
+          <div class="tester-status-item">
+            <span>Response code</span>
+            <code>{{
+              danaStatus.dana_status.response_code || 'Tidak tersedia'
+            }}</code>
+          </div>
+          <div class="tester-status-item">
+            <span>HTTP DANA</span>
+            <code>{{ danaStatus.dana_status.http_status }}</code>
+          </div>
+          <div class="tester-status-item">
+            <span>Request ID</span>
+            <code>{{
+              danaStatus.dana_status.request_id || 'Tidak tersedia'
+            }}</code>
+          </div>
+          <div class="tester-status-item">
+            <span>Waktu cek</span>
+            <span>{{ formatDate(danaStatus.dana_status.checked_at) }}</span>
+          </div>
+        </div>
       </div>
       <div
         v-if="transaction.payment_instruction"
@@ -405,6 +461,7 @@ const router = useRouter()
 const validating = ref(false)
 const creatingTransaction = ref(false)
 const checkingStatus = ref(false)
+const checkingDanaStatus = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
 const transaction = ref(null)
@@ -414,6 +471,7 @@ const amountMinor = ref(10000)
 const paymentMethod = ref('dana_wallet')
 const idempotencyKey = ref(null)
 const sandboxResultContext = ref(null)
+const danaStatus = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
 const qrisError = ref(null)
@@ -533,6 +591,7 @@ function reset() {
   error.value = null
   idempotencyKey.value = null
   sandboxResultContext.value = null
+  danaStatus.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
 
@@ -745,6 +804,26 @@ async function checkTransactionStatus() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     checkingStatus.value = false
+  }
+}
+
+async function checkDanaStatus() {
+  if (!merchantId.value || !transaction.value?.id || checkingDanaStatus.value)
+    return
+  checkingDanaStatus.value = true
+  error.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+        merchantId.value,
+        transaction.value.id
+      )
+    danaStatus.value = response.data?.data ?? null
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    checkingDanaStatus.value = false
   }
 }
 

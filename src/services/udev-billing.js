@@ -246,6 +246,11 @@ export const danaGatewayMerchantService = {
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions/${paymentId}/status`,
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  queryDanaSandboxPaymentStatus: (merchantId, paymentId) =>
+    api.get(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions/${paymentId}/dana-status`,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   sandboxPayments: (merchantId, params) =>
     api.get(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/payments`,

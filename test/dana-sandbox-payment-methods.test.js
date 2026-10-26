@@ -35,6 +35,13 @@ test('panel tester Sandbox mengirim metode yang diizinkan dan menampilkan instru
   assert.match(panel, /qris-sandbox-\$\{transaction\.value\?\.id/)
   assert.doesNotMatch(panel, /qrserver|quickchart|googleapis/i)
   assert.match(panel, /hanya berasal dari webhook DANA yang tervalidasi/)
+  assert.match(panel, /label="Cek Status DANA"/)
+  assert.match(panel, /queryDanaSandboxPaymentStatus/)
+  assert.match(panel, /Status lokal/)
+  assert.match(panel, /Status DANA/)
+  assert.match(panel, /Response code/)
+  assert.match(panel, /latest_transaction_status/)
+  assert.match(panel, /read-only dan tidak mengubah status lokal/)
 })
 
 test('riwayat Sandbox menampilkan metode tanpa mengekspos instruksi atau credential', async () => {
