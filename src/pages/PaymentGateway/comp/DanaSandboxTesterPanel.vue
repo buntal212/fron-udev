@@ -299,14 +299,20 @@
           </q-expansion-item>
         </div>
         <q-img
-          v-else-if="transaction.payment_instruction.qr_image"
+          v-else-if="
+            transaction.payment_instruction.type === 'qris_mpm' &&
+            transaction.payment_instruction.qr_image
+          "
           class="q-mt-sm qris-image"
           fit="contain"
           :src="transaction.payment_instruction.qr_image"
           alt="QRIS DANA Sandbox"
         />
         <q-img
-          v-else-if="transaction.payment_instruction.qr_url"
+          v-else-if="
+            transaction.payment_instruction.type === 'qris_mpm' &&
+            transaction.payment_instruction.qr_url
+          "
           class="q-mt-sm qris-image"
           fit="contain"
           :src="transaction.payment_instruction.qr_url"
@@ -501,9 +507,9 @@ const paymentMethodOptions = [
 ]
 const qrisPayload = computed(() => {
   const instruction = transaction.value?.payment_instruction
-  return instruction?.type === 'qris' &&
-    typeof instruction.payment_code === 'string'
-    ? instruction.payment_code
+  return instruction?.type === 'qris_mpm' &&
+    typeof instruction.qr_content === 'string'
+    ? instruction.qr_content
     : null
 })
 const historyColumns = [
