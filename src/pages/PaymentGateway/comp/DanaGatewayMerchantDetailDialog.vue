@@ -579,6 +579,32 @@
                 :rules="[requiredRule, maxRule(100)]"
                 no-error-icon /></div
           ></div>
+          <div class="row q-col-gutter-md"
+            ><div class="col-12 col-md-6"
+              ><q-input
+                v-model.trim="configurationForm.external_store_id"
+                outlined
+                dense
+                label="External Store ID Sandbox (untuk QRIS)"
+                hint="Opsional, tetapi wajib untuk pengujian QRIS."
+                persistent-hint
+                :error="Boolean(configurationErrors.external_store_id)"
+                :error-message="firstError('external_store_id')"
+                :rules="[maxRule(150)]"
+                no-error-icon /></div
+            ><div class="col-12 col-md-6"
+              ><q-input
+                v-model.trim="configurationForm.sub_merchant_id"
+                outlined
+                dense
+                label="Sub Merchant ID Sandbox"
+                hint="Isi hanya bila merchant merupakan aggregator."
+                persistent-hint
+                :error="Boolean(configurationErrors.sub_merchant_id)"
+                :error-message="firstError('sub_merchant_id')"
+                :rules="[maxRule(150)]"
+                no-error-icon /></div
+          ></div>
           <q-input
             v-model.trim="configurationForm.notification_url"
             outlined
@@ -905,6 +931,8 @@ const emptyConfiguration = () => ({
   dana_webhook_public_key: '',
   origin: '',
   channel_id: '',
+  external_store_id: '',
+  sub_merchant_id: '',
   notification_url: '',
   callback_url: '',
   mcc: '',
@@ -1030,6 +1058,8 @@ function applyStoredConfiguration(response) {
     'merchant_id',
     'origin',
     'channel_id',
+    'external_store_id',
+    'sub_merchant_id',
     'notification_url',
     'callback_url',
     'mcc'
@@ -1058,6 +1088,8 @@ function applyStoredConfiguration(response) {
     merchant_id: 'Merchant ID DANA',
     origin: 'Origin',
     channel_id: 'Channel ID',
+    external_store_id: 'External Store ID Sandbox',
+    sub_merchant_id: 'Sub Merchant ID Sandbox',
     notification_url: 'Notification URL',
     callback_url: 'Callback URL',
     mcc: 'MCC'

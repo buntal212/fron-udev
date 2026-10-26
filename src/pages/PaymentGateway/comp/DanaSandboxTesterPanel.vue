@@ -118,6 +118,18 @@
           bg-color="white"
         />
       </div>
+      <div class="col-12 col-sm-4">
+        <q-select
+          v-model="paymentMethod"
+          outlined
+          dense
+          emit-value
+          map-options
+          label="Metode pembayaran Sandbox"
+          :options="paymentMethodOptions"
+          bg-color="white"
+        />
+      </div>
       <div class="col-12 col-sm-auto">
         <q-btn
           color="warning"
@@ -170,6 +182,48 @@
       <div class="q-mt-xs text-caption">
         Status dibaca dari pembayaran tersimpan; status <strong>paid</strong>
         hanya berasal dari webhook DANA yang tervalidasi.
+      </div>
+      <div
+        v-if="transaction.payment_instruction"
+        class="payment-instruction q-mt-md"
+      >
+        <div class="text-weight-bold">
+          {{ transaction.payment_instruction.label }}
+        </div>
+        <div class="text-caption q-mt-xs">
+          {{ transaction.payment_instruction.message }}
+        </div>
+        <q-img
+          v-if="transaction.payment_instruction.qr_image"
+          class="q-mt-sm qris-image"
+          fit="contain"
+          :src="transaction.payment_instruction.qr_image"
+          alt="QRIS DANA Sandbox"
+        />
+        <q-img
+          v-else-if="transaction.payment_instruction.qr_url"
+          class="q-mt-sm qris-image"
+          fit="contain"
+          :src="transaction.payment_instruction.qr_url"
+          alt="QRIS DANA Sandbox"
+        />
+        <div
+          v-if="transaction.payment_instruction.payment_code"
+          class="payment-code q-mt-sm"
+        >
+          <span>{{ transaction.payment_instruction.payment_code }}</span>
+          <q-btn
+            flat
+            dense
+            no-caps
+            color="primary"
+            icon="content_copy"
+            label="Salin"
+            @click="
+              copyPaymentCode(transaction.payment_instruction.payment_code)
+            "
+          />
+        </div>
       </div>
     </q-banner>
 
@@ -307,6 +361,7 @@ const transaction = ref(null)
 const history = ref([])
 const error = ref(null)
 const amountMinor = ref(10000)
+const paymentMethod = ref('dana_wallet')
 const idempotencyKey = ref(null)
 const sandboxResultContext = ref(null)
 const historyMeta = ref({
@@ -324,6 +379,14 @@ const requiredFieldLabels = [
   { key: 'notification_url', label: 'Notification URL' },
   { key: 'pay_return_url', label: 'PAY_RETURN URL' },
   { key: 'mcc', label: 'MCC' }
+]
+const paymentMethodOptions = [
+  { label: 'DANA Wallet', value: 'dana_wallet' },
+  { label: 'QRIS', value: 'qris' },
+  { label: 'Virtual Account BRI', value: 'va_bri' },
+  { label: 'Virtual Account PANI', value: 'va_pani' },
+  { label: 'Virtual Account CIMB', value: 'va_cimb' },
+  { label: 'Virtual Account BTPN', value: 'va_btpn' }
 ]
 const historyColumns = [
   {
@@ -472,7 +535,10 @@ async function createTransaction() {
     const response =
       await danaGatewayMerchantService.createSandboxTestTransaction(
         merchantId.value,
-        { amount_minor: amountMinor.value },
+        {
+          amount_minor: amountMinor.value,
+          payment_method: paymentMethod.value
+        },
         idempotencyKey.value
       )
     transaction.value = response.data?.data?.transaction ?? null
@@ -505,6 +571,22 @@ function openCheckout() {
   // tab; membuka checkout dengan noopener membuat tab callback DANA tidak
   // memiliki sesi admin saat kembali ke UDEV.
   globalThis.location.assign(checkoutUrl)
+}
+
+async function copyPaymentCode(paymentCode) {
+  if (typeof paymentCode !== 'string' || paymentCode === '') return
+
+  try {
+    await globalThis.navigator?.clipboard?.writeText(paymentCode)
+    Notify.create({
+      message: 'Kode pembayaran disalin.',
+      color: 'positive',
+      icon: 'content_copy',
+      position: 'top'
+    })
+  } catch {
+    error.value = 'Kode pembayaran tidak dapat disalin oleh browser.'
+  }
 }
 
 function viewResult(context) {
@@ -627,6 +709,29 @@ h3 {
   border: 1px solid #c8d9c6;
   background: #f1fbef;
   color: #315b36;
+}
+.payment-instruction {
+  border-top: 1px solid #c8d9c6;
+  padding-top: 12px;
+}
+.payment-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px dashed #8cae89;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #20180b;
+  overflow-wrap: anywhere;
+}
+.qris-image {
+  width: 220px;
+  max-width: 100%;
+  border: 1px solid #c8d9c6;
+  border-radius: 8px;
+  background: #fff;
 }
 .transport-notice {
   border: 1px solid #cbb57c;

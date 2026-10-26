@@ -235,6 +235,14 @@
             ></div
           >
           <div class="audit-meta-item"
+            ><q-icon name="payments" /><div
+              ><span>Metode pembayaran</span
+              ><strong>{{
+                paymentMethodLabel(detail.payment_method)
+              }}</strong></div
+            ></div
+          >
+          <div class="audit-meta-item"
             ><q-icon name="schedule" /><div
               ><span>Dibuat</span
               ><strong>{{ formatDate(detail.created_at) }}</strong></div
@@ -513,6 +521,12 @@ const columns = [
     field: row => row.provider_order_reference || '-',
     align: 'left'
   },
+  {
+    name: 'payment_method',
+    label: 'Metode',
+    field: row => paymentMethodLabel(row.payment_method),
+    align: 'left'
+  },
   { name: 'amount', label: 'Nominal', align: 'right' },
   { name: 'status', label: 'Status', align: 'left' },
   { name: 'actions', label: 'Aksi', align: 'right' }
@@ -542,6 +556,18 @@ watch(
 )
 function labelFor(value) {
   return value ? String(value).replaceAll('_', ' ') : 'Belum ada status'
+}
+function paymentMethodLabel(method) {
+  return (
+    {
+      dana_wallet: 'DANA Wallet',
+      qris: 'QRIS',
+      va_bri: 'VA BRI',
+      va_pani: 'VA PANI',
+      va_cimb: 'VA CIMB',
+      va_btpn: 'VA BTPN'
+    }[method] || 'Hosted Checkout'
+  )
 }
 function statusColor(status) {
   return status === 'paid'
