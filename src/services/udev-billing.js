@@ -141,18 +141,14 @@ export const invoiceService = {
     ),
   create: (payload, headers) =>
     api.post('/v1/admin/invoices', payload, { headers }),
-  checkout: (id, idempotencyKey) =>
-    api.post(
-      `/v1/admin/invoices/${id}/checkout`,
-      {},
-      {
-        headers: {
-          'Idempotency-Key': idempotencyKey,
-          'Cache-Control': 'no-store',
-          Pragma: 'no-cache'
-        }
+  checkout: (id, idempotencyKey, payload = {}) =>
+    api.post(`/v1/admin/invoices/${id}/checkout`, payload, {
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+        'Cache-Control': 'no-store',
+        Pragma: 'no-cache'
       }
-    ),
+    }),
   reconcile: id =>
     api.post(
       `/v1/admin/invoices/${id}/reconcile`,

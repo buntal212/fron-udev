@@ -1,5 +1,8 @@
 <template>
-  <q-dialog v-model="store.detailDialogOpen">
+  <q-dialog
+    v-model="store.detailDialogOpen"
+    @before-hide="store.closeDetailDialog"
+  >
     <q-card class="detail-dialog">
       <q-card-section class="row items-center justify-between">
         <div>
@@ -122,30 +125,222 @@
           <template #avatar><q-icon name="error_outline" /></template>
           {{ store.checkoutError }}
         </q-banner>
-        <q-banner v-if="canStartCheckout" rounded class="checkout-banner">
-          <template #avatar><q-icon name="account_balance_wallet" /></template>
+        <!-- Pilihan Metode Pembayaran & Tombol Bayar -->
+        <q-card
+          v-if="canStartCheckout"
+          flat
+          bordered
+          class="q-pa-md checkout-method-card rounded-borders"
+        >
           <div class="row items-center justify-between q-col-gutter-md">
             <div class="col-12 col-sm">
-              <strong>Siap membayar melalui DANA Sandbox?</strong>
-              <div class="text-caption q-mt-xs">
-                Tautan checkout berasal dari backend. Status lunas hanya berubah
-                setelah pembayaran diverifikasi.
+              <div class="text-weight-bold text-brown-9 row items-center">
+                <q-icon
+                  name="payment"
+                  class="q-mr-xs text-warning"
+                  size="20px"
+                />
+                Pilih Metode Pembayaran (DANA Sandbox)
+              </div>
+              <div class="text-caption text-grey-8 q-mt-xs">
+                Pilih QRIS untuk memindai kode QR atau DANA Wallet untuk
+                dialihkan ke sesi checkout.
               </div>
             </div>
             <div class="col-12 col-sm-auto">
-              <q-btn
-                color="warning"
-                text-color="dark"
-                icon="payments"
-                label="Bayar melalui DANA Sandbox"
-                no-caps
-                :loading="store.checkoutLoading"
-                :disable="store.checkoutLoading"
-                @click="store.startCheckout"
+              <q-btn-toggle
+                v-model="store.checkoutPaymentMethod"
+                push
+                glossy
+                dense
+                toggle-color="warning"
+                toggle-text-color="dark"
+                text-color="brown-9"
+                :options="[
+                  { label: 'QRIS DANA', value: 'qris', icon: 'qr_code_2' },
+                  {
+                    label: 'DANA Wallet',
+                    value: 'dana_wallet',
+                    icon: 'account_balance_wallet'
+                  }
+                ]"
               />
             </div>
           </div>
-        </q-banner>
+
+          <div class="row items-center justify-end q-mt-md">
+            <q-btn
+              color="warning"
+              text-color="dark"
+              :icon="
+                store.checkoutPaymentMethod === 'qris'
+                  ? 'qr_code_2'
+                  : 'payments'
+              "
+              :label="
+                store.checkoutPaymentMethod === 'qris'
+                  ? 'Bayar dengan QRIS'
+                  : 'Bayar melalui DANA Sandbox'
+              "
+              no-caps
+              :loading="store.checkoutLoading"
+              :disable="store.checkoutLoading"
+              @click="store.startCheckout()"
+            />
+          </div>
+        </q-card>
+
+        <!-- Tampilan QRIS & Status Pembayaran QR -->
+        <q-card
+          v-if="
+            store.checkoutQrPayload ||
+            store.checkoutQrDataUrl ||
+            store.checkoutPaymentCode ||
+            isCurrentAttemptQris
+          "
+          flat
+          bordered
+          class="q-pa-md qris-panel rounded-borders"
+        >
+          <div class="row items-center justify-between q-mb-sm">
+            <div class="text-weight-bold text-brown-9 row items-center">
+              <q-icon
+                name="qr_code_scanner"
+                class="q-mr-xs text-warning"
+                size="22px"
+              />
+              Kode QRIS DANA Sandbox
+            </div>
+            <div class="row items-center q-gutter-xs">
+              <q-badge
+                rounded
+                :color="
+                  isQrisExpired
+                    ? 'negative'
+                    : invoice.status === 'paid'
+                      ? 'positive'
+                      : 'warning'
+                "
+                :label="
+                  isQrisExpired
+                    ? 'Kedaluwarsa'
+                    : invoice.status === 'paid'
+                      ? 'Lunas'
+                      : 'Menunggu Pembayaran'
+                "
+              />
+            </div>
+          </div>
+
+          <div
+            v-if="!isQrisExpired && invoice.status === 'pending'"
+            class="text-caption text-grey-8 q-mb-sm row items-center"
+          >
+            <q-icon name="schedule" size="16px" class="q-mr-xs text-warning" />
+            <span
+              >Sisa waktu berlaku:
+              <strong>{{ formattedCountdown }}</strong></span
+            >
+            <q-spinner-dots color="warning" size="18px" class="q-ml-sm" />
+          </div>
+          <div
+            v-else-if="isQrisExpired"
+            class="text-caption text-negative q-mb-sm row items-center"
+          >
+            <q-icon name="warning" size="16px" class="q-mr-xs" />
+            <span
+              >Kode QRIS telah kedaluwarsa. Silakan lakukan retry untuk membuat
+              kode baru.</span
+            >
+          </div>
+
+          <div class="qris-container q-pa-sm text-center">
+            <div v-if="store.checkoutQrLoading" class="q-pa-lg">
+              <q-spinner color="warning" size="36px" />
+              <div class="text-caption q-mt-xs">Membuat gambar QRIS...</div>
+            </div>
+            <div
+              v-else-if="store.checkoutQrDataUrl"
+              class="column items-center"
+            >
+              <img
+                :src="store.checkoutQrDataUrl"
+                alt="QRIS DANA Sandbox"
+                class="qris-img"
+              />
+              <div class="text-caption text-grey-7 q-mt-xs">
+                Scan kode QRIS melalui aplikasi DANA atau e-wallet sandbox Anda.
+              </div>
+            </div>
+            <div
+              v-else-if="store.checkoutPaymentCode"
+              class="column items-center q-pa-md"
+            >
+              <div class="text-caption text-grey-8 q-mb-xs">
+                Kode Pembayaran DANA Sandbox:
+              </div>
+              <div class="text-h6 text-weight-bold text-brown-9 q-mb-xs">
+                {{ store.checkoutPaymentCode }}
+              </div>
+              <div class="text-caption text-grey-7">
+                Gunakan kode bayar ini pada aplikasi atau simulator DANA
+                Sandbox.
+              </div>
+            </div>
+            <q-banner
+              v-if="store.checkoutQrError"
+              rounded
+              dense
+              class="bg-negative text-white q-mt-xs"
+            >
+              {{ store.checkoutQrError }}
+            </q-banner>
+          </div>
+
+          <div class="row q-gutter-sm items-center justify-center q-mt-sm">
+            <q-btn
+              v-if="store.checkoutQrDataUrl"
+              outline
+              dense
+              no-caps
+              color="brown-9"
+              icon="download"
+              label="Unduh QRIS"
+              @click="downloadQrisPng"
+            />
+            <q-btn
+              v-if="store.checkoutQrPayload"
+              outline
+              dense
+              no-caps
+              color="brown-9"
+              icon="content_copy"
+              label="Salin Payload QRIS"
+              @click="copyPayload(store.checkoutQrPayload)"
+            />
+            <q-btn
+              v-if="store.checkoutPaymentCode && !store.checkoutQrPayload"
+              outline
+              dense
+              no-caps
+              color="brown-9"
+              icon="content_copy"
+              label="Salin Kode Pembayaran"
+              @click="copyPayload(store.checkoutPaymentCode)"
+            />
+            <q-btn
+              v-if="isQrisExpired || isLatestAttemptFailed"
+              color="negative"
+              unelevated
+              dense
+              no-caps
+              icon="replay"
+              label="Ulangi Pembayaran (Retry)"
+              :loading="store.checkoutLoading"
+              @click="store.retryCheckout()"
+            />
+          </div>
+        </q-card>
 
         <!-- Admin Sandbox Testing & Controls Panel -->
         <q-card
@@ -347,7 +542,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount } from 'vue'
 import { useInvoiceStore } from '@/stores/invoice'
 import {
   formatSubscriptionDate,
@@ -374,9 +569,100 @@ const canStartCheckout = computed(
       attempt => attempt.status === 'succeeded'
     )
 )
+
+const latestAttempt = computed(() => {
+  const attempts = invoice.value.payment_attempts
+  if (!Array.isArray(attempts) || attempts.length === 0) return null
+  return [...attempts].sort((a, b) => b.attempt_number - a.attempt_number)[0]
+})
+
+const isCurrentAttemptQris = computed(() => {
+  const method =
+    latestAttempt.value?.metadata?.payment_method ||
+    latestAttempt.value?.payment_method
+  return (
+    method === 'qris' &&
+    (store.checkoutQrPayload ||
+      store.checkoutPaymentCode ||
+      latestAttempt.value?.qr_content ||
+      latestAttempt.value?.metadata?.qr_content ||
+      latestAttempt.value?.metadata?.payment_code)
+  )
+})
+
+const isQrisExpired = computed(() => {
+  if (latestAttempt.value?.status === 'expired') return true
+  if (
+    store.checkoutExpiresAt &&
+    new Date(store.checkoutExpiresAt).getTime() <= Date.now()
+  ) {
+    return true
+  }
+  return false
+})
+
+const isLatestAttemptFailed = computed(() => {
+  return (
+    latestAttempt.value?.status === 'failed' ||
+    latestAttempt.value?.status === 'expired'
+  )
+})
+
+const formattedCountdown = computed(() => {
+  const s = store.checkoutRemainingSeconds
+  if (s <= 0) return 'Kedaluwarsa'
+  const mins = Math.floor(s / 60)
+  const secs = s % 60
+  return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`
+})
+
+const downloadQrisPng = () => {
+  if (!store.checkoutQrDataUrl) return
+  const a = document.createElement('a')
+  a.href = store.checkoutQrDataUrl
+  a.download = `qris-${invoice.value.invoice_number || 'dana-sandbox'}.png`
+  a.click()
+}
+
+const copyPayload = async text => {
+  if (!text) return
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(text)
+    }
+  } catch {
+    // ignore
+  }
+}
+
+onBeforeUnmount(() => {
+  store.stopCheckoutSession()
+})
 </script>
 
 <style scoped>
+.checkout-method-card {
+  border-color: #ecd29b;
+  background: #fffdf5;
+}
+.qris-panel {
+  border-color: #e0c37c;
+  background: #fffbf0;
+}
+.qris-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #ebd9b5;
+}
+.qris-img {
+  max-width: 260px;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
 .detail-dialog {
   width: min(720px, 96vw);
   border-radius: 14px;

@@ -1,12 +1,17 @@
 import { defineStore } from 'pinia'
+import QRCode from 'qrcode'
 import {
   applicationCustomerService,
   applicationService,
   invoiceService,
+  paymentResultService,
   subscriptionPlanService,
   subscriptionService
 } from '@/services/udev-billing'
 import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
+
+const isQrisPayload = value =>
+  typeof value === 'string' && value.trim().startsWith('00020101')
 
 const emptyForm = () => ({
   application_id: null,
@@ -98,6 +103,16 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutAttempt: null,
     checkoutUrl: null,
     checkoutIdempotencyKey: null,
+    checkoutPaymentMethod: 'qris',
+    checkoutQrDataUrl: null,
+    checkoutQrPayload: null,
+    checkoutPaymentCode: null,
+    checkoutQrLoading: false,
+    checkoutQrError: null,
+    checkoutExpiresAt: null,
+    checkoutRemainingSeconds: 0,
+    checkoutTimerId: null,
+    checkoutPollId: null,
     reconcileLoading: false,
     reconcileError: '',
     simulateLoading: false,
@@ -439,13 +454,150 @@ export const useInvoiceStore = defineStore('invoice', {
       )
     },
 
+    stopCheckoutSession() {
+      if (this.checkoutTimerId) {
+        clearInterval(this.checkoutTimerId)
+        this.checkoutTimerId = null
+      }
+      if (this.checkoutPollId) {
+        clearInterval(this.checkoutPollId)
+        this.checkoutPollId = null
+      }
+    },
+
+    startCountdown(expiresAt) {
+      if (this.checkoutTimerId) {
+        clearInterval(this.checkoutTimerId)
+        this.checkoutTimerId = null
+      }
+      const calculate = () => {
+        const ms = new Date(expiresAt).getTime() - Date.now()
+        this.checkoutRemainingSeconds = Math.max(0, Math.floor(ms / 1000))
+        if (this.checkoutRemainingSeconds <= 0 && this.checkoutTimerId) {
+          clearInterval(this.checkoutTimerId)
+          this.checkoutTimerId = null
+        }
+      }
+      calculate()
+      if (this.checkoutRemainingSeconds > 0) {
+        this.checkoutTimerId = setInterval(calculate, 1000)
+      }
+    },
+
+    startPolling() {
+      if (this.checkoutPollId) {
+        clearInterval(this.checkoutPollId)
+        this.checkoutPollId = null
+      }
+      this.checkoutPollId = setInterval(async () => {
+        if (!this.selectedInvoice?.id || !this.detailDialogOpen) {
+          this.stopCheckoutSession()
+          return
+        }
+        try {
+          const latestAttempt = Array.isArray(
+            this.selectedInvoice?.payment_attempts
+          )
+            ? [...this.selectedInvoice.payment_attempts].sort(
+                (a, b) => b.attempt_number - a.attempt_number
+              )[0]
+            : null
+          const gatewayPaymentId =
+            this.checkoutAttempt?.gateway_payment_id ||
+            latestAttempt?.gateway_payment_id
+
+          if (gatewayPaymentId) {
+            const resultRes = await paymentResultService.get(gatewayPaymentId)
+            const resultStatus = resultRes.data?.data?.status
+            if (resultStatus === 'paid') {
+              this.stopCheckoutSession()
+              const invoiceRes = await invoiceService.get(
+                this.selectedInvoice.id
+              )
+              this.selectedInvoice =
+                invoiceRes.data?.data || this.selectedInvoice
+              const index = this.items.findIndex(
+                item => item.id === this.selectedInvoice.id
+              )
+              if (index !== -1) {
+                this.items[index] = this.selectedInvoice
+              }
+              this.checkoutQrPayload = null
+              this.checkoutQrDataUrl = null
+              this.checkoutPaymentCode = null
+              return
+            } else if (
+              resultStatus === 'failed' ||
+              resultStatus === 'expired' ||
+              resultStatus === 'cancelled'
+            ) {
+              this.stopCheckoutSession()
+              const invoiceRes = await invoiceService.get(
+                this.selectedInvoice.id
+              )
+              this.selectedInvoice =
+                invoiceRes.data?.data || this.selectedInvoice
+              return
+            }
+          } else {
+            const res = await invoiceService.get(this.selectedInvoice.id)
+            this.selectedInvoice = res.data?.data || this.selectedInvoice
+            if (this.selectedInvoice.status === 'paid') {
+              this.stopCheckoutSession()
+              this.checkoutQrPayload = null
+              this.checkoutQrDataUrl = null
+              this.checkoutPaymentCode = null
+            } else if (this.selectedInvoice.status !== 'pending') {
+              this.stopCheckoutSession()
+            }
+          }
+        } catch {
+          // ignore transient poll error
+        }
+      }, 4000)
+    },
+
+    async renderQr(payload) {
+      if (!payload) {
+        this.checkoutQrDataUrl = null
+        return
+      }
+      this.checkoutQrLoading = true
+      this.checkoutQrError = null
+      try {
+        this.checkoutQrDataUrl = await QRCode.toDataURL(payload, {
+          errorCorrectionLevel: 'M',
+          margin: 2,
+          width: 320
+        })
+      } catch {
+        this.checkoutQrError = 'Gambar QRIS tidak dapat dibuat di browser.'
+      } finally {
+        this.checkoutQrLoading = false
+      }
+    },
+
+    closeDetailDialog() {
+      this.stopCheckoutSession()
+      this.detailDialogOpen = false
+    },
+
     async openDetailDialog(invoice) {
+      this.stopCheckoutSession()
       this.detailDialogOpen = true
       this.detailLoading = true
       this.selectedInvoice = null
       this.checkoutError = ''
       this.checkoutAttempt = null
       this.checkoutUrl = null
+      this.checkoutPaymentMethod = 'qris'
+      this.checkoutQrDataUrl = null
+      this.checkoutQrPayload = null
+      this.checkoutPaymentCode = null
+      this.checkoutQrLoading = false
+      this.checkoutQrError = null
+      this.checkoutExpiresAt = null
+      this.checkoutRemainingSeconds = 0
       this.checkoutIdempotencyKey = createIdempotencyKey()
       this.reconcileLoading = false
       this.reconcileError = ''
@@ -456,6 +608,52 @@ export const useInvoiceStore = defineStore('invoice', {
       try {
         const response = await invoiceService.get(invoice.id)
         this.selectedInvoice = response.data.data
+
+        const latestAttempt = Array.isArray(
+          this.selectedInvoice?.payment_attempts
+        )
+          ? [...this.selectedInvoice.payment_attempts].sort(
+              (a, b) => b.attempt_number - a.attempt_number
+            )[0]
+          : null
+
+        if (latestAttempt && this.selectedInvoice.status === 'pending') {
+          const method =
+            latestAttempt.metadata?.payment_method ||
+            latestAttempt.payment_method ||
+            'qris'
+          this.checkoutPaymentMethod = method
+          this.checkoutAttempt = latestAttempt
+          this.checkoutUrl = latestAttempt.checkout_url || null
+          this.checkoutExpiresAt = latestAttempt.checkout_expires_at || null
+
+          const rawPayload =
+            latestAttempt.qr_content ||
+            latestAttempt.metadata?.qr_content ||
+            latestAttempt.metadata?.payment_code ||
+            latestAttempt.checkout_url
+
+          if (
+            method === 'qris' &&
+            rawPayload &&
+            latestAttempt.status === 'pending'
+          ) {
+            if (isQrisPayload(rawPayload)) {
+              this.checkoutQrPayload = rawPayload
+              this.checkoutPaymentCode = null
+              await this.renderQr(rawPayload)
+            } else {
+              this.checkoutQrPayload = null
+              this.checkoutQrDataUrl = null
+              this.checkoutPaymentCode =
+                typeof rawPayload === 'string' ? rawPayload : null
+            }
+            if (this.checkoutExpiresAt) {
+              this.startCountdown(this.checkoutExpiresAt)
+              this.startPolling()
+            }
+          }
+        }
       } catch (error) {
         this.error = getApiErrorMessage(error)
         this.detailDialogOpen = false
@@ -464,7 +662,7 @@ export const useInvoiceStore = defineStore('invoice', {
       }
     },
 
-    async startCheckout() {
+    async startCheckout(method = this.checkoutPaymentMethod) {
       if (
         this.checkoutLoading ||
         !this.selectedInvoice?.id ||
@@ -473,41 +671,86 @@ export const useInvoiceStore = defineStore('invoice', {
         return
       }
 
+      this.stopCheckoutSession()
       this.checkoutLoading = true
       this.checkoutError = ''
       this.checkoutUrl = null
+      this.checkoutQrDataUrl = null
+      this.checkoutQrPayload = null
+      this.checkoutQrError = null
+      this.checkoutPaymentMethod = method
 
       try {
         const response = await invoiceService.checkout(
           this.selectedInvoice.id,
-          this.checkoutIdempotencyKey || createIdempotencyKey()
+          this.checkoutIdempotencyKey || createIdempotencyKey(),
+          { payment_method: method }
         )
         const checkout = response.data?.data || {}
         this.checkoutAttempt = checkout
         this.checkoutUrl = checkout.checkout_url || null
+        this.checkoutExpiresAt = checkout.expires_at || null
 
         const detailResponse = await invoiceService.get(this.selectedInvoice.id)
         this.selectedInvoice = detailResponse.data.data
 
-        if (
-          isSecureCheckoutUrl(this.checkoutUrl) &&
-          typeof window !== 'undefined'
-        ) {
-          window.location.assign(this.checkoutUrl)
-          return
-        }
+        if (method === 'dana_wallet') {
+          if (
+            isSecureCheckoutUrl(this.checkoutUrl) &&
+            typeof window !== 'undefined'
+          ) {
+            window.location.assign(this.checkoutUrl)
+            return
+          }
 
-        this.checkoutError =
-          this.checkoutUrl && !isSecureCheckoutUrl(this.checkoutUrl)
-            ? 'Tautan checkout yang diterima tidak aman. Silakan coba lagi atau hubungi administrator.'
-            : checkout.checkout_status === 'processing'
-              ? 'Checkout sedang disiapkan. Muat detail beberapa saat lagi.'
-              : 'Tautan checkout belum tersedia. Silakan coba lagi nanti.'
+          this.checkoutError =
+            this.checkoutUrl && !isSecureCheckoutUrl(this.checkoutUrl)
+              ? 'Tautan checkout yang diterima tidak aman. Silakan coba lagi atau hubungi administrator.'
+              : checkout.checkout_status === 'processing'
+                ? 'Checkout sedang disiapkan. Muat detail beberapa saat lagi.'
+                : 'Tautan checkout belum tersedia. Silakan coba lagi nanti.'
+        } else {
+          const rawPayload =
+            checkout.qr_content ||
+            checkout.payment_code ||
+            checkout.checkout_url
+          if (rawPayload) {
+            if (isQrisPayload(rawPayload)) {
+              this.checkoutQrPayload = rawPayload
+              this.checkoutPaymentCode = null
+              await this.renderQr(rawPayload)
+            } else {
+              this.checkoutQrPayload = null
+              this.checkoutQrDataUrl = null
+              this.checkoutPaymentCode =
+                typeof rawPayload === 'string' ? rawPayload : null
+            }
+            if (this.checkoutExpiresAt) {
+              this.startCountdown(this.checkoutExpiresAt)
+              this.startPolling()
+            }
+          } else {
+            this.checkoutError =
+              checkout.checkout_status === 'processing'
+                ? 'Kode QRIS sedang disiapkan oleh gateway. Muat beberapa saat lagi.'
+                : 'Kode QRIS belum tersedia dari gateway. Coba beberapa saat lagi.'
+          }
+        }
       } catch (error) {
         this.checkoutError = getApiErrorMessage(error)
       } finally {
         this.checkoutLoading = false
       }
+    },
+
+    async retryCheckout() {
+      this.stopCheckoutSession()
+      this.checkoutIdempotencyKey = createIdempotencyKey()
+      this.checkoutQrDataUrl = null
+      this.checkoutQrPayload = null
+      this.checkoutPaymentCode = null
+      this.checkoutError = ''
+      await this.startCheckout(this.checkoutPaymentMethod)
     },
 
     async reconcileInvoice(invoiceId = this.selectedInvoice?.id) {
