@@ -24,7 +24,12 @@
         <q-td :props="props">{{ props.row.customer?.name || '—' }}</q-td>
       </template>
       <template #body-cell-plan="props">
-        <q-td :props="props">{{ props.row.plan?.name || '—' }}</q-td>
+        <q-td :props="props">
+          <div>{{ props.row.plan?.name || '—' }}</div>
+          <div class="text-caption text-grey-7">
+            {{ props.row.period_count || 1 }} periode ({{ props.row.duration_days }} hr)
+          </div>
+        </q-td>
       </template>
       <template #body-cell-normal_price="props">
         <q-td :props="props">{{

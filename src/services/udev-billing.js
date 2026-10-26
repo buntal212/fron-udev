@@ -152,6 +152,18 @@ export const invoiceService = {
           Pragma: 'no-cache'
         }
       }
+    ),
+  reconcile: id =>
+    api.post(
+      `/v1/admin/invoices/${id}/reconcile`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  simulateSandboxPayment: (id, payload) =>
+    api.post(
+      `/v1/admin/invoices/${id}/sandbox-simulate-payment`,
+      payload,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     )
 }
 

@@ -27,6 +27,10 @@
             ><p class="value">{{ invoice.plan?.name || '—' }}</p></div
           >
           <div class="col-12 col-sm-6"
+            ><p class="label">Jumlah periode</p
+            ><p class="value">{{ invoice.period_count || 1 }} periode ({{ invoice.duration_days }} hari)</p></div
+          >
+          <div class="col-12 col-sm-6"
             ><p class="label">Durasi snapshot</p
             ><p class="value">{{ invoice.duration_days }} hari</p></div
           >
@@ -79,6 +83,18 @@
               formatSubscriptionDate(invoice.paid_at)
             }}</p></div
           >
+          <div v-if="invoice.subscription" class="col-12 col-sm-6">
+            <p class="label">Masa aktif langganan</p>
+            <p class="value">
+              Berakhir {{ formatSubscriptionDate(invoice.subscription.expires_at) }}
+              <q-badge
+                rounded
+                class="q-ml-xs"
+                :color="invoice.subscription.status === 'active' ? 'positive' : 'grey-7'"
+                :label="invoice.subscription.status"
+              />
+            </p>
+          </div>
           <div class="col-12 col-sm-6">
             <p class="label">Status</p>
             <q-badge
@@ -120,6 +136,66 @@
             </div>
           </div>
         </q-banner>
+
+        <!-- Admin Sandbox Testing & Controls Panel -->
+        <q-card flat bordered class="q-pa-md test-panel rounded-borders q-mt-sm">
+          <div class="row items-center justify-between q-mb-xs">
+            <div class="text-weight-bold text-brown-9 row items-center">
+              <q-icon name="science" class="q-mr-xs text-warning" size="20px" />
+              Kontrol Pengujian Admin UDEV (DANA Sandbox)
+            </div>
+            <q-badge color="dark" text-color="warning" label="Sandbox UAT" />
+          </div>
+          <p class="section-description q-mb-sm">
+            Kontrol pengujian end-to-end: Lakukan checkout dan bayar melalui DANA Sandbox, lalu sinkronkan status untuk verifikasi gateway resmi. Settlement operasional hanya diproses dari konfirmasi gateway DANA yang valid.
+          </p>
+          <div class="row q-gutter-sm items-center">
+            <q-btn
+              v-if="invoice.payment_attempts?.length"
+              color="primary"
+              unelevated
+              icon="sync"
+              label="Sinkronkan Status Gateway"
+              no-caps
+              dense
+              class="q-px-sm"
+              :loading="store.reconcileLoading"
+              :disable="store.reconcileLoading"
+              @click="store.reconcileInvoice()"
+            />
+            <q-btn
+              v-if="invoice.status === 'pending'"
+              color="negative"
+              outline
+              icon="cancel"
+              label="Simulasi Gagal (Sandbox)"
+              no-caps
+              dense
+              class="q-px-sm"
+              :loading="store.simulateLoading"
+              :disable="store.simulateLoading"
+              @click="store.simulateSandboxPayment('failed')"
+            />
+            <q-btn
+              v-if="store.checkoutUrl"
+              outline
+              color="warning"
+              icon="open_in_new"
+              label="Buka Checkout DANA Sandbox"
+              no-caps
+              dense
+              class="q-px-sm"
+              :href="store.checkoutUrl"
+              target="_blank"
+            />
+          </div>
+          <q-banner v-if="store.simulateMessage" rounded dense class="bg-positive text-white q-mt-sm">
+            {{ store.simulateMessage }}
+          </q-banner>
+          <q-banner v-if="store.simulateError || store.reconcileError" rounded dense class="bg-negative text-white q-mt-sm">
+            {{ store.simulateError || store.reconcileError }}
+          </q-banner>
+        </q-card>
         <q-separator />
         <div>
           <p class="section-title">Riwayat percobaan pembayaran</p>
@@ -181,6 +257,46 @@
             </q-item>
           </q-list>
           <p v-else class="empty-history">Belum ada percobaan pembayaran.</p>
+        </div>
+        <q-separator v-if="invoice.subscription?.period_events?.length" />
+        <div v-if="invoice.subscription?.period_events?.length">
+          <p class="section-title">Riwayat aktivasi dan perpanjangan langganan</p>
+          <q-list bordered separator class="attempt-list">
+            <q-item
+              v-for="evt in invoice.subscription.period_events"
+              :key="evt.id"
+            >
+              <q-item-section>
+                <q-item-label class="text-weight-bold">
+                  {{ evt.event_type === 'activation' ? 'Aktivasi Awal Langganan' : 'Perpanjangan Masa Aktif' }}
+                </q-item-label>
+                <q-item-label caption>
+                  <span v-if="evt.previous_expires_at">
+                    {{ formatSubscriptionDate(evt.previous_expires_at) }} &rarr; {{ formatSubscriptionDate(evt.new_expires_at) }}
+                  </span>
+                  <span v-else>
+                    Masa aktif berakhir: {{ formatSubscriptionDate(evt.new_expires_at) }}
+                  </span>
+                </q-item-label>
+                <q-item-label v-if="evt.notes" caption class="text-grey-7">
+                  {{ evt.notes }}
+                </q-item-label>
+              </q-item-section>
+              <q-item-section side>
+                <div class="column items-end q-gutter-y-xs">
+                  <q-badge
+                    rounded
+                    :color="evt.event_type === 'activation' ? 'positive' : 'warning'"
+                    :text-color="evt.event_type === 'activation' ? 'white' : 'dark'"
+                    :label="evt.event_type === 'activation' ? 'Aktivasi' : 'Perpanjangan'"
+                  />
+                  <span class="text-caption text-grey-7">
+                    {{ formatSubscriptionDate(evt.created_at) }}
+                  </span>
+                </div>
+              </q-item-section>
+            </q-item>
+          </q-list>
         </div>
       </q-card-section>
     </q-card>
@@ -264,5 +380,14 @@ h2 {
   border-color: #e8b4ad;
   background: #fff1f1;
   color: #7b2222;
+}
+.test-panel {
+  border-color: #ecd29b;
+  background: #fffdf5;
+}
+.section-description {
+  margin: 0;
+  color: #746b5c;
+  font-size: 0.8rem;
 }
 </style>

@@ -13,6 +13,7 @@ const emptyForm = () => ({
   application_customer_id: null,
   subscription_plan_id: null,
   subscription_id: null,
+  period_count: 1,
   due_at: ''
 })
 
@@ -96,7 +97,12 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutError: '',
     checkoutAttempt: null,
     checkoutUrl: null,
-    checkoutIdempotencyKey: null
+    checkoutIdempotencyKey: null,
+    reconcileLoading: false,
+    reconcileError: '',
+    simulateLoading: false,
+    simulateError: '',
+    simulateMessage: ''
   }),
 
   actions: {
@@ -224,7 +230,7 @@ export const useInvoiceStore = defineStore('invoice', {
     async fetchSubscriptionsForForm(
       applicationId = this.form.application_id,
       customerId = this.form.application_customer_id,
-      planId = this.form.subscription_plan_id,
+      planId = null,
       lookupVersion = this.formLookupVersion
     ) {
       if (!applicationId || !customerId) {
@@ -242,7 +248,6 @@ export const useInvoiceStore = defineStore('invoice', {
             per_page: 100,
             application_id: applicationId,
             application_customer_id: customerId,
-            subscription_plan_id: planId || undefined,
             sort: 'expires_at',
             direction: 'desc'
           })
@@ -251,8 +256,7 @@ export const useInvoiceStore = defineStore('invoice', {
         if (
           this.formLookupVersion === lookupVersion &&
           this.form.application_id === applicationId &&
-          this.form.application_customer_id === customerId &&
-          this.form.subscription_plan_id === planId
+          this.form.application_customer_id === customerId
         ) {
           this.subscriptions = subscriptions
         }
@@ -350,7 +354,6 @@ export const useInvoiceStore = defineStore('invoice', {
     async onFormCustomerChanged() {
       const applicationId = this.form.application_id
       const customerId = this.form.application_customer_id
-      const planId = this.form.subscription_plan_id
       const lookupVersion = ++this.formLookupVersion
       this.form.subscription_id = null
       this.subscriptions = []
@@ -358,7 +361,7 @@ export const useInvoiceStore = defineStore('invoice', {
       await this.fetchSubscriptionsForForm(
         applicationId,
         customerId,
-        planId,
+        null,
         lookupVersion
       )
     },
@@ -366,7 +369,6 @@ export const useInvoiceStore = defineStore('invoice', {
     async onFormPlanChanged() {
       const applicationId = this.form.application_id
       const customerId = this.form.application_customer_id
-      const planId = this.form.subscription_plan_id
       const lookupVersion = ++this.formLookupVersion
       this.form.subscription_id = null
       this.subscriptions = []
@@ -374,7 +376,7 @@ export const useInvoiceStore = defineStore('invoice', {
       await this.fetchSubscriptionsForForm(
         applicationId,
         customerId,
-        planId,
+        null,
         lookupVersion
       )
     },
@@ -410,6 +412,7 @@ export const useInvoiceStore = defineStore('invoice', {
             application_customer_id: this.form.application_customer_id,
             subscription_plan_id: this.form.subscription_plan_id,
             subscription_id: this.form.subscription_id || null,
+            period_count: this.form.period_count,
             due_at: this.form.due_at
           },
           { 'Idempotency-Key': this.idempotencyKey }
@@ -444,6 +447,11 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutAttempt = null
       this.checkoutUrl = null
       this.checkoutIdempotencyKey = createIdempotencyKey()
+      this.reconcileLoading = false
+      this.reconcileError = ''
+      this.simulateLoading = false
+      this.simulateError = ''
+      this.simulateMessage = ''
 
       try {
         const response = await invoiceService.get(invoice.id)
@@ -499,6 +507,46 @@ export const useInvoiceStore = defineStore('invoice', {
         this.checkoutError = getApiErrorMessage(error)
       } finally {
         this.checkoutLoading = false
+      }
+    },
+
+    async reconcileInvoice(invoiceId = this.selectedInvoice?.id) {
+      if (!invoiceId || this.reconcileLoading) return
+
+      this.reconcileLoading = true
+      this.reconcileError = ''
+      try {
+        const response = await invoiceService.reconcile(invoiceId)
+        this.selectedInvoice = response.data.data
+        const index = this.items.findIndex(item => item.id === invoiceId)
+        if (index !== -1) {
+          this.items[index] = response.data.data
+        }
+      } catch (error) {
+        this.reconcileError = getApiErrorMessage(error)
+      } finally {
+        this.reconcileLoading = false
+      }
+    },
+
+    async simulateSandboxPayment(action = 'paid', invoiceId = this.selectedInvoice?.id) {
+      if (!invoiceId || this.simulateLoading) return
+
+      this.simulateLoading = true
+      this.simulateError = ''
+      this.simulateMessage = ''
+      try {
+        const response = await invoiceService.simulateSandboxPayment(invoiceId, { action })
+        this.selectedInvoice = response.data.data
+        this.simulateMessage = response.data.test?.message || 'Simulasi berhasil diproses.'
+        const index = this.items.findIndex(item => item.id === invoiceId)
+        if (index !== -1) {
+          this.items[index] = response.data.data
+        }
+      } catch (error) {
+        this.simulateError = getApiErrorMessage(error)
+      } finally {
+        this.simulateLoading = false
       }
     }
   }

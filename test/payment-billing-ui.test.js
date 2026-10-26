@@ -39,6 +39,23 @@ test('UI invoice menggunakan endpoint checkout backend dan idempotency key', asy
   assert.match(store, /protocol === 'https:'/)
 })
 
+test('form invoice mengirim jumlah periode 1 sampai 12 dan menampilkan total 30 hari per periode', async () => {
+  const form = await readFile(
+    new URL('../src/pages/Invoice/comp/InvoiceFormDialog.vue', import.meta.url),
+    'utf8'
+  )
+  const store = await readFile(
+    new URL('../src/stores/invoice/index.js', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(form, /Jumlah periode/)
+  assert.match(form, /length: 12/)
+  assert.match(form, /\* 30/)
+  assert.match(store, /period_count: 1/)
+  assert.match(store, /period_count: this\.form\.period_count/)
+})
+
 test('UI riwayat menyediakan retry rekonsiliasi admin dan tidak memaksa paid', async () => {
   const service = await readFile(
     new URL('../src/services/udev-billing.js', import.meta.url),

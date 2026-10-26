@@ -155,9 +155,9 @@
             <div class="text-weight-bold">Rincian pembayaran</div>
             <div>{{
               selectedCustomer?.referral
-                ? `Harga normal ${formatSubscriptionPrice(selectedCustomer.referral.base_price, selectedPlan.currency)}`
+                ? `Harga normal ${formatSubscriptionPrice(Number(selectedCustomer.referral.base_price) * Number(store.form.period_count || 1), selectedPlan.currency)}`
                 : formatSubscriptionPrice(
-                    selectedPlan.price,
+                    Number(selectedPlan.price) * Number(store.form.period_count || 1),
                     selectedPlan.currency
                   )
             }}</div>
@@ -165,22 +165,37 @@
               >Diskon referral
               {{
                 formatSubscriptionPrice(
-                  selectedCustomer.referral.discount_amount,
+                  Number(selectedCustomer.referral.discount_amount) * Number(store.form.period_count || 1),
                   selectedPlan.currency
                 )
               }}
               · Total
               {{
                 formatSubscriptionPrice(
-                  selectedCustomer.referral.customer_price,
+                  totalPrice,
                   selectedPlan.currency
                 )
               }}</div
             >
-            <div class="text-caption"
-              >Durasi {{ selectedPlan.duration_days }} hari</div
-            >
+            <div class="text-caption">
+              {{ store.form.period_count }} periode × 30 hari =
+              {{ totalDurationDays }} hari
+            </div>
+            <div class="text-caption text-weight-bold">
+              Total tagihan {{ formatSubscriptionPrice(totalPrice, selectedPlan.currency) }}
+            </div>
           </q-banner>
+          <q-select
+            v-model="store.form.period_count"
+            outlined
+            dense
+            emit-value
+            map-options
+            label="Jumlah periode"
+            :options="periodOptions"
+            :error="hasError('period_count')"
+            :error-message="errorFor('period_count')"
+          />
           <q-select
             v-model="store.form.subscription_id"
             outlined
@@ -305,6 +320,20 @@ const selectedCustomer = computed(() =>
   store.formCustomers.find(
     customer => customer.id === store.form.application_customer_id
   )
+)
+const periodOptions = Array.from({ length: 12 }, (_, index) => ({
+  label: `${index + 1} periode (${(index + 1) * 30} hari)`,
+  value: index + 1
+}))
+const totalDurationDays = computed(() => Number(store.form.period_count || 1) * 30)
+const unitPrice = computed(() => {
+  if (selectedCustomer.value?.referral?.customer_price) {
+    return Number(selectedCustomer.value.referral.customer_price)
+  }
+  return Number(selectedPlan.value?.price || 0)
+})
+const totalPrice = computed(() =>
+  unitPrice.value * Number(store.form.period_count || 1)
 )
 const applicationNoOptionMessage = computed(() => {
   if (store.applicationsLoading) return 'Memuat aplikasi...'
