@@ -193,8 +193,48 @@
         <div class="text-caption q-mt-xs">
           {{ transaction.payment_instruction.message }}
         </div>
+        <div v-if="qrisPayload" class="qris-payload q-mt-sm">
+          <q-img
+            v-if="qrisDataUrl"
+            class="qris-image"
+            fit="contain"
+            :src="qrisDataUrl"
+            alt="QRIS DANA Sandbox yang dibuat lokal"
+          />
+          <q-spinner v-else color="primary" size="32px" class="q-ma-md" />
+          <div class="qris-actions q-mt-sm">
+            <q-btn
+              outline
+              dense
+              no-caps
+              color="primary"
+              icon="content_copy"
+              label="Salin Kode"
+              @click="copyPaymentCode(qrisPayload)"
+            />
+            <q-btn
+              outline
+              dense
+              no-caps
+              color="primary"
+              icon="download"
+              label="Unduh QRIS"
+              :disable="!qrisDataUrl"
+              @click="downloadQris"
+            />
+          </div>
+          <q-expansion-item
+            dense
+            dense-toggle
+            icon="code"
+            label="Teks payload QRIS (cadangan)"
+            class="q-mt-sm"
+          >
+            <code class="qris-payload-text">{{ qrisPayload }}</code>
+          </q-expansion-item>
+        </div>
         <q-img
-          v-if="transaction.payment_instruction.qr_image"
+          v-else-if="transaction.payment_instruction.qr_image"
           class="q-mt-sm qris-image"
           fit="contain"
           :src="transaction.payment_instruction.qr_image"
@@ -218,7 +258,7 @@
             no-caps
             color="primary"
             icon="content_copy"
-            label="Salin"
+            label="Salin Kode"
             @click="
               copyPaymentCode(transaction.payment_instruction.payment_code)
             "
@@ -339,6 +379,7 @@
 </template>
 
 <script setup>
+import QRCode from 'qrcode'
 import { computed, ref, watch } from 'vue'
 import { Notify, useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
@@ -364,6 +405,7 @@ const amountMinor = ref(10000)
 const paymentMethod = ref('dana_wallet')
 const idempotencyKey = ref(null)
 const sandboxResultContext = ref(null)
+const qrisDataUrl = ref(null)
 const historyMeta = ref({
   current_page: 1,
   last_page: 1,
@@ -388,6 +430,13 @@ const paymentMethodOptions = [
   { label: 'Virtual Account CIMB', value: 'va_cimb' },
   { label: 'Virtual Account BTPN', value: 'va_btpn' }
 ]
+const qrisPayload = computed(() => {
+  const instruction = transaction.value?.payment_instruction
+  return instruction?.type === 'qris' &&
+    typeof instruction.payment_code === 'string'
+    ? instruction.payment_code
+    : null
+})
 const historyColumns = [
   {
     name: 'created_at',
@@ -430,6 +479,26 @@ watch(
   async value => {
     reset()
     if (value) await refreshHistory()
+  },
+  { immediate: true }
+)
+
+watch(
+  qrisPayload,
+  async payload => {
+    qrisDataUrl.value = null
+    if (!payload) return
+
+    try {
+      qrisDataUrl.value = await QRCode.toDataURL(payload, {
+        errorCorrectionLevel: 'M',
+        margin: 2,
+        width: 440,
+        color: { dark: '#000000', light: '#FFFFFF' }
+      })
+    } catch {
+      error.value = 'QRIS tidak dapat dibuat sebagai gambar di browser.'
+    }
   },
   { immediate: true }
 )
@@ -589,6 +658,15 @@ async function copyPaymentCode(paymentCode) {
   }
 }
 
+function downloadQris() {
+  if (!qrisDataUrl.value) return
+
+  const link = document.createElement('a')
+  link.href = qrisDataUrl.value
+  link.download = `qris-sandbox-${transaction.value?.id || 'dana'}.png`
+  link.click()
+}
+
 function viewResult(context) {
   router.push({ path: '/payment/sandbox-result', query: { context } })
 }
@@ -732,6 +810,24 @@ h3 {
   border: 1px solid #c8d9c6;
   border-radius: 8px;
   background: #fff;
+}
+.qris-payload {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.qris-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.qris-payload-text {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+  color: #20180b;
 }
 .transport-notice {
   border: 1px solid #cbb57c;
