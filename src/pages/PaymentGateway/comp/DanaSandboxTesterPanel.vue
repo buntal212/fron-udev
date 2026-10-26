@@ -194,14 +194,23 @@
           {{ transaction.payment_instruction.message }}
         </div>
         <div v-if="qrisPayload" class="qris-payload q-mt-sm">
-          <q-img
+          <img
             v-if="qrisDataUrl"
+            :key="qrisPayload"
             class="qris-image"
-            fit="contain"
             :src="qrisDataUrl"
             alt="QRIS DANA Sandbox yang dibuat lokal"
+            decoding="async"
+            @error="handleQrisImageError"
           />
-          <q-spinner v-else color="primary" size="32px" class="q-ma-md" />
+          <div v-else-if="qrisLoading" class="qris-render-state">
+            <q-spinner color="primary" size="32px" />
+            <span>Membuat gambar QRIS secara lokal…</span>
+          </div>
+          <q-banner v-if="qrisError" dense rounded class="qris-render-error">
+            <template #avatar><q-icon name="error_outline" /></template>
+            {{ qrisError }} Gunakan teks payload cadangan di bawah.
+          </q-banner>
           <div class="qris-actions q-mt-sm">
             <q-btn
               outline
@@ -248,7 +257,7 @@
           alt="QRIS DANA Sandbox"
         />
         <div
-          v-if="transaction.payment_instruction.payment_code"
+          v-if="transaction.payment_instruction.payment_code && !qrisPayload"
           class="payment-code q-mt-sm"
         >
           <span>{{ transaction.payment_instruction.payment_code }}</span>
@@ -406,6 +415,8 @@ const paymentMethod = ref('dana_wallet')
 const idempotencyKey = ref(null)
 const sandboxResultContext = ref(null)
 const qrisDataUrl = ref(null)
+const qrisLoading = ref(false)
+const qrisError = ref(null)
 const historyMeta = ref({
   current_page: 1,
   last_page: 1,
@@ -483,21 +494,33 @@ watch(
   { immediate: true }
 )
 
+let qrisRenderRequest = 0
+
 watch(
   qrisPayload,
   async payload => {
+    const request = ++qrisRenderRequest
     qrisDataUrl.value = null
+    qrisError.value = null
+    qrisLoading.value = Boolean(payload)
     if (!payload) return
 
     try {
-      qrisDataUrl.value = await QRCode.toDataURL(payload, {
+      const dataUrl = await QRCode.toDataURL(payload, {
         errorCorrectionLevel: 'M',
         margin: 2,
         width: 440,
         color: { dark: '#000000', light: '#FFFFFF' }
       })
+      if (request !== qrisRenderRequest) return
+      if (!isPngDataUrl(dataUrl)) throw new Error('QRIS bukan PNG')
+      qrisDataUrl.value = dataUrl
     } catch {
-      error.value = 'QRIS tidak dapat dibuat sebagai gambar di browser.'
+      if (request === qrisRenderRequest) {
+        qrisError.value = 'QRIS tidak dapat dibuat sebagai gambar di browser.'
+      }
+    } finally {
+      if (request === qrisRenderRequest) qrisLoading.value = false
     }
   },
   { immediate: true }
@@ -658,13 +681,38 @@ async function copyPaymentCode(paymentCode) {
   }
 }
 
-function downloadQris() {
-  if (!qrisDataUrl.value) return
+async function downloadQris() {
+  if (!isPngDataUrl(qrisDataUrl.value)) {
+    qrisError.value = 'PNG QRIS belum siap untuk diunduh.'
+    return
+  }
 
-  const link = document.createElement('a')
-  link.href = qrisDataUrl.value
-  link.download = `qris-sandbox-${transaction.value?.id || 'dana'}.png`
-  link.click()
+  try {
+    const response = await fetch(qrisDataUrl.value)
+    const png = await response.blob()
+    if (png.type !== 'image/png' || png.size === 0) {
+      throw new Error('PNG QRIS tidak valid')
+    }
+
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(png)
+    link.href = url
+    link.download = `qris-sandbox-${transaction.value?.id || 'dana'}.png`
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    qrisError.value = 'PNG QRIS tidak dapat diunduh oleh browser.'
+  }
+}
+
+function isPngDataUrl(value) {
+  return typeof value === 'string' && value.startsWith('data:image/png;base64,')
+}
+
+function handleQrisImageError() {
+  qrisDataUrl.value = null
+  qrisLoading.value = false
+  qrisError.value = 'Gambar QRIS tidak dapat dirender oleh browser.'
 }
 
 function viewResult(context) {
@@ -815,6 +863,20 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+.qris-render-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 220px;
+  padding: 16px;
+  color: #315b36;
+}
+.qris-render-error {
+  max-width: 420px;
+  border: 1px solid #e8b4ad;
+  background: #fff2f0;
+  color: #9f2419;
 }
 .qris-actions {
   display: flex;
