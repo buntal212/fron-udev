@@ -50,4 +50,14 @@ test('modal Detail Pembayaran Sandbox Payment Audit responsif, memiliki max-heig
     component,
     /@media\s*\(max-width:\s*599px\)\s*\{[\s\S]*\.payment-detail-dialog\s*\{[^}]*max-height:\s*92vh/
   )
+
+  // Bagian Checkout & Instruksi Pembayaran
+  assert.match(component, /label="Buka Checkout Sandbox"/)
+  assert.match(component, /qrisPayload/)
+  assert.match(component, /class="qris-image"/)
+  assert.match(component, /alt="QRIS DANA Sandbox yang dibuat lokal"/)
+  assert.match(component, /label="Unduh QRIS"/)
+  assert.match(component, /Teks payload QRIS \(cadangan\)/)
+  assert.match(component, /Data checkout belum tersedia pada transaksi ini/)
+  assert.match(component, /import QRCode from 'qrcode'/)
 })

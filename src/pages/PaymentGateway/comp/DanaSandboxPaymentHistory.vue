@@ -282,6 +282,165 @@
             >
           </div>
           <section
+            v-if="detail.status === 'pending'"
+            class="audit-section checkout-audit-section"
+          >
+            <div class="section-heading">
+              <q-icon
+                name="shopping_cart_checkout"
+                color="warning"
+                size="21px"
+              />
+              <div>
+                <h4>Instruksi Pembayaran &amp; Checkout</h4>
+                <p
+                  >Selesaikan atau uji alur pembayaran Sandbox melalui checkout
+                  resmi berikut.</p
+                >
+              </div>
+            </div>
+
+            <!-- Tombol Buka Checkout jika checkout_url tersedia -->
+            <div
+              v-if="detail.checkout_available && detail.checkout_url"
+              class="checkout-action-box q-mb-md"
+            >
+              <q-btn
+                unelevated
+                color="primary"
+                icon="open_in_new"
+                label="Buka Checkout Sandbox"
+                no-caps
+                @click="openCheckout(detail.checkout_url)"
+              />
+            </div>
+
+            <!-- Instruksi Pembayaran (QRIS / VA / Payment Code) -->
+            <div
+              v-if="detail.payment_instruction"
+              class="payment-instruction q-mt-sm"
+            >
+              <div class="text-weight-bold text-subtitle2">
+                {{ detail.payment_instruction.label || 'Instruksi Pembayaran' }}
+              </div>
+              <div class="text-caption text-grey-7 q-mt-xs">
+                {{ detail.payment_instruction.message || '' }}
+              </div>
+
+              <!-- Tampilan QRIS Asli -->
+              <div v-if="qrisPayload" class="qris-payload q-mt-sm">
+                <img
+                  v-if="qrisDataUrl"
+                  :key="qrisPayload"
+                  class="qris-image"
+                  :src="qrisDataUrl"
+                  alt="QRIS DANA Sandbox yang dibuat lokal"
+                  decoding="async"
+                />
+                <div v-else-if="qrisLoading" class="qris-render-state">
+                  <q-spinner color="warning" size="32px" />
+                  <span>Membuat gambar QRIS secara lokal…</span>
+                </div>
+                <q-banner
+                  v-if="qrisError"
+                  dense
+                  rounded
+                  class="error-banner q-mt-xs"
+                >
+                  <template #avatar><q-icon name="error_outline" /></template>
+                  {{ qrisError }} Gunakan teks payload cadangan di bawah.
+                </q-banner>
+                <div class="qris-actions q-mt-sm row q-gutter-sm">
+                  <q-btn
+                    outline
+                    dense
+                    no-caps
+                    color="warning"
+                    icon="content_copy"
+                    label="Salin Kode"
+                    @click="copyPaymentCode(qrisPayload)"
+                  />
+                  <q-btn
+                    outline
+                    dense
+                    no-caps
+                    color="primary"
+                    icon="download"
+                    label="Unduh QRIS"
+                    :disable="!qrisDataUrl"
+                    @click="downloadQris"
+                  />
+                </div>
+                <q-expansion-item
+                  dense
+                  dense-toggle
+                  icon="code"
+                  label="Teks payload QRIS (cadangan)"
+                  class="q-mt-sm full-width"
+                >
+                  <code class="qris-payload-text">{{ qrisPayload }}</code>
+                </q-expansion-item>
+              </div>
+
+              <!-- Tampilan Virtual Account / Kode Pembayaran (non-QRIS) -->
+              <div
+                v-else-if="detail.payment_instruction.payment_code"
+                class="payment-code q-mt-sm"
+              >
+                <span>{{ detail.payment_instruction.payment_code }}</span>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  color="warning"
+                  icon="content_copy"
+                  aria-label="Salin kode pembayaran"
+                  @click="
+                    copyPaymentCode(detail.payment_instruction.payment_code)
+                  "
+                >
+                  <q-tooltip>Salin kode</q-tooltip>
+                </q-btn>
+              </div>
+            </div>
+
+            <!-- Fallback jika data checkout belum tersedia -->
+            <div
+              v-else-if="!detail.checkout_available && !detail.checkout_url"
+              class="checkout-fallback q-mt-sm"
+            >
+              <q-banner rounded class="warning-banner">
+                <template #avatar
+                  ><q-icon name="info" color="warning"
+                /></template>
+                <div>
+                  <strong
+                    >Data checkout belum tersedia pada transaksi ini.</strong
+                  >
+                  <div class="text-caption q-mt-xs">
+                    Transaksi ini tidak memuat instruksi pembayaran atau tautan
+                    checkout (misal dibuat sebelum penyimpanan metadata checkout
+                    atau sesi telah kedaluwarsa). Sesuai standar Sandbox, tidak
+                    ada QRIS atau transaksi baru yang dibuat secara otomatis.
+                  </div>
+                </div>
+                <template #action>
+                  <q-btn
+                    v-if="canQueryDanaStatus(selectedPayment)"
+                    flat
+                    dense
+                    no-caps
+                    color="primary"
+                    icon="query_stats"
+                    label="Cek Status DANA"
+                    :loading="danaStatusLoading"
+                    @click="checkDanaStatus(selectedPayment)"
+                  />
+                </template>
+              </q-banner>
+            </div>
+          </section>
+          <section
             v-if="canQueryDanaStatus(selectedPayment)"
             class="audit-section"
           >
@@ -498,6 +657,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useQuasar } from 'quasar'
+import QRCode from 'qrcode'
 import { danaGatewayMerchantService } from '@/services/udev-billing'
 import { getApiErrorMessage } from '@/utils/api-error'
 
@@ -576,6 +736,28 @@ const webhookMeta = ref({
   total: 0
 })
 const detailOpen = ref(false)
+const qrisDataUrl = ref(null)
+const qrisLoading = ref(false)
+const qrisError = ref(null)
+let qrisRenderRequest = 0
+
+const qrisPayload = computed(() => {
+  const instruction = detail.value?.payment_instruction
+  if (
+    instruction?.type === 'qris_mpm' &&
+    typeof instruction.qr_content === 'string' &&
+    instruction.qr_content.trim() !== ''
+  ) {
+    return instruction.qr_content.trim()
+  }
+  if (
+    typeof instruction?.payment_code === 'string' &&
+    instruction.payment_code.trim().startsWith('000201')
+  ) {
+    return instruction.payment_code.trim()
+  }
+  return null
+})
 const requestId = ref(0)
 const detailRequestId = ref(0)
 const webhookRequestId = ref(0)
@@ -885,6 +1067,8 @@ async function openDetail(payment, force = false) {
   danaStatusPaymentId.value = null
   webhooks.value = []
   webhookError.value = null
+  qrisDataUrl.value = null
+  qrisError.value = null
   webhookMeta.value = {
     current_page: 1,
     last_page: 1,
@@ -980,6 +1164,121 @@ async function checkDanaStatus(payment) {
       danaStatusLoading.value = false
   }
 }
+function isPngDataUrl(value) {
+  return typeof value === 'string' && value.startsWith('data:image/png;base64,')
+}
+
+function validCheckoutUrl(value) {
+  try {
+    return new URL(value).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+watch(
+  qrisPayload,
+  async payload => {
+    const request = ++qrisRenderRequest
+    qrisDataUrl.value = null
+    qrisError.value = null
+    qrisLoading.value = Boolean(payload)
+    if (!payload) return
+
+    try {
+      const dataUrl = await QRCode.toDataURL(payload, {
+        errorCorrectionLevel: 'M',
+        margin: 2,
+        width: 380,
+        color: { dark: '#000000', light: '#FFFFFF' }
+      })
+      if (request !== qrisRenderRequest) return
+      if (!isPngDataUrl(dataUrl)) throw new Error('QRIS bukan PNG')
+      qrisDataUrl.value = dataUrl
+    } catch {
+      if (request === qrisRenderRequest) {
+        qrisError.value = 'QRIS tidak dapat dibuat sebagai gambar di browser.'
+      }
+    } finally {
+      if (request === qrisRenderRequest) qrisLoading.value = false
+    }
+  },
+  { immediate: true }
+)
+
+watch(detailOpen, open => {
+  if (!open) {
+    qrisDataUrl.value = null
+    qrisError.value = null
+    qrisLoading.value = false
+  }
+})
+
+function openCheckout(url) {
+  const targetUrl = url || detail.value?.checkout_url
+  if (!validCheckoutUrl(targetUrl)) {
+    $q.notify({
+      message: 'URL checkout Sandbox tidak valid atau tidak tersedia.',
+      color: 'negative',
+      icon: 'error',
+      position: 'top'
+    })
+    return
+  }
+  globalThis.location.assign(targetUrl)
+}
+
+async function copyPaymentCode(code) {
+  if (typeof code !== 'string' || code === '') return
+  try {
+    await globalThis.navigator?.clipboard?.writeText(code)
+    $q.notify({
+      message: 'Kode pembayaran disalin.',
+      color: 'positive',
+      icon: 'content_copy',
+      position: 'top'
+    })
+  } catch {
+    $q.notify({
+      message: 'Gagal menyalin kode pembayaran.',
+      color: 'negative',
+      icon: 'error',
+      position: 'top'
+    })
+  }
+}
+
+async function downloadQris() {
+  if (!isPngDataUrl(qrisDataUrl.value)) {
+    $q.notify({
+      message: 'Gambar QRIS belum siap diunduh.',
+      color: 'negative',
+      icon: 'error',
+      position: 'top'
+    })
+    return
+  }
+  try {
+    const response = await fetch(qrisDataUrl.value)
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = `qris-dana-sandbox-${detail.value?.merchant_reference || 'code'}.png`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(objectUrl)
+  } catch {
+    $q.notify({
+      message: 'Gagal mengunduh gambar QRIS.',
+      color: 'negative',
+      icon: 'error',
+      position: 'top'
+    })
+  }
+}
+
 function retryDetail() {
   if (selectedPayment.value) openDetail(selectedPayment.value, true)
 }
@@ -1236,6 +1535,66 @@ h4 {
   border-radius: 10px;
   color: #817866;
   font-size: 0.78rem;
+}
+.checkout-action-box {
+  display: flex;
+  align-items: center;
+}
+.payment-instruction {
+  border: 1px solid #eee6d9;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+.payment-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px dashed #cbb57c;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #fdfbf7;
+  color: #342918;
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.qris-payload {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.qris-image {
+  width: 200px;
+  max-width: 100%;
+  border: 1px solid #eee6d9;
+  border-radius: 8px;
+  background: #fff;
+}
+.qris-render-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 180px;
+  padding: 16px;
+  color: #817866;
+}
+.qris-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.qris-payload-text {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fdfbf7;
+  border: 1px solid #eee6d9;
+  color: #342918;
+  font-size: 0.75rem;
 }
 @media (max-width: 800px) {
   .summary-grid {
