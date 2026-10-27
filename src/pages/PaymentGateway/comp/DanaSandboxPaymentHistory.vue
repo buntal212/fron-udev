@@ -188,10 +188,10 @@
   <q-dialog v-model="detailOpen">
     <q-card class="payment-detail-dialog">
       <q-card-section class="dialog-header row items-center justify-between">
-        <div
-          ><p class="eyebrow">DANA SANDBOX · PAYMENT AUDIT</p
-          ><h3>Detail Pembayaran</h3></div
-        >
+        <div>
+          <p class="eyebrow">DANA SANDBOX · PAYMENT AUDIT</p>
+          <h3>Detail Pembayaran</h3>
+        </div>
         <q-btn
           flat
           round
@@ -202,284 +202,295 @@
           v-close-popup
         />
       </q-card-section>
-      <q-card-section v-if="detailError" class="q-pa-lg">
-        <q-banner rounded class="error-banner">
-          <template #avatar><q-icon name="error_outline" /></template>
-          {{ detailError }}
-          <template #action>
-            <q-btn
-              flat
-              color="negative"
-              label="Coba lagi"
-              no-caps
-              :loading="detailLoading || webhookLoading"
-              @click="retryDetail"
-            />
-          </template>
-        </q-banner>
-      </q-card-section>
-      <q-card-section v-else-if="detail" class="dialog-body">
-        <div class="payment-overview">
-          <div
-            ><p class="overview-label">Nominal pembayaran</p
-            ><p class="overview-amount">{{ formatAmount(detail) }}</p
-            ><p class="overview-reference">{{
-              detail.merchant_reference
-            }}</p></div
-          >
-          <div class="overview-status"
-            ><q-badge
-              rounded
-              :color="statusColor(detail.status)"
-              class="status-badge"
-              ><q-icon name="verified" size="14px" class="q-mr-xs" />{{
-                labelFor(detail.status)
-              }}</q-badge
-            ><span>{{
-              detail.gateway_verified_at
-                ? 'Terverifikasi gateway'
-                : 'Menunggu verifikasi gateway'
-            }}</span></div
-          >
-        </div>
-        <div class="audit-meta-grid q-mt-md">
-          <div class="audit-meta-item"
-            ><q-icon name="tag" /><div
-              ><span>Referensi pembayaran</span
-              ><strong>{{ detail.id }}</strong></div
-            ></div
-          >
-          <div class="audit-meta-item"
-            ><q-icon name="account_balance_wallet" /><div
-              ><span>Referensi provider</span
-              ><strong>{{
-                detail.provider_order_reference || '-'
-              }}</strong></div
-            ></div
-          >
-          <div class="audit-meta-item"
-            ><q-icon name="payments" /><div
-              ><span>Metode pembayaran</span
-              ><strong>{{
-                paymentMethodLabel(detail.payment_method)
-              }}</strong></div
-            ></div
-          >
-          <div class="audit-meta-item"
-            ><q-icon name="schedule" /><div
-              ><span>Dibuat</span
-              ><strong>{{ formatDate(detail.created_at) }}</strong></div
-            ></div
-          >
-          <div class="audit-meta-item"
-            ><q-icon name="verified_user" /><div
-              ><span>Terverifikasi gateway</span
-              ><strong>{{
-                formatDate(detail.gateway_verified_at)
-              }}</strong></div
-            ></div
-          >
-        </div>
-        <section
-          v-if="canQueryDanaStatus(selectedPayment)"
-          class="audit-section"
-        >
-          <div class="section-heading">
-            <q-icon name="query_stats" color="primary" size="21px" />
-            <div>
-              <h4>Status DANA Sandbox</h4>
-              <p
-                >Pemeriksaan read-only; tidak mengubah status pembayaran
-                lokal.</p
-              >
-            </div>
-          </div>
-          <q-btn
-            outline
-            dense
-            no-caps
-            color="primary"
-            icon="query_stats"
-            label="Cek Status DANA"
-            :loading="danaStatusLoading"
-            @click="checkDanaStatus(selectedPayment)"
-          />
-          <q-banner v-if="danaStatusError" rounded class="error-banner q-mt-sm">
+      <div class="dialog-scrollable">
+        <q-card-section v-if="detailError" class="q-pa-lg">
+          <q-banner rounded class="error-banner">
             <template #avatar><q-icon name="error_outline" /></template>
-            {{ danaStatusError }}
-          </q-banner>
-          <div
-            v-else-if="
-              danaStatus && danaStatusPaymentId === selectedPayment?.id
-            "
-            class="audit-meta-grid q-mt-sm"
-          >
-            <div class="audit-meta-item"
-              ><div
-                ><span>Status lokal</span
-                ><strong>{{ labelFor(danaStatus.local_status) }}</strong></div
-              ></div
-            >
-            <div class="audit-meta-item"
-              ><div
-                ><span>Status DANA</span
-                ><strong>{{
-                  danaStatus.dana_status?.latest_transaction_status || '-'
-                }}</strong></div
-              ></div
-            >
-            <div class="audit-meta-item"
-              ><div
-                ><span>Response code</span
-                ><strong>{{
-                  danaStatus.dana_status?.response_code || '-'
-                }}</strong></div
-              ></div
-            >
-            <div class="audit-meta-item"
-              ><div
-                ><span>HTTP DANA</span
-                ><strong>{{
-                  danaStatus.dana_status?.http_status || '-'
-                }}</strong></div
-              ></div
-            >
-            <div class="audit-meta-item"
-              ><div
-                ><span>Request ID</span
-                ><strong>{{
-                  danaStatus.dana_status?.request_id || '-'
-                }}</strong></div
-              ></div
-            >
-            <div class="audit-meta-item"
-              ><div
-                ><span>Waktu cek</span
-                ><strong>{{
-                  formatDate(danaStatus.dana_status?.checked_at)
-                }}</strong></div
-              ></div
-            >
-          </div>
-        </section>
-        <section class="audit-section">
-          <div class="section-heading"
-            ><q-icon name="timeline" color="warning" size="21px" /><div
-              ><h4>Timeline status</h4
-              ><p>Jejak perubahan status pembayaran yang aman.</p></div
-            ></div
-          >
-          <div v-if="detail.timeline?.length" class="audit-timeline">
-            <article
-              v-for="(event, index) in detail.timeline"
-              :key="index"
-              class="timeline-item"
-            >
-              <div class="timeline-rail"
-                ><q-icon :name="eventIcon(event)" :color="eventColor(event)"
-              /></div>
-              <div class="timeline-content"
-                ><div
-                  class="row items-start justify-between q-col-gutter-sm no-wrap"
-                  ><div class="col"
-                    ><strong>{{ eventTitle(event) }}</strong
-                    ><span class="timeline-source">{{
-                      sourceLabel(event.source)
-                    }}</span></div
-                  ><time>{{ formatDate(event.created_at) }}</time></div
-                ><div class="timeline-transition"
-                  ><q-badge outline :color="eventColor(event)">{{
-                    labelFor(event.old_status)
-                  }}</q-badge
-                  ><q-icon name="arrow_forward" size="16px" /><q-badge
-                    :color="eventColor(event)"
-                    >{{ labelFor(event.new_status) }}</q-badge
-                  ></div
-                ></div
-              >
-            </article>
-          </div>
-          <div v-else class="empty-audit"
-            ><q-icon name="timeline" size="22px" /><span
-              >Belum ada event status yang aman untuk ditampilkan.</span
-            ></div
-          >
-        </section>
-        <section class="audit-section">
-          <div class="section-heading"
-            ><q-icon name="webhook" color="warning" size="21px" /><div
-              ><h4>Webhook</h4
-              ><p>Riwayat notifikasi DANA, tanpa payload sensitif.</p></div
-            ></div
-          >
-          <div v-if="webhookLoading" class="empty-audit"
-            ><q-spinner color="warning" size="22px" /><span
-              >Memuat metadata webhook...</span
-            ></div
-          >
-          <q-banner v-else-if="webhookError" rounded class="error-banner"
-            ><template #avatar><q-icon name="error_outline" /></template
-            >{{ webhookError
-            }}<template #action
-              ><q-btn
+            {{ detailError }}
+            <template #action>
+              <q-btn
                 flat
                 color="negative"
                 label="Coba lagi"
                 no-caps
-                @click="
-                  loadWebhooks(webhookMeta.current_page, true)
-                " /></template
-          ></q-banner>
-          <div v-else-if="webhooks.length" class="webhook-list"
-            ><article
-              v-for="(webhook, index) in webhooks"
-              :key="index"
-              class="webhook-row"
-              ><q-avatar
-                :color="webhookColor(webhook)"
-                text-color="white"
-                size="34px"
-                ><q-icon
-                  :name="
-                    webhook.signature_valid ? 'verified' : 'gpp_maybe'
-                  " /></q-avatar
-              ><div class="webhook-content"
-                ><div class="row items-center justify-between q-col-gutter-sm"
-                  ><strong>{{ webhookLabel(webhook) }}</strong
-                  ><q-badge outline :color="webhookColor(webhook)">{{
-                    webhook.signature_valid
-                      ? 'Signature valid'
-                      : 'Signature invalid'
-                  }}</q-badge></div
-                ><span>{{ formatDate(webhook.received_at) }}</span
-                ><small v-if="webhook.error_code"
-                  >Kode: {{ webhook.error_code }}</small
+                :loading="detailLoading || webhookLoading"
+                @click="retryDetail"
+              />
+            </template>
+          </q-banner>
+        </q-card-section>
+        <q-card-section v-else-if="detail" class="dialog-body">
+          <div class="payment-overview">
+            <div
+              ><p class="overview-label">Nominal pembayaran</p
+              ><p class="overview-amount">{{ formatAmount(detail) }}</p
+              ><p class="overview-reference">{{
+                detail.merchant_reference
+              }}</p></div
+            >
+            <div class="overview-status"
+              ><q-badge
+                rounded
+                :color="statusColor(detail.status)"
+                class="status-badge"
+                ><q-icon name="verified" size="14px" class="q-mr-xs" />{{
+                  labelFor(detail.status)
+                }}</q-badge
+              ><span>{{
+                detail.gateway_verified_at
+                  ? 'Terverifikasi gateway'
+                  : 'Menunggu verifikasi gateway'
+              }}</span></div
+            >
+          </div>
+          <div class="audit-meta-grid q-mt-md">
+            <div class="audit-meta-item"
+              ><q-icon name="tag" /><div
+                ><span>Referensi pembayaran</span
+                ><strong>{{ detail.id }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><q-icon name="account_balance_wallet" /><div
+                ><span>Referensi provider</span
+                ><strong>{{
+                  detail.provider_order_reference || '-'
+                }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><q-icon name="payments" /><div
+                ><span>Metode pembayaran</span
+                ><strong>{{
+                  paymentMethodLabel(detail.payment_method)
+                }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><q-icon name="schedule" /><div
+                ><span>Dibuat</span
+                ><strong>{{ formatDate(detail.created_at) }}</strong></div
+              ></div
+            >
+            <div class="audit-meta-item"
+              ><q-icon name="verified_user" /><div
+                ><span>Terverifikasi gateway</span
+                ><strong>{{
+                  formatDate(detail.gateway_verified_at)
+                }}</strong></div
+              ></div
+            >
+          </div>
+          <section
+            v-if="canQueryDanaStatus(selectedPayment)"
+            class="audit-section"
+          >
+            <div class="section-heading">
+              <q-icon name="query_stats" color="primary" size="21px" />
+              <div>
+                <h4>Status DANA Sandbox</h4>
+                <p
+                  >Pemeriksaan read-only; tidak mengubah status pembayaran
+                  lokal.</p
+                >
+              </div>
+            </div>
+            <q-btn
+              outline
+              dense
+              no-caps
+              color="primary"
+              icon="query_stats"
+              label="Cek Status DANA"
+              :loading="danaStatusLoading"
+              @click="checkDanaStatus(selectedPayment)"
+            />
+            <q-banner
+              v-if="danaStatusError"
+              rounded
+              class="error-banner q-mt-sm"
+            >
+              <template #avatar><q-icon name="error_outline" /></template>
+              {{ danaStatusError }}
+            </q-banner>
+            <div
+              v-else-if="
+                danaStatus && danaStatusPaymentId === selectedPayment?.id
+              "
+              class="audit-meta-grid q-mt-sm"
+            >
+              <div class="audit-meta-item"
+                ><div
+                  ><span>Status lokal</span
+                  ><strong>{{ labelFor(danaStatus.local_status) }}</strong></div
                 ></div
-              ></article
-            ></div
-          >
-          <div v-else class="empty-audit"
-            ><q-icon name="webhook" size="22px" /><span
-              >Belum ada webhook tercatat untuk transaksi ini.</span
-            ></div
-          >
-          <q-pagination
-            v-if="webhookMeta.last_page > 1"
-            class="q-mt-md justify-center"
-            color="warning"
-            :model-value="webhookMeta.current_page"
-            :max="webhookMeta.last_page"
-            :max-pages="6"
-            :disable="webhookLoading"
-            @update:model-value="loadWebhooks"
-          />
-        </section>
-      </q-card-section>
-      <q-card-section v-else class="text-center q-pa-xl"
-        ><q-spinner color="warning" size="32px" /><p class="q-mt-sm text-grey-7"
-          >Memuat detail audit...</p
-        ></q-card-section
-      >
+              >
+              <div class="audit-meta-item"
+                ><div
+                  ><span>Status DANA</span
+                  ><strong>{{
+                    danaStatus.dana_status?.latest_transaction_status || '-'
+                  }}</strong></div
+                ></div
+              >
+              <div class="audit-meta-item"
+                ><div
+                  ><span>Response code</span
+                  ><strong>{{
+                    danaStatus.dana_status?.response_code || '-'
+                  }}</strong></div
+                ></div
+              >
+              <div class="audit-meta-item"
+                ><div
+                  ><span>HTTP DANA</span
+                  ><strong>{{
+                    danaStatus.dana_status?.http_status || '-'
+                  }}</strong></div
+                ></div
+              >
+              <div class="audit-meta-item"
+                ><div
+                  ><span>Request ID</span
+                  ><strong>{{
+                    danaStatus.dana_status?.request_id || '-'
+                  }}</strong></div
+                ></div
+              >
+              <div class="audit-meta-item"
+                ><div
+                  ><span>Waktu cek</span
+                  ><strong>{{
+                    formatDate(danaStatus.dana_status?.checked_at)
+                  }}</strong></div
+                ></div
+              >
+            </div>
+          </section>
+          <section class="audit-section">
+            <div class="section-heading"
+              ><q-icon name="timeline" color="warning" size="21px" /><div
+                ><h4>Timeline status</h4
+                ><p>Jejak perubahan status pembayaran yang aman.</p></div
+              ></div
+            >
+            <div v-if="detail.timeline?.length" class="audit-timeline">
+              <article
+                v-for="(event, index) in detail.timeline"
+                :key="index"
+                class="timeline-item"
+              >
+                <div class="timeline-rail"
+                  ><q-icon :name="eventIcon(event)" :color="eventColor(event)"
+                /></div>
+                <div class="timeline-content"
+                  ><div
+                    class="row items-start justify-between q-col-gutter-sm no-wrap"
+                    ><div class="col"
+                      ><strong>{{ eventTitle(event) }}</strong
+                      ><span class="timeline-source">{{
+                        sourceLabel(event.source)
+                      }}</span></div
+                    ><time>{{ formatDate(event.created_at) }}</time></div
+                  ><div class="timeline-transition"
+                    ><q-badge outline :color="eventColor(event)">{{
+                      labelFor(event.old_status)
+                    }}</q-badge
+                    ><q-icon name="arrow_forward" size="16px" /><q-badge
+                      :color="eventColor(event)"
+                      >{{ labelFor(event.new_status) }}</q-badge
+                    ></div
+                  ></div
+                >
+              </article>
+            </div>
+            <div v-else class="empty-audit"
+              ><q-icon name="timeline" size="22px" /><span
+                >Belum ada event status yang aman untuk ditampilkan.</span
+              ></div
+            >
+          </section>
+          <section class="audit-section">
+            <div class="section-heading"
+              ><q-icon name="webhook" color="warning" size="21px" /><div
+                ><h4>Webhook</h4
+                ><p>Riwayat notifikasi DANA, tanpa payload sensitif.</p></div
+              ></div
+            >
+            <div v-if="webhookLoading" class="empty-audit"
+              ><q-spinner color="warning" size="22px" /><span
+                >Memuat metadata webhook...</span
+              ></div
+            >
+            <q-banner v-else-if="webhookError" rounded class="error-banner"
+              ><template #avatar><q-icon name="error_outline" /></template
+              >{{ webhookError
+              }}<template #action
+                ><q-btn
+                  flat
+                  color="negative"
+                  label="Coba lagi"
+                  no-caps
+                  @click="
+                    loadWebhooks(webhookMeta.current_page, true)
+                  " /></template
+            ></q-banner>
+            <div v-else-if="webhooks.length" class="webhook-list"
+              ><article
+                v-for="(webhook, index) in webhooks"
+                :key="index"
+                class="webhook-row"
+                ><q-avatar
+                  :color="webhookColor(webhook)"
+                  text-color="white"
+                  size="34px"
+                  ><q-icon
+                    :name="
+                      webhook.signature_valid ? 'verified' : 'gpp_maybe'
+                    " /></q-avatar
+                ><div class="webhook-content"
+                  ><div class="row items-center justify-between q-col-gutter-sm"
+                    ><strong>{{ webhookLabel(webhook) }}</strong
+                    ><q-badge outline :color="webhookColor(webhook)">{{
+                      webhook.signature_valid
+                        ? 'Signature valid'
+                        : 'Signature invalid'
+                    }}</q-badge></div
+                  ><span>{{ formatDate(webhook.received_at) }}</span
+                  ><small v-if="webhook.error_code"
+                    >Kode: {{ webhook.error_code }}</small
+                  ></div
+                ></article
+              ></div
+            >
+            <div v-else class="empty-audit"
+              ><q-icon name="webhook" size="22px" /><span
+                >Belum ada webhook tercatat untuk transaksi ini.</span
+              ></div
+            >
+            <q-pagination
+              v-if="webhookMeta.last_page > 1"
+              class="q-mt-md justify-center"
+              color="warning"
+              :model-value="webhookMeta.current_page"
+              :max="webhookMeta.last_page"
+              :max-pages="6"
+              :disable="webhookLoading"
+              @update:model-value="loadWebhooks"
+            />
+          </section>
+        </q-card-section>
+        <q-card-section v-else class="text-center q-pa-xl">
+          <q-spinner color="warning" size="32px" />
+          <p class="q-mt-sm text-grey-7">Memuat detail audit...</p>
+        </q-card-section>
+      </div>
+
+      <q-separator />
+
+      <q-card-actions align="right" class="dialog-actions">
+        <q-btn v-close-popup flat color="warning" label="Tutup" no-caps />
+      </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
@@ -1007,17 +1018,34 @@ h4 {
 }
 .payment-detail-dialog {
   width: min(760px, 94vw);
+  max-height: min(90vh, 860px);
+  display: flex;
+  flex-direction: column;
   border-radius: 18px;
   overflow: hidden;
+  background: #ffffff;
 }
 .dialog-header {
+  flex-shrink: 0;
   padding: 20px 24px;
   background: linear-gradient(135deg, #16120d, #3c2c12);
   color: #fff;
 }
 .dialog-header h3 {
+  margin: 0;
   color: #fff;
   font-size: 1.32rem;
+}
+.dialog-scrollable {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.dialog-actions {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  background: #fffdfa;
 }
 .eyebrow {
   margin: 0 0 4px;
@@ -1215,10 +1243,27 @@ h4 {
   }
 }
 @media (max-width: 599px) {
+  .payment-detail-dialog {
+    width: 96vw;
+    max-height: 92vh;
+    border-radius: 14px;
+  }
   .dialog-header,
-  .dialog-body {
+  .dialog-body,
+  .dialog-actions {
     padding-right: 16px;
     padding-left: 16px;
+  }
+  .dialog-header {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .dialog-header h3 {
+    font-size: 1.15rem;
+  }
+  .dialog-actions {
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
   .payment-overview {
     flex-direction: column;
