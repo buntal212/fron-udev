@@ -32,6 +32,17 @@
           @click="runMissingTimestampUat"
         />
       </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
+          color="negative"
+          icon="science"
+          label="UAT format amount (4005401)"
+          no-caps
+          :loading="runningInvalidAmountUat"
+          @click="runInvalidAmountUat"
+        />
+      </div>
       <div v-if="sandboxResultContext" class="col-12 col-sm-auto">
         <q-btn
           outline
@@ -71,6 +82,30 @@
         {{ missingTimestampUat.request?.x_timestamp_sent ? 'ya' : 'tidak' }}
         <span v-if="missingTimestampUat.received?.request_id">
           · Request ID: {{ missingTimestampUat.received.request_id }}</span
+        >
+      </div>
+    </q-banner>
+
+    <q-banner v-if="invalidAmountUat" rounded class="transport-notice q-mt-md">
+      <template #avatar
+        ><q-icon
+          :name="invalidAmountUat.passed ? 'check_circle' : 'error_outline'"
+      /></template>
+      <div class="text-weight-bold">
+        UAT Create Order Format amount (4005401)
+      </div>
+      <div>
+        DANA HTTP {{ invalidAmountUat.received?.http_status }} · responseCode
+        <code>{{
+          invalidAmountUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ invalidAmountUat.received?.response_message }}
+      </div>
+      <div class="text-caption q-mt-xs">
+        Format amount valid:
+        {{ invalidAmountUat.request?.amount_format_valid ? 'ya' : 'tidak' }}
+        <span v-if="invalidAmountUat.received?.request_id">
+          · Request ID: {{ invalidAmountUat.received.request_id }}</span
         >
       </div>
     </q-banner>
@@ -521,6 +556,7 @@ const creatingTransaction = ref(false)
 const checkingStatus = ref(false)
 const checkingDanaStatus = ref(false)
 const runningMissingTimestampUat = ref(false)
+const runningInvalidAmountUat = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
 const transaction = ref(null)
@@ -532,6 +568,7 @@ const pendingTransactionAction = ref(null)
 const sandboxResultContext = ref(null)
 const danaStatus = ref(null)
 const missingTimestampUat = ref(null)
+const invalidAmountUat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
 const qrisError = ref(null)
@@ -653,6 +690,7 @@ function reset() {
   sandboxResultContext.value = null
   danaStatus.value = null
   missingTimestampUat.value = null
+  invalidAmountUat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
 
@@ -746,6 +784,28 @@ async function runMissingTimestampUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningMissingTimestampUat.value = false
+  }
+}
+
+async function runInvalidAmountUat() {
+  if (!merchantId.value || runningInvalidAmountUat.value) return
+  runningInvalidAmountUat.value = true
+  error.value = null
+  invalidAmountUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testCreateOrderInvalidAmountFormat(
+        merchantId.value
+      )
+    invalidAmountUat.value = response.data?.data?.uat ?? null
+    if (!invalidAmountUat.value?.passed) {
+      error.value =
+        'Respons DANA tidak sesuai ekspektasi UAT 4005401 (Invalid Field Format amount).'
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningInvalidAmountUat.value = false
   }
 }
 

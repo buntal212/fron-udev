@@ -7,12 +7,16 @@
     :width="276"
     @update:model-value="$emit('update:modelValue', $event)"
   >
-    <div class="sidebar-brand q-pa-lg">
-      <div class="brand-mark"><q-icon name="account_balance" /></div>
-      <div><strong>UDEV</strong><span>Centralized Billing</span></div>
-    </div>
-    <q-scroll-area class="fit"
-      ><q-list padding>
+    <q-scroll-area
+      class="fit sidebar-scroll-area"
+      :thumb-style="thumbStyle"
+      :bar-style="barStyle"
+    >
+      <div class="sidebar-brand q-pa-lg">
+        <div class="brand-mark"><q-icon name="account_balance" /></div>
+        <div><strong>UDEV</strong><span>Centralized Billing</span></div>
+      </div>
+      <q-list padding class="q-pb-xl">
         <template v-for="section in sections" :key="section.label">
           <q-item-label header>{{ section.label }}</q-item-label>
           <q-item
@@ -35,14 +39,31 @@
             >
           </q-item>
           <q-separator class="q-my-sm" />
-        </template> </q-list
-    ></q-scroll-area>
+        </template>
+      </q-list>
+    </q-scroll-area>
   </q-drawer>
 </template>
 
 <script setup>
 defineProps({ modelValue: { type: Boolean, default: true } })
 defineEmits(['update:modelValue'])
+
+const thumbStyle = {
+  right: '4px',
+  borderRadius: '5px',
+  backgroundColor: '#d6ad4d',
+  width: '6px',
+  opacity: '0.6'
+}
+
+const barStyle = {
+  right: '2px',
+  borderRadius: '9px',
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  width: '10px',
+  opacity: '0.2'
+}
 
 const sections = [
   {
@@ -111,7 +132,21 @@ const sections = [
 .app-sidebar {
   background: #0c0c0d;
   color: #d6d1c8;
+  overflow: hidden !important;
 }
+
+:deep(.q-drawer__content) {
+  overflow: hidden !important;
+}
+
+.sidebar-scroll-area {
+  overscroll-behavior: contain;
+}
+
+:deep(.q-scrollarea__container) {
+  overscroll-behavior: contain;
+}
+
 .sidebar-brand {
   display: flex;
   align-items: center;

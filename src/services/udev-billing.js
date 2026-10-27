@@ -233,6 +233,12 @@ export const danaGatewayMerchantService = {
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  testCreateOrderInvalidAmountFormat: merchantId =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/create-order-invalid-amount-format`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   sandboxTestHistory: (merchantId, params) =>
     api.get(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions`,
