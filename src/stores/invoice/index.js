@@ -753,7 +753,9 @@ export const useInvoiceStore = defineStore('invoice', {
           }
         }
       } catch (error) {
-        this.checkoutError = getApiErrorMessage(error)
+        const validationErrors = getApiValidationErrors(error)
+        this.checkoutError =
+          validationErrors.invoice?.[0] || getApiErrorMessage(error)
       } finally {
         this.checkoutLoading = false
       }

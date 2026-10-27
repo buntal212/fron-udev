@@ -84,6 +84,11 @@
             Credential merchant disimpan di konfigurasi server dan tidak dapat
             dilihat atau diubah dari halaman ini.
           </q-banner>
+          <q-banner dense class="bg-blue-1 text-blue-10">
+            Mapping aplikasi hanya dipertahankan untuk checkout dan settlement
+            historis. Invoice langganan Sandbox baru selalu memakai merchant
+            penerima UDEV pusat yang dikonfigurasi aman di server.
+          </q-banner>
           <q-toggle
             v-model="store.form.is_active"
             color="warning"
