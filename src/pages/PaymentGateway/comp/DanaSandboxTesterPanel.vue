@@ -54,6 +54,17 @@
           @click="runInconsistentRequestUat"
         />
       </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
+          color="negative"
+          icon="science"
+          label="UAT Webhook 500 (5005601)"
+          no-caps
+          :loading="armingWebhook500"
+          @click="armWebhook500"
+        />
+      </div>
       <div v-if="sandboxResultContext" class="col-12 col-sm-auto">
         <q-btn
           outline
@@ -170,6 +181,40 @@
         <span v-if="inconsistentRequestUat.second_request?.request_id">
           · Request ID: {{ inconsistentRequestUat.second_request.request_id }}
         </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="armedWebhook500Uat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar><q-icon name="warning" color="warning" /></template>
+      <div class="text-weight-bold">
+        UAT Simulasi Webhook HTTP 500 (5005601) Aktif
+      </div>
+      <div>
+        Status:
+        <q-badge color="warning" text-color="dark">
+          Menunggu Webhook (1x pakai, 10 menit)
+        </q-badge>
+        <span v-if="armedWebhook500Uat.partner_reference_no">
+          · Ref: <code>{{ armedWebhook500Uat.partner_reference_no }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        Respons yang akan dikembalikan: HTTP
+        {{ armedWebhook500Uat.expected?.http_status }} ·
+        <code>{{ armedWebhook500Uat.expected?.response_code }}</code> ·
+        {{
+          armedWebhook500Uat.expected?.response_message ||
+          'Internal Server Error'
+        }}
+      </div>
+      <div class="text-caption q-mt-xs">
+        Kirim Finish Notify dari Portal Sandbox DANA untuk transaksi ini.
+        Gateway akan merespons HTTP 500 satu kali tanpa mengubah status
+        pembayaran.
       </div>
     </q-banner>
 
@@ -621,6 +666,7 @@ const checkingDanaStatus = ref(false)
 const runningMissingTimestampUat = ref(false)
 const runningInvalidAmountUat = ref(false)
 const runningInconsistentRequestUat = ref(false)
+const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
 const transaction = ref(null)
@@ -634,6 +680,7 @@ const danaStatus = ref(null)
 const missingTimestampUat = ref(null)
 const invalidAmountUat = ref(null)
 const inconsistentRequestUat = ref(null)
+const armedWebhook500Uat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
 const qrisError = ref(null)
@@ -757,6 +804,7 @@ function reset() {
   missingTimestampUat.value = null
   invalidAmountUat.value = null
   inconsistentRequestUat.value = null
+  armedWebhook500Uat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
 
@@ -897,6 +945,28 @@ async function runInconsistentRequestUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningInconsistentRequestUat.value = false
+  }
+}
+
+async function armWebhook500() {
+  if (!merchantId.value || armingWebhook500.value) return
+  armingWebhook500.value = true
+  error.value = null
+  armedWebhook500Uat.value = null
+  try {
+    const payload = transaction.value?.id
+      ? { payment_id: transaction.value.id }
+      : {}
+    const response =
+      await danaGatewayMerchantService.armSandboxWebhookSimulated500(
+        merchantId.value,
+        payload
+      )
+    armedWebhook500Uat.value = response.data?.data?.uat ?? null
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    armingWebhook500.value = false
   }
 }
 

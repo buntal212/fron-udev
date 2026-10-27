@@ -245,6 +245,12 @@ export const danaGatewayMerchantService = {
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  armSandboxWebhookSimulated500: (merchantId, payload) =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/arm-webhook-500`,
+      payload || {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   sandboxTestHistory: (merchantId, params) =>
     api.get(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions`,
