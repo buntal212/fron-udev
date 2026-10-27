@@ -943,9 +943,9 @@ function statusColor(status) {
 }
 function canQueryDanaStatus(payment) {
   return (
-    ['qris', 'va_bri', 'va_pani', 'va_cimb', 'va_btpn'].includes(
+    ['dana_wallet', 'qris', 'va_bri', 'va_pani', 'va_cimb', 'va_btpn'].includes(
       payment?.payment_method
-    ) && payment.status === 'pending'
+    ) && ['pending', 'expired'].includes(payment?.status)
   )
 }
 function eventColor(event) {

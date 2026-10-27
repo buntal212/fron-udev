@@ -41,8 +41,12 @@ test('riwayat pembayaran memakai audit gateway yang terverifikasi dan metadata w
   assert.match(history, /sandboxPaymentDetail/)
   assert.match(history, /queryDanaSandboxPaymentStatus/)
   assert.match(history, /canQueryDanaStatus/)
+  assert.match(history, /'dana_wallet'/)
   assert.match(history, /'va_bri', 'va_pani', 'va_cimb', 'va_btpn'/)
-  assert.match(history, /payment\.status === 'pending'/)
+  assert.match(
+    history,
+    /\['pending', 'expired'\]\.includes\(payment\?\.status\)/
+  )
   assert.match(history, /label="Cek Status DANA"/)
   assert.match(history, /Status lokal/)
   assert.match(history, /Status DANA/)
