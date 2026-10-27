@@ -142,3 +142,37 @@ test('panel tester menyediakan tombol UAT Debit Status Transaction Not Found 404
     /testDebitStatusTransactionNotFound:\s*merchantId\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-transaction-not-found`/
   )
 })
+
+test('panel tester menyediakan tombol UAT Debit Status Missing Timestamp 4005502 tanpa header X-TIMESTAMP', async () => {
+  const [panel, service] = await Promise.all([
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/services/udev-billing.js', import.meta.url),
+      'utf8'
+    )
+  ])
+
+  // Verifikasi tombol UAT 4005502 di panel tester
+  assert.match(panel, /label="UAT Status Missing Timestamp \(4005502\)"/)
+  assert.match(panel, /:loading="runningDebitStatusMissingTimestampUat"/)
+  assert.match(panel, /@click="runDebitStatusMissingTimestampUat"/)
+
+  // Verifikasi banner hasil UAT 4005502
+  assert.match(panel, /v-if="debitStatusMissingTimestampUat"/)
+  assert.match(panel, /Lolos \(4005502\)/)
+  assert.match(panel, /X-TIMESTAMP terkirim:/)
+  assert.match(panel, /service_code/)
+  assert.match(panel, /testDebitStatusMissingTimestamp/)
+
+  // Verifikasi endpoint service di udev-billing.js
+  assert.match(
+    service,
+    /testDebitStatusMissingTimestamp:\s*merchantId\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-missing-timestamp`/
+  )
+})

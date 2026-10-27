@@ -68,6 +68,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="warning"
+          icon="science"
+          label="UAT Status Missing Timestamp (4005502)"
+          no-caps
+          :loading="runningDebitStatusMissingTimestampUat"
+          @click="runDebitStatusMissingTimestampUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="negative"
           icon="science"
           label="UAT Webhook 500 (5005601)"
@@ -235,6 +246,60 @@
         · {{ debitStatusNotFoundUat.received?.response_message }}
         <span v-if="debitStatusNotFoundUat.received?.request_id">
           · Request ID: {{ debitStatusNotFoundUat.received.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="debitStatusMissingTimestampUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar
+        ><q-icon
+          :name="
+            debitStatusMissingTimestampUat.passed
+              ? 'check_circle'
+              : 'error_outline'
+          "
+      /></template>
+      <div class="text-weight-bold">
+        UAT Status Missing Timestamp (4005502)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="
+            debitStatusMissingTimestampUat.passed ? 'positive' : 'negative'
+          "
+        >
+          {{
+            debitStatusMissingTimestampUat.passed ? 'Lolos (4005502)' : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · X-TIMESTAMP terkirim:
+          <code>{{
+            debitStatusMissingTimestampUat.request?.x_timestamp_sent
+              ? 'Ya'
+              : 'Tidak'
+          }}</code>
+          · Service:
+          <code>{{
+            debitStatusMissingTimestampUat.request?.service_code || '54'
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ debitStatusMissingTimestampUat.received?.http_status }} ·
+        responseCode
+        <code>{{
+          debitStatusMissingTimestampUat.received?.response_code ||
+          'Tidak tersedia'
+        }}</code>
+        · {{ debitStatusMissingTimestampUat.received?.response_message }}
+        <span v-if="debitStatusMissingTimestampUat.received?.request_id">
+          · Request ID: {{ debitStatusMissingTimestampUat.received.request_id }}
         </span>
       </div>
     </q-banner>
@@ -722,6 +787,7 @@ const runningMissingTimestampUat = ref(false)
 const runningInvalidAmountUat = ref(false)
 const runningInconsistentRequestUat = ref(false)
 const runningDebitStatusNotFoundUat = ref(false)
+const runningDebitStatusMissingTimestampUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -737,6 +803,7 @@ const missingTimestampUat = ref(null)
 const invalidAmountUat = ref(null)
 const inconsistentRequestUat = ref(null)
 const debitStatusNotFoundUat = ref(null)
+const debitStatusMissingTimestampUat = ref(null)
 const armedWebhook500Uat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
@@ -862,6 +929,7 @@ function reset() {
   invalidAmountUat.value = null
   inconsistentRequestUat.value = null
   debitStatusNotFoundUat.value = null
+  debitStatusMissingTimestampUat.value = null
   armedWebhook500Uat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
@@ -1027,6 +1095,30 @@ async function runDebitStatusNotFoundUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningDebitStatusNotFoundUat.value = false
+  }
+}
+
+async function runDebitStatusMissingTimestampUat() {
+  if (!merchantId.value || runningDebitStatusMissingTimestampUat.value) return
+  runningDebitStatusMissingTimestampUat.value = true
+  error.value = null
+  debitStatusMissingTimestampUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testDebitStatusMissingTimestamp(
+        merchantId.value
+      )
+    debitStatusMissingTimestampUat.value = response.data?.data?.uat ?? null
+    if (!debitStatusMissingTimestampUat.value?.passed) {
+      const diag =
+        debitStatusMissingTimestampUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT 4005502 (Invalid Mandatory Field X-TIMESTAMP).'
+      error.value = `UAT 4005502 belum terpenuhi: ${diag}`
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningDebitStatusMissingTimestampUat.value = false
   }
 }
 
