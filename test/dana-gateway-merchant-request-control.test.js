@@ -44,7 +44,10 @@ test('detail merchant memuat status sekali per merchant dan hanya refresh atas t
   )
 
   assert.match(dialog, /managementLoadedMerchantId/)
-  assert.match(dialog, /!force && managementLoadedMerchantId\.value === merchantId/)
+  assert.match(
+    dialog,
+    /!force && managementLoadedMerchantId\.value === merchantId/
+  )
   assert.match(dialog, /@click="refreshManagement\(true\)"/)
   assert.match(dialog, /Terlalu banyak permintaan status/)
   assert.match(dialog, /Tidak ada retry otomatis/)
