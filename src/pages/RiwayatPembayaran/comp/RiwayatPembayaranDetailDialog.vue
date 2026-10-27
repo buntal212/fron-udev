@@ -214,7 +214,7 @@
             outline
             color="warning"
             icon="replay"
-            label="Coba Checkout Lagi"
+            :label="checkoutRetryLabel"
             no-caps
             :loading="store.retryCheckoutLoading"
             :disable="store.retryCheckoutLoading || retryCheckoutBlocked"
@@ -275,6 +275,11 @@ const canRecoverSubscription = computed(
     attempt.value.settlement_history?.some(
       event => event.status === 'completed'
     )
+)
+const checkoutRetryLabel = computed(() =>
+  attempt.value.checkout?.error_code === 'gateway_response_invalid'
+    ? 'Pulihkan Checkout Parsial'
+    : 'Coba Checkout Lagi'
 )
 const recoverSubscriptionBlocked = computed(
   () => Date.now() < store.recoverSubscriptionBlockedUntil
