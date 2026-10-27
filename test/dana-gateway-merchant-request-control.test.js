@@ -33,3 +33,21 @@ test('store menghormati Retry-After dan tidak menjadwalkan retry tanpa batas', a
   assert.match(store, /rateLimitedUntil > Date\.now\(\)/)
   assert.doesNotMatch(store, /setTimeout\(/)
 })
+
+test('detail merchant memuat status sekali per merchant dan hanya refresh atas tindakan pengguna', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/PaymentGateway/comp/DanaGatewayMerchantDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  assert.match(dialog, /managementLoadedMerchantId/)
+  assert.match(dialog, /!force && managementLoadedMerchantId\.value === merchantId/)
+  assert.match(dialog, /@click="refreshManagement\(true\)"/)
+  assert.match(dialog, /Terlalu banyak permintaan status/)
+  assert.match(dialog, /Tidak ada retry otomatis/)
+  assert.doesNotMatch(dialog, /setInterval\(/)
+  assert.doesNotMatch(dialog, /setTimeout\(/)
+})

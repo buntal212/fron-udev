@@ -70,7 +70,7 @@
                   label="Refresh status"
                   no-caps
                   :loading="managementLoading"
-                  @click="refreshManagement"
+                  @click="refreshManagement(true)"
               /></div>
             </q-card-section>
             <q-card-section v-if="managementError"
@@ -83,7 +83,7 @@
                     color="negative"
                     label="Coba lagi"
                     no-caps
-                    @click="refreshManagement" /></template></q-banner
+                    @click="refreshManagement(true)" /></template></q-banner
             ></q-card-section>
             <q-card-section v-else-if="managementLoading" class="q-gutter-y-sm"
               ><q-skeleton v-for="index in 3" :key="index" type="text"
@@ -837,6 +837,7 @@ const readiness = ref(null)
 const apiKeys = ref([])
 const managementLoading = ref(false)
 const managementError = ref(null)
+const managementLoadedMerchantId = ref(null)
 const configurationDialogOpen = ref(false)
 const saveConfirmationOpen = ref(false)
 const configurationSaving = ref(false)
@@ -943,7 +944,11 @@ const configurationForm = reactive(emptyConfiguration())
 watch(
   [() => store.detailDialogOpen, () => merchant.value?.merchant_id],
   ([isOpen, merchantId]) => {
-    if (isOpen && merchantId && isSandbox.value) refreshManagement()
+    if (!isOpen || !merchantId || !isSandbox.value) {
+      managementLoadedMerchantId.value = null
+      return
+    }
+    refreshManagement()
   }
 )
 
@@ -987,16 +992,38 @@ function canRecoverIssuance(record) {
     'manual_review'
   ].includes(record.status)
 }
-async function refreshManagement() {
-  if (!merchant.value || !isSandbox.value || managementLoading.value) return
+function managementErrorMessage(error) {
+  const status = error?.response?.status
+  if (status === 429) {
+    const retryAfter = error.response?.headers?.['retry-after']
+    return retryAfter
+      ? `Terlalu banyak permintaan status. Tunggu sekitar ${retryAfter} detik lalu refresh manual.`
+      : 'Terlalu banyak permintaan status. Tunggu sebentar lalu refresh manual.'
+  }
+  if (status === 502) {
+    return 'DANA Gateway atau proxy internal mengembalikan 502. Tidak ada retry otomatis; periksa audit gateway atau log proxy.'
+  }
+
+  return getApiErrorMessage(error)
+}
+async function refreshManagement(force = false) {
+  const merchantId = merchant.value?.merchant_id
+  if (
+    !merchantId ||
+    !isSandbox.value ||
+    managementLoading.value ||
+    (!force && managementLoadedMerchantId.value === merchantId)
+  )
+    return
+
   managementLoading.value = true
   managementError.value = null
   try {
     const [readinessResponse, apiKeysResponse, issuanceResponse] =
       await Promise.all([
-        danaGatewayMerchantService.readiness(merchant.value.merchant_id),
-        danaGatewayMerchantService.apiKeys(merchant.value.merchant_id),
-        danaGatewayMerchantService.issuances(merchant.value.merchant_id, {
+        danaGatewayMerchantService.readiness(merchantId),
+        danaGatewayMerchantService.apiKeys(merchantId),
+        danaGatewayMerchantService.issuances(merchantId, {
           per_page: 15
         })
       ])
@@ -1006,11 +1033,12 @@ async function refreshManagement() {
     issuanceHistoryMeta.value =
       issuanceResponse.data?.meta ?? issuanceHistoryMeta.value
     issuanceHistoryError.value = null
+    managementLoadedMerchantId.value = merchantId
   } catch (error) {
     readiness.value = null
     apiKeys.value = []
     issuanceHistory.value = []
-    managementError.value = getApiErrorMessage(error)
+    managementError.value = managementErrorMessage(error)
   } finally {
     managementLoading.value = false
   }
@@ -1138,6 +1166,7 @@ function resetSensitiveState() {
   readiness.value = null
   apiKeys.value = []
   managementError.value = null
+  managementLoadedMerchantId.value = null
   closeRevokeDialog()
   issuance.value = null
   issueIdempotencyKey.value = null
@@ -1193,7 +1222,7 @@ async function issueApiKey() {
         labelFor(issuance.value?.status)
       )
     )
-    await refreshManagement()
+    await refreshManagement(true)
   } catch (error) {
     issueError.value = getApiErrorMessage(error)
   } finally {
@@ -1208,7 +1237,7 @@ async function refreshIssuance(record = issuance.value) {
       record.id
     )
     issuance.value = response.data?.data ?? record
-    await refreshManagement()
+    await refreshIssuanceHistory()
   } catch (error) {
     managementError.value = getApiErrorMessage(error)
   }
