@@ -79,6 +79,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="warning"
+          icon="science"
+          label="UAT Status Invalid Signature (4015500)"
+          no-caps
+          :loading="runningDebitStatusInvalidSignatureUat"
+          @click="runDebitStatusInvalidSignatureUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="negative"
           icon="science"
           label="UAT Status Internal Error (5005501)"
@@ -363,6 +374,61 @@
         <span v-if="debitStatusInternalServerErrorUat.received?.request_id">
           · Request ID:
           {{ debitStatusInternalServerErrorUat.received.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="debitStatusInvalidSignatureUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar
+        ><q-icon
+          :name="
+            debitStatusInvalidSignatureUat.passed
+              ? 'check_circle'
+              : 'error_outline'
+          "
+      /></template>
+      <div class="text-weight-bold">
+        UAT Status Invalid Signature (4015500)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="
+            debitStatusInvalidSignatureUat.passed ? 'positive' : 'negative'
+          "
+        >
+          {{
+            debitStatusInvalidSignatureUat.passed ? 'Lolos (4015500)' : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Signature:
+          <code>{{
+            debitStatusInvalidSignatureUat.request?.signature_override ||
+            'invalid_signature'
+          }}</code>
+          · Service:
+          <code>{{
+            debitStatusInvalidSignatureUat.request?.service_code || '54'
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP
+        {{ debitStatusInvalidSignatureUat.received?.http_status }} ·
+        responseCode
+        <code>{{
+          debitStatusInvalidSignatureUat.received?.response_code ||
+          'Tidak tersedia'
+        }}</code>
+        · {{ debitStatusInvalidSignatureUat.received?.response_message }}
+        <span v-if="debitStatusInvalidSignatureUat.received?.request_id">
+          · Request ID:
+          {{ debitStatusInvalidSignatureUat.received.request_id }}
         </span>
       </div>
     </q-banner>
@@ -852,6 +918,7 @@ const runningInconsistentRequestUat = ref(false)
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
+const runningDebitStatusInvalidSignatureUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -869,6 +936,7 @@ const inconsistentRequestUat = ref(null)
 const debitStatusNotFoundUat = ref(null)
 const debitStatusMissingTimestampUat = ref(null)
 const debitStatusInternalServerErrorUat = ref(null)
+const debitStatusInvalidSignatureUat = ref(null)
 const armedWebhook500Uat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
@@ -996,6 +1064,7 @@ function reset() {
   debitStatusNotFoundUat.value = null
   debitStatusMissingTimestampUat.value = null
   debitStatusInternalServerErrorUat.value = null
+  debitStatusInvalidSignatureUat.value = null
   armedWebhook500Uat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
@@ -1210,6 +1279,30 @@ async function runDebitStatusInternalServerErrorUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningDebitStatusInternalServerErrorUat.value = false
+  }
+}
+
+async function runDebitStatusInvalidSignatureUat() {
+  if (!merchantId.value || runningDebitStatusInvalidSignatureUat.value) return
+  runningDebitStatusInvalidSignatureUat.value = true
+  error.value = null
+  debitStatusInvalidSignatureUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testDebitStatusInvalidSignature(
+        merchantId.value
+      )
+    debitStatusInvalidSignatureUat.value = response.data?.data?.uat ?? null
+    if (!debitStatusInvalidSignatureUat.value?.passed) {
+      const diag =
+        debitStatusInvalidSignatureUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT 4015500 (Unauthorized / Invalid Signature).'
+      error.value = `UAT 4015500 belum terpenuhi: ${diag}`
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningDebitStatusInvalidSignatureUat.value = false
   }
 }
 

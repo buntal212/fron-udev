@@ -210,3 +210,37 @@ test('panel tester menyediakan tombol UAT Debit Status Internal Error 5005501 de
     /testDebitStatusInternalServerError:\s*merchantId\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-internal-server-error`/
   )
 })
+
+test('panel tester menyediakan tombol UAT Debit Status Invalid Signature 4015500 dengan X-SIGNATURE invalid_signature', async () => {
+  const [panel, service] = await Promise.all([
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/services/udev-billing.js', import.meta.url),
+      'utf8'
+    )
+  ])
+
+  // Verifikasi tombol UAT 4015500 di panel tester
+  assert.match(panel, /label="UAT Status Invalid Signature \(4015500\)"/)
+  assert.match(panel, /:loading="runningDebitStatusInvalidSignatureUat"/)
+  assert.match(panel, /@click="runDebitStatusInvalidSignatureUat"/)
+
+  // Verifikasi banner hasil UAT 4015500
+  assert.match(panel, /v-if="debitStatusInvalidSignatureUat"/)
+  assert.match(panel, /Lolos \(4015500\)/)
+  assert.match(panel, /invalid_signature/)
+  assert.match(panel, /service_code/)
+  assert.match(panel, /testDebitStatusInvalidSignature/)
+
+  // Verifikasi endpoint service di udev-billing.js
+  assert.match(
+    service,
+    /testDebitStatusInvalidSignature:\s*merchantId\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-invalid-signature`/
+  )
+})
