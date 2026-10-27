@@ -81,6 +81,17 @@
           outline
           color="negative"
           icon="science"
+          label="UAT Status Internal Error (5005501)"
+          no-caps
+          :loading="runningDebitStatusInternalServerErrorUat"
+          @click="runDebitStatusInternalServerErrorUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
+          color="negative"
+          icon="science"
           label="UAT Webhook 500 (5005601)"
           no-caps
           :loading="armingWebhook500"
@@ -300,6 +311,58 @@
         · {{ debitStatusMissingTimestampUat.received?.response_message }}
         <span v-if="debitStatusMissingTimestampUat.received?.request_id">
           · Request ID: {{ debitStatusMissingTimestampUat.received.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="debitStatusInternalServerErrorUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar
+        ><q-icon
+          :name="
+            debitStatusInternalServerErrorUat.passed
+              ? 'check_circle'
+              : 'error_outline'
+          "
+      /></template>
+      <div class="text-weight-bold">
+        UAT Status Internal Server Error (5005501)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="
+            debitStatusInternalServerErrorUat.passed ? 'positive' : 'negative'
+          "
+        >
+          {{
+            debitStatusInternalServerErrorUat.passed
+              ? 'Lolos (5005501)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Service Code terkirim:
+          <code>{{
+            debitStatusInternalServerErrorUat.request?.service_code || 'AZ'
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP
+        {{ debitStatusInternalServerErrorUat.received?.http_status }} ·
+        responseCode
+        <code>{{
+          debitStatusInternalServerErrorUat.received?.response_code ||
+          'Tidak tersedia'
+        }}</code>
+        · {{ debitStatusInternalServerErrorUat.received?.response_message }}
+        <span v-if="debitStatusInternalServerErrorUat.received?.request_id">
+          · Request ID:
+          {{ debitStatusInternalServerErrorUat.received.request_id }}
         </span>
       </div>
     </q-banner>
@@ -788,6 +851,7 @@ const runningInvalidAmountUat = ref(false)
 const runningInconsistentRequestUat = ref(false)
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
+const runningDebitStatusInternalServerErrorUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -804,6 +868,7 @@ const invalidAmountUat = ref(null)
 const inconsistentRequestUat = ref(null)
 const debitStatusNotFoundUat = ref(null)
 const debitStatusMissingTimestampUat = ref(null)
+const debitStatusInternalServerErrorUat = ref(null)
 const armedWebhook500Uat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
@@ -930,6 +995,7 @@ function reset() {
   inconsistentRequestUat.value = null
   debitStatusNotFoundUat.value = null
   debitStatusMissingTimestampUat.value = null
+  debitStatusInternalServerErrorUat.value = null
   armedWebhook500Uat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
@@ -1119,6 +1185,31 @@ async function runDebitStatusMissingTimestampUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningDebitStatusMissingTimestampUat.value = false
+  }
+}
+
+async function runDebitStatusInternalServerErrorUat() {
+  if (!merchantId.value || runningDebitStatusInternalServerErrorUat.value)
+    return
+  runningDebitStatusInternalServerErrorUat.value = true
+  error.value = null
+  debitStatusInternalServerErrorUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testDebitStatusInternalServerError(
+        merchantId.value
+      )
+    debitStatusInternalServerErrorUat.value = response.data?.data?.uat ?? null
+    if (!debitStatusInternalServerErrorUat.value?.passed) {
+      const diag =
+        debitStatusInternalServerErrorUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT 5005501 (Internal Server Error).'
+      error.value = `UAT 5005501 belum terpenuhi: ${diag}`
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningDebitStatusInternalServerErrorUat.value = false
   }
 }
 

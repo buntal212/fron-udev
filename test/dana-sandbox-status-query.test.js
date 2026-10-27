@@ -176,3 +176,37 @@ test('panel tester menyediakan tombol UAT Debit Status Missing Timestamp 4005502
     /testDebitStatusMissingTimestamp:\s*merchantId\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-missing-timestamp`/
   )
 })
+
+test('panel tester menyediakan tombol UAT Debit Status Internal Error 5005501 dengan serviceCode AZ', async () => {
+  const [panel, service] = await Promise.all([
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/services/udev-billing.js', import.meta.url),
+      'utf8'
+    )
+  ])
+
+  // Verifikasi tombol UAT 5005501 di panel tester
+  assert.match(panel, /label="UAT Status Internal Error \(5005501\)"/)
+  assert.match(panel, /:loading="runningDebitStatusInternalServerErrorUat"/)
+  assert.match(panel, /@click="runDebitStatusInternalServerErrorUat"/)
+
+  // Verifikasi banner hasil UAT 5005501
+  assert.match(panel, /v-if="debitStatusInternalServerErrorUat"/)
+  assert.match(panel, /Lolos \(5005501\)/)
+  assert.match(panel, /Service Code terkirim:/)
+  assert.match(panel, /AZ/)
+  assert.match(panel, /testDebitStatusInternalServerError/)
+
+  // Verifikasi endpoint service di udev-billing.js
+  assert.match(
+    service,
+    /testDebitStatusInternalServerError:\s*merchantId\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-internal-server-error`/
+  )
+})
