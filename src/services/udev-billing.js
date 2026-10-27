@@ -245,6 +245,12 @@ export const danaGatewayMerchantService = {
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  testDebitStatusTransactionNotFound: merchantId =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/debit-status-transaction-not-found`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   armSandboxWebhookSimulated500: (merchantId, payload) =>
     api.post(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/arm-webhook-500`,

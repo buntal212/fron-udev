@@ -57,6 +57,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="warning"
+          icon="science"
+          label="UAT Status Not Found (4045501)"
+          no-caps
+          :loading="runningDebitStatusNotFoundUat"
+          @click="runDebitStatusNotFoundUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="negative"
           icon="science"
           label="UAT Webhook 500 (5005601)"
@@ -180,6 +191,50 @@
         · {{ inconsistentRequestUat.second_request?.response_message }}
         <span v-if="inconsistentRequestUat.second_request?.request_id">
           · Request ID: {{ inconsistentRequestUat.second_request.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="debitStatusNotFoundUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar
+        ><q-icon
+          :name="
+            debitStatusNotFoundUat.passed ? 'check_circle' : 'error_outline'
+          "
+      /></template>
+      <div class="text-weight-bold"> UAT Status Not Found (4045501) </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="debitStatusNotFoundUat.passed ? 'positive' : 'negative'"
+        >
+          {{ debitStatusNotFoundUat.passed ? 'Lolos (4045501)' : 'Gagal' }}
+        </q-badge>
+        <span>
+          · Ref:
+          <code>{{
+            debitStatusNotFoundUat.request?.original_partner_reference_no ||
+            '12345678'
+          }}</code>
+          · Service:
+          <code>{{
+            debitStatusNotFoundUat.request?.service_code || '54'
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ debitStatusNotFoundUat.received?.http_status }} ·
+        responseCode
+        <code>{{
+          debitStatusNotFoundUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ debitStatusNotFoundUat.received?.response_message }}
+        <span v-if="debitStatusNotFoundUat.received?.request_id">
+          · Request ID: {{ debitStatusNotFoundUat.received.request_id }}
         </span>
       </div>
     </q-banner>
@@ -666,6 +721,7 @@ const checkingDanaStatus = ref(false)
 const runningMissingTimestampUat = ref(false)
 const runningInvalidAmountUat = ref(false)
 const runningInconsistentRequestUat = ref(false)
+const runningDebitStatusNotFoundUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -680,6 +736,7 @@ const danaStatus = ref(null)
 const missingTimestampUat = ref(null)
 const invalidAmountUat = ref(null)
 const inconsistentRequestUat = ref(null)
+const debitStatusNotFoundUat = ref(null)
 const armedWebhook500Uat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
@@ -804,6 +861,7 @@ function reset() {
   missingTimestampUat.value = null
   invalidAmountUat.value = null
   inconsistentRequestUat.value = null
+  debitStatusNotFoundUat.value = null
   armedWebhook500Uat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
@@ -945,6 +1003,30 @@ async function runInconsistentRequestUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningInconsistentRequestUat.value = false
+  }
+}
+
+async function runDebitStatusNotFoundUat() {
+  if (!merchantId.value || runningDebitStatusNotFoundUat.value) return
+  runningDebitStatusNotFoundUat.value = true
+  error.value = null
+  debitStatusNotFoundUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testDebitStatusTransactionNotFound(
+        merchantId.value
+      )
+    debitStatusNotFoundUat.value = response.data?.data?.uat ?? null
+    if (!debitStatusNotFoundUat.value?.passed) {
+      const diag =
+        debitStatusNotFoundUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT 4045501 (Transaction Not Found).'
+      error.value = `UAT 4045501 belum terpenuhi: ${diag}`
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningDebitStatusNotFoundUat.value = false
   }
 }
 

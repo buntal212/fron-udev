@@ -108,3 +108,37 @@ test('fitur Cek Status DANA mengizinkan transaksi pending dan expired pada metod
   assert.match(history, /danaStatus\.dana_status\?\.latest_transaction_status/)
   assert.match(history, /danaStatus\.dana_status\?\.response_code/)
 })
+
+test('panel tester menyediakan tombol UAT Debit Status Transaction Not Found 4045501 dengan referensi fiktif 12345678', async () => {
+  const [panel, service] = await Promise.all([
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/services/udev-billing.js', import.meta.url),
+      'utf8'
+    )
+  ])
+
+  // Verifikasi tombol UAT 4045501 di panel tester
+  assert.match(panel, /label="UAT Status Not Found \(4045501\)"/)
+  assert.match(panel, /:loading="runningDebitStatusNotFoundUat"/)
+  assert.match(panel, /@click="runDebitStatusNotFoundUat"/)
+
+  // Verifikasi banner hasil UAT 4045501
+  assert.match(panel, /v-if="debitStatusNotFoundUat"/)
+  assert.match(panel, /Lolos \(4045501\)/)
+  assert.match(panel, /12345678/)
+  assert.match(panel, /service_code/)
+  assert.match(panel, /testDebitStatusTransactionNotFound/)
+
+  // Verifikasi endpoint service di udev-billing.js
+  assert.match(
+    service,
+    /testDebitStatusTransactionNotFound:\s*merchantId\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-transaction-not-found`/
+  )
+})
