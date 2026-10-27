@@ -53,6 +53,8 @@ test('invoice store dan service mendukung pengiriman payment_method pada checkou
 
   assert.match(store, /checkoutPaymentMethod:\s*'qris'/)
   assert.match(store, /QRCode\.toDataURL/)
+  assert.match(store, /isQrisMpmInstruction/)
+  assert.match(store, /instruction\?\.type === 'qris_mpm'/)
   assert.match(store, /startCountdown/)
   assert.match(store, /startPolling/)
   assert.match(store, /payment_method:\s*method/)
@@ -80,8 +82,9 @@ test('polling QRIS invoice memakai paymentResultService dengan interval 4 detik 
   assert.match(store, /},\s*4000\)/)
   assert.match(store, /this\.stopCheckoutSession\(\)/)
 
-  // Membedakan QRIS valid dari payment code (tidak membuat QR palsu)
-  assert.match(store, /00020101/)
+  // Payment code Custom Checkout tidak dianggap QR MPM hanya dari bentuk teksnya.
+  assert.doesNotMatch(store, /startsWith\('00020101'\)/)
+  assert.match(store, /instruction\.qr_content/)
   assert.match(store, /checkoutPaymentCode/)
   assert.match(dialog, /store\.checkoutPaymentCode/)
   assert.match(dialog, /onBeforeUnmount/)

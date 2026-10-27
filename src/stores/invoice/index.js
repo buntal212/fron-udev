@@ -10,8 +10,10 @@ import {
 } from '@/services/udev-billing'
 import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
 
-const isQrisPayload = value =>
-  typeof value === 'string' && value.trim().startsWith('00020101')
+const isQrisMpmInstruction = instruction =>
+  instruction?.type === 'qris_mpm' &&
+  typeof instruction.qr_content === 'string' &&
+  instruction.qr_content !== ''
 
 const emptyForm = () => ({
   application_id: null,
@@ -107,6 +109,7 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutQrDataUrl: null,
     checkoutQrPayload: null,
     checkoutPaymentCode: null,
+    checkoutPaymentInstruction: null,
     checkoutQrLoading: false,
     checkoutQrError: null,
     checkoutExpiresAt: null,
@@ -594,6 +597,7 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
       this.checkoutPaymentCode = null
+      this.checkoutPaymentInstruction = null
       this.checkoutQrLoading = false
       this.checkoutQrError = null
       this.checkoutExpiresAt = null
@@ -626,19 +630,25 @@ export const useInvoiceStore = defineStore('invoice', {
           this.checkoutAttempt = latestAttempt
           this.checkoutUrl = latestAttempt.checkout_url || null
           this.checkoutExpiresAt = latestAttempt.checkout_expires_at || null
+          this.checkoutPaymentInstruction =
+            latestAttempt.metadata?.payment_instruction || null
 
-          const rawPayload =
-            latestAttempt.qr_content ||
-            latestAttempt.metadata?.qr_content ||
-            latestAttempt.metadata?.payment_code ||
-            latestAttempt.checkout_url
+          const rawPayload = isQrisMpmInstruction(
+            this.checkoutPaymentInstruction
+          )
+            ? this.checkoutPaymentInstruction.qr_content
+            : latestAttempt.payment_code ||
+              latestAttempt.metadata?.payment_code ||
+              latestAttempt.qr_content ||
+              latestAttempt.metadata?.qr_content ||
+              latestAttempt.checkout_url
 
           if (
             (method === 'qris' || method.startsWith('va_')) &&
             rawPayload &&
             latestAttempt.status === 'pending'
           ) {
-            if (isQrisPayload(rawPayload)) {
+            if (isQrisMpmInstruction(this.checkoutPaymentInstruction)) {
               this.checkoutQrPayload = rawPayload
               this.checkoutPaymentCode = null
               await this.renderQr(rawPayload)
@@ -678,6 +688,7 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
       this.checkoutPaymentCode = null
+      this.checkoutPaymentInstruction = null
       this.checkoutQrError = null
       this.checkoutPaymentMethod = method
 
@@ -691,6 +702,7 @@ export const useInvoiceStore = defineStore('invoice', {
         this.checkoutAttempt = checkout
         this.checkoutUrl = checkout.checkout_url || null
         this.checkoutExpiresAt = checkout.expires_at || null
+        this.checkoutPaymentInstruction = checkout.payment_instruction || null
 
         const detailResponse = await invoiceService.get(this.selectedInvoice.id)
         this.selectedInvoice = detailResponse.data.data
@@ -711,12 +723,15 @@ export const useInvoiceStore = defineStore('invoice', {
                 ? 'Checkout sedang disiapkan. Muat detail beberapa saat lagi.'
                 : 'Tautan checkout belum tersedia. Silakan coba lagi nanti.'
         } else {
-          const rawPayload =
-            checkout.qr_content ||
-            checkout.payment_code ||
-            checkout.checkout_url
+          const rawPayload = isQrisMpmInstruction(
+            this.checkoutPaymentInstruction
+          )
+            ? this.checkoutPaymentInstruction.qr_content
+            : checkout.payment_code ||
+              checkout.qr_content ||
+              checkout.checkout_url
           if (rawPayload) {
-            if (isQrisPayload(rawPayload)) {
+            if (isQrisMpmInstruction(this.checkoutPaymentInstruction)) {
               this.checkoutQrPayload = rawPayload
               this.checkoutPaymentCode = null
               await this.renderQr(rawPayload)
