@@ -634,7 +634,7 @@ export const useInvoiceStore = defineStore('invoice', {
             latestAttempt.checkout_url
 
           if (
-            method === 'qris' &&
+            (method === 'qris' || method.startsWith('va_')) &&
             rawPayload &&
             latestAttempt.status === 'pending'
           ) {
@@ -677,6 +677,7 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutUrl = null
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
+      this.checkoutPaymentCode = null
       this.checkoutQrError = null
       this.checkoutPaymentMethod = method
 

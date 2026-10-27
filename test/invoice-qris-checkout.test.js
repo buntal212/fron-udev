@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-test('InvoiceDetailDialog menyediakan pilihan QRIS, tampilan QR, status, countdown, dan retry', async () => {
+test('InvoiceDetailDialog menyediakan pilihan QRIS, VA, tampilan instruksi, status, countdown, dan retry', async () => {
   const dialog = await readFile(
     new URL(
       '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
@@ -15,6 +15,9 @@ test('InvoiceDetailDialog menyediakan pilihan QRIS, tampilan QR, status, countdo
   assert.match(dialog, /q-btn-toggle/)
   assert.match(dialog, /value:\s*'qris'/)
   assert.match(dialog, /value:\s*'dana_wallet'/)
+  for (const method of ['va_bri', 'va_pani', 'va_cimb', 'va_btpn']) {
+    assert.match(dialog, new RegExp(`value: '${method}'`))
+  }
 
   // Tampilan QRIS
   assert.match(dialog, /class="qris-img"/)
@@ -29,6 +32,13 @@ test('InvoiceDetailDialog menyediakan pilihan QRIS, tampilan QR, status, countdo
   // Retry
   assert.match(dialog, /store\.retryCheckout/)
   assert.match(dialog, /isQrisExpired/)
+
+  // VA hanya dirender bila nomor dikembalikan oleh checkout gateway.
+  assert.match(dialog, /isCurrentAttemptVirtualAccount/)
+  assert.match(dialog, /Nomor Virtual Account/)
+  assert.match(dialog, /Salin Nomor VA/)
+  assert.match(dialog, /currentPaymentInstruction/)
+  assert.match(dialog, /checkout_expires_at/)
 })
 
 test('invoice store dan service mendukung pengiriman payment_method pada checkout', async () => {
@@ -75,4 +85,5 @@ test('polling QRIS invoice memakai paymentResultService dengan interval 4 detik 
   assert.match(store, /checkoutPaymentCode/)
   assert.match(dialog, /store\.checkoutPaymentCode/)
   assert.match(dialog, /onBeforeUnmount/)
+  assert.match(store, /method\.startsWith\('va_'\)/)
 })

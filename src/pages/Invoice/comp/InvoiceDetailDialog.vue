@@ -143,8 +143,8 @@
                 Pilih Metode Pembayaran (DANA Sandbox)
               </div>
               <div class="text-caption text-grey-8 q-mt-xs">
-                Pilih QRIS untuk memindai kode QR atau DANA Wallet untuk
-                dialihkan ke sesi checkout.
+                Pilih QRIS, DANA Wallet, atau Virtual Account bank yang tersedia
+                di DANA Sandbox.
               </div>
             </div>
             <div class="col-12 col-sm-auto">
@@ -162,6 +162,22 @@
                     label: 'DANA Wallet',
                     value: 'dana_wallet',
                     icon: 'account_balance_wallet'
+                  },
+                  { label: 'VA BRI', value: 'va_bri', icon: 'account_balance' },
+                  {
+                    label: 'VA PANI',
+                    value: 'va_pani',
+                    icon: 'account_balance'
+                  },
+                  {
+                    label: 'VA CIMB',
+                    value: 'va_cimb',
+                    icon: 'account_balance'
+                  },
+                  {
+                    label: 'VA BTPN',
+                    value: 'va_btpn',
+                    icon: 'account_balance'
                   }
                 ]"
               />
@@ -175,12 +191,16 @@
               :icon="
                 store.checkoutPaymentMethod === 'qris'
                   ? 'qr_code_2'
-                  : 'payments'
+                  : isVirtualAccountMethod(store.checkoutPaymentMethod)
+                    ? 'account_balance'
+                    : 'payments'
               "
               :label="
                 store.checkoutPaymentMethod === 'qris'
                   ? 'Bayar dengan QRIS'
-                  : 'Bayar melalui DANA Sandbox'
+                  : isVirtualAccountMethod(store.checkoutPaymentMethod)
+                    ? `Buat ${paymentMethodLabel(store.checkoutPaymentMethod)}`
+                    : 'Bayar melalui DANA Sandbox'
               "
               no-caps
               :loading="store.checkoutLoading"
@@ -190,13 +210,102 @@
           </div>
         </q-card>
 
+        <q-card
+          v-if="isCurrentAttemptVirtualAccount"
+          flat
+          bordered
+          class="q-pa-md va-panel rounded-borders"
+        >
+          <div class="row items-center justify-between q-mb-sm">
+            <div class="text-weight-bold text-brown-9 row items-center">
+              <q-icon
+                name="account_balance"
+                class="q-mr-xs text-warning"
+                size="22px"
+              />
+              {{ paymentMethodLabel(currentAttemptMethod) }} DANA Sandbox
+            </div>
+            <q-badge
+              rounded
+              :color="
+                isCheckoutExpired
+                  ? 'negative'
+                  : invoice.status === 'paid'
+                    ? 'positive'
+                    : 'warning'
+              "
+              :label="
+                isCheckoutExpired
+                  ? 'Kedaluwarsa'
+                  : invoice.status === 'paid'
+                    ? 'Lunas'
+                    : 'Menunggu Pembayaran'
+              "
+            />
+          </div>
+          <div
+            v-if="!isCheckoutExpired && invoice.status === 'pending'"
+            class="text-caption text-grey-8 q-mb-sm row items-center"
+          >
+            <q-icon name="schedule" size="16px" class="q-mr-xs text-warning" />
+            <span
+              >Sisa waktu berlaku:
+              <strong>{{ formattedCountdown }}</strong></span
+            >
+          </div>
+          <q-banner
+            v-else-if="isCheckoutExpired"
+            rounded
+            dense
+            class="bg-negative text-white q-mb-sm"
+          >
+            Nomor Virtual Account telah kedaluwarsa. Buat ulang checkout untuk
+            memperoleh instruksi baru dari gateway.
+          </q-banner>
+          <div class="va-code q-pa-md text-center">
+            <div class="text-caption text-grey-8">Nomor Virtual Account</div>
+            <div class="text-h6 text-weight-bold text-brown-9 q-mt-xs">{{
+              currentPaymentCode
+            }}</div>
+            <div class="text-caption text-grey-7 q-mt-sm">
+              {{
+                currentPaymentInstruction?.message ||
+                'Bayar sesuai instruksi bank sebelum masa berlaku berakhir.'
+              }}
+            </div>
+          </div>
+          <div class="row justify-center q-gutter-sm q-mt-sm">
+            <q-btn
+              outline
+              dense
+              no-caps
+              color="brown-9"
+              icon="content_copy"
+              label="Salin Nomor VA"
+              @click="copyPayload(currentPaymentCode)"
+            />
+            <q-btn
+              v-if="isCheckoutExpired || isLatestAttemptFailed"
+              color="negative"
+              unelevated
+              dense
+              no-caps
+              icon="replay"
+              label="Ulangi Pembayaran (Retry)"
+              :loading="store.checkoutLoading"
+              @click="store.retryCheckout()"
+            />
+          </div>
+        </q-card>
+
         <!-- Tampilan QRIS & Status Pembayaran QR -->
         <q-card
           v-if="
-            store.checkoutQrPayload ||
-            store.checkoutQrDataUrl ||
-            store.checkoutPaymentCode ||
-            isCurrentAttemptQris
+            isCurrentAttemptQris ||
+            (store.checkoutPaymentMethod === 'qris' &&
+              (store.checkoutQrPayload ||
+                store.checkoutQrDataUrl ||
+                store.checkoutPaymentCode))
           "
           flat
           bordered
@@ -233,7 +342,7 @@
           </div>
 
           <div
-            v-if="!isQrisExpired && invoice.status === 'pending'"
+            v-if="!isCheckoutExpired && invoice.status === 'pending'"
             class="text-caption text-grey-8 q-mb-sm row items-center"
           >
             <q-icon name="schedule" size="16px" class="q-mr-xs text-warning" />
@@ -244,7 +353,7 @@
             <q-spinner-dots color="warning" size="18px" class="q-ml-sm" />
           </div>
           <div
-            v-else-if="isQrisExpired"
+            v-else-if="isCheckoutExpired"
             class="text-caption text-negative q-mb-sm row items-center"
           >
             <q-icon name="warning" size="16px" class="q-mr-xs" />
@@ -329,7 +438,7 @@
               @click="copyPayload(store.checkoutPaymentCode)"
             />
             <q-btn
-              v-if="isQrisExpired || isLatestAttemptFailed"
+              v-if="isCheckoutExpired || isLatestAttemptFailed"
               color="negative"
               unelevated
               dense
@@ -444,6 +553,13 @@
                   {{
                     formatSubscriptionPrice(attempt.amount, attempt.currency)
                   }}
+                  <span v-if="attemptPaymentMethod(attempt)">
+                    Â· {{ paymentMethodLabel(attemptPaymentMethod(attempt)) }}
+                  </span>
+                  <span v-if="attempt.checkout_expires_at">
+                    Â· Berlaku s.d.
+                    {{ formatSubscriptionDate(attempt.checkout_expires_at) }}
+                  </span>
                   <span v-if="attempt.reconciliation">
                     ·
                     {{
@@ -562,6 +678,20 @@ const referralName = computed(() => {
   return partnerName || referralCode || '—'
 })
 const reconciliationLabel = status => getReconciliationStatus(status)
+const virtualAccountMethods = ['va_bri', 'va_pani', 'va_cimb', 'va_btpn']
+const paymentMethodLabels = {
+  dana_wallet: 'DANA Wallet',
+  qris: 'QRIS DANA',
+  va_bri: 'Virtual Account BRI',
+  va_pani: 'Virtual Account PANI',
+  va_cimb: 'Virtual Account CIMB',
+  va_btpn: 'Virtual Account BTPN'
+}
+const isVirtualAccountMethod = method => virtualAccountMethods.includes(method)
+const paymentMethodLabel = method =>
+  paymentMethodLabels[method] || 'Pembayaran DANA'
+const attemptPaymentMethod = attempt =>
+  attempt?.metadata?.payment_method || attempt?.payment_method || null
 const canStartCheckout = computed(
   () =>
     invoice.value.status === 'pending' &&
@@ -577,9 +707,7 @@ const latestAttempt = computed(() => {
 })
 
 const isCurrentAttemptQris = computed(() => {
-  const method =
-    latestAttempt.value?.metadata?.payment_method ||
-    latestAttempt.value?.payment_method
+  const method = attemptPaymentMethod(latestAttempt.value)
   return (
     method === 'qris' &&
     (store.checkoutQrPayload ||
@@ -590,7 +718,34 @@ const isCurrentAttemptQris = computed(() => {
   )
 })
 
+const currentAttemptMethod = computed(
+  () => attemptPaymentMethod(latestAttempt.value) || store.checkoutPaymentMethod
+)
+const currentPaymentInstruction = computed(
+  () =>
+    latestAttempt.value?.metadata?.payment_instruction ||
+    store.checkoutAttempt?.payment_instruction ||
+    null
+)
+const currentPaymentCode = computed(
+  () =>
+    store.checkoutPaymentCode ||
+    latestAttempt.value?.metadata?.payment_code ||
+    latestAttempt.value?.metadata?.qr_content ||
+    currentPaymentInstruction.value?.payment_code ||
+    ''
+)
+const isCurrentAttemptVirtualAccount = computed(
+  () =>
+    isVirtualAccountMethod(currentAttemptMethod.value) &&
+    Boolean(currentPaymentCode.value)
+)
+
 const isQrisExpired = computed(() => {
+  return isCheckoutExpired.value
+})
+
+const isCheckoutExpired = computed(() => {
   if (latestAttempt.value?.status === 'expired') return true
   if (
     store.checkoutExpiresAt &&
@@ -648,6 +803,16 @@ onBeforeUnmount(() => {
 .qris-panel {
   border-color: #e0c37c;
   background: #fffbf0;
+}
+.va-panel {
+  border-color: #e0c37c;
+  background: #fffbf0;
+}
+.va-code {
+  border: 1px solid #ebd9b5;
+  border-radius: 8px;
+  background: #ffffff;
+  letter-spacing: 0.04em;
 }
 .qris-container {
   display: flex;
