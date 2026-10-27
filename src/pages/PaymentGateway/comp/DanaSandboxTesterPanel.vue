@@ -266,8 +266,9 @@
         UAT IPG Cashier Pay Create Order (2005400)
       </div>
       <div>
-        Target: <code>/rest/redirection/v1.0/debit/payment-host-to-host</code> · DANA HTTP
-        {{ ipgCreateOrderSuccessUat.received?.http_status }} · responseCode
+        Target: <code>/rest/redirection/v1.0/debit/payment-host-to-host</code> ·
+        DANA HTTP {{ ipgCreateOrderSuccessUat.received?.http_status }} ·
+        responseCode
         <code>{{
           ipgCreateOrderSuccessUat.received?.response_code || 'Tidak tersedia'
         }}</code>
@@ -275,7 +276,9 @@
       </div>
       <div class="text-caption q-mt-xs">
         Header X-TIMESTAMP terkirim:
-        {{ ipgCreateOrderSuccessUat.request?.x_timestamp_sent ? 'ya' : 'tidak' }}
+        {{
+          ipgCreateOrderSuccessUat.request?.x_timestamp_sent ? 'ya' : 'tidak'
+        }}
         <span v-if="ipgCreateOrderSuccessUat.received?.reference_no">
           · Reference No:
           <code>{{ ipgCreateOrderSuccessUat.received.reference_no }}</code>
@@ -317,8 +320,9 @@
         UAT IPG Cashier Pay tanpa X-TIMESTAMP (4005402)
       </div>
       <div>
-        Target: <code>/rest/redirection/v1.0/debit/payment-host-to-host</code> · DANA HTTP
-        {{ ipgMissingTimestampUat.received?.http_status }} · responseCode
+        Target: <code>/rest/redirection/v1.0/debit/payment-host-to-host</code> ·
+        DANA HTTP {{ ipgMissingTimestampUat.received?.http_status }} ·
+        responseCode
         <code>{{
           ipgMissingTimestampUat.received?.response_code || 'Tidak tersedia'
         }}</code>
@@ -1326,10 +1330,9 @@ async function runIpgCreateOrderSuccessUat() {
   error.value = null
   ipgCreateOrderSuccessUat.value = null
   try {
-    const response =
-      await danaGatewayMerchantService.testIpgCreateOrderSuccess(
-        merchantId.value
-      )
+    const response = await danaGatewayMerchantService.testIpgCreateOrderSuccess(
+      merchantId.value
+    )
     ipgCreateOrderSuccessUat.value = response.data?.data?.uat ?? null
     if (!ipgCreateOrderSuccessUat.value?.passed) {
       error.value = 'Respons DANA tidak sesuai ekspektasi UAT IPG 2005400.'

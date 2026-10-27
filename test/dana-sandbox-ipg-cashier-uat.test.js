@@ -37,5 +37,8 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(service, /testIpgCreateOrderSuccess/)
   assert.match(service, /sandbox-tester\/uat\/ipg-create-order-success/)
   assert.match(service, /testIpgCreateOrderMissingTimestamp/)
-  assert.match(service, /sandbox-tester\/uat\/ipg-create-order-missing-timestamp/)
+  assert.match(
+    service,
+    /sandbox-tester\/uat\/ipg-create-order-missing-timestamp/
+  )
 })
