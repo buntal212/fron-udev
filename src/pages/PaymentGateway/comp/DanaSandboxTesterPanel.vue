@@ -57,6 +57,28 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="primary"
+          icon="shopping_bag"
+          label="UAT IPG Sukses (2005400)"
+          no-caps
+          :loading="runningIpgCreateOrderSuccessUat"
+          @click="runIpgCreateOrderSuccessUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
+          color="negative"
+          icon="science"
+          label="UAT IPG Missing Timestamp (4005402)"
+          no-caps
+          :loading="runningIpgMissingTimestampUat"
+          @click="runIpgMissingTimestampUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="warning"
           icon="science"
           label="UAT Status Not Found (4045501)"
@@ -224,6 +246,89 @@
         · {{ inconsistentRequestUat.second_request?.response_message }}
         <span v-if="inconsistentRequestUat.second_request?.request_id">
           · Request ID: {{ inconsistentRequestUat.second_request.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="ipgCreateOrderSuccessUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            ipgCreateOrderSuccessUat.passed ? 'check_circle' : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        UAT IPG Cashier Pay Create Order (2005400)
+      </div>
+      <div>
+        Target: <code>/rest/redirection/v1.0/debit/payment-host-to-host</code> · DANA HTTP
+        {{ ipgCreateOrderSuccessUat.received?.http_status }} · responseCode
+        <code>{{
+          ipgCreateOrderSuccessUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ ipgCreateOrderSuccessUat.received?.response_message }}
+      </div>
+      <div class="text-caption q-mt-xs">
+        Header X-TIMESTAMP terkirim:
+        {{ ipgCreateOrderSuccessUat.request?.x_timestamp_sent ? 'ya' : 'tidak' }}
+        <span v-if="ipgCreateOrderSuccessUat.received?.reference_no">
+          · Reference No:
+          <code>{{ ipgCreateOrderSuccessUat.received.reference_no }}</code>
+        </span>
+        <span v-if="ipgCreateOrderSuccessUat.received?.request_id">
+          · Request ID: {{ ipgCreateOrderSuccessUat.received.request_id }}
+        </span>
+      </div>
+      <div
+        v-if="ipgCreateOrderSuccessUat.received?.web_redirect_url"
+        class="q-mt-xs"
+      >
+        <span class="text-caption text-weight-medium">Checkout URL: </span>
+        <a
+          :href="ipgCreateOrderSuccessUat.received.web_redirect_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-primary text-caption"
+          style="word-break: break-all"
+        >
+          {{ ipgCreateOrderSuccessUat.received.web_redirect_url }}
+        </a>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="ipgMissingTimestampUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            ipgMissingTimestampUat.passed ? 'check_circle' : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        UAT IPG Cashier Pay tanpa X-TIMESTAMP (4005402)
+      </div>
+      <div>
+        Target: <code>/rest/redirection/v1.0/debit/payment-host-to-host</code> · DANA HTTP
+        {{ ipgMissingTimestampUat.received?.http_status }} · responseCode
+        <code>{{
+          ipgMissingTimestampUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ ipgMissingTimestampUat.received?.response_message }}
+      </div>
+      <div class="text-caption q-mt-xs">
+        Header X-TIMESTAMP terkirim:
+        {{ ipgMissingTimestampUat.request?.x_timestamp_sent ? 'ya' : 'tidak' }}
+        <span v-if="ipgMissingTimestampUat.received?.request_id">
+          · Request ID: {{ ipgMissingTimestampUat.received.request_id }}
         </span>
       </div>
     </q-banner>
@@ -915,6 +1020,8 @@ const checkingDanaStatus = ref(false)
 const runningMissingTimestampUat = ref(false)
 const runningInvalidAmountUat = ref(false)
 const runningInconsistentRequestUat = ref(false)
+const runningIpgCreateOrderSuccessUat = ref(false)
+const runningIpgMissingTimestampUat = ref(false)
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
@@ -933,6 +1040,8 @@ const danaStatus = ref(null)
 const missingTimestampUat = ref(null)
 const invalidAmountUat = ref(null)
 const inconsistentRequestUat = ref(null)
+const ipgCreateOrderSuccessUat = ref(null)
+const ipgMissingTimestampUat = ref(null)
 const debitStatusNotFoundUat = ref(null)
 const debitStatusMissingTimestampUat = ref(null)
 const debitStatusInternalServerErrorUat = ref(null)
@@ -1061,6 +1170,8 @@ function reset() {
   missingTimestampUat.value = null
   invalidAmountUat.value = null
   inconsistentRequestUat.value = null
+  ipgCreateOrderSuccessUat.value = null
+  ipgMissingTimestampUat.value = null
   debitStatusNotFoundUat.value = null
   debitStatusMissingTimestampUat.value = null
   debitStatusInternalServerErrorUat.value = null
@@ -1206,6 +1317,48 @@ async function runInconsistentRequestUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningInconsistentRequestUat.value = false
+  }
+}
+
+async function runIpgCreateOrderSuccessUat() {
+  if (!merchantId.value || runningIpgCreateOrderSuccessUat.value) return
+  runningIpgCreateOrderSuccessUat.value = true
+  error.value = null
+  ipgCreateOrderSuccessUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testIpgCreateOrderSuccess(
+        merchantId.value
+      )
+    ipgCreateOrderSuccessUat.value = response.data?.data?.uat ?? null
+    if (!ipgCreateOrderSuccessUat.value?.passed) {
+      error.value = 'Respons DANA tidak sesuai ekspektasi UAT IPG 2005400.'
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningIpgCreateOrderSuccessUat.value = false
+  }
+}
+
+async function runIpgMissingTimestampUat() {
+  if (!merchantId.value || runningIpgMissingTimestampUat.value) return
+  runningIpgMissingTimestampUat.value = true
+  error.value = null
+  ipgMissingTimestampUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testIpgCreateOrderMissingTimestamp(
+        merchantId.value
+      )
+    ipgMissingTimestampUat.value = response.data?.data?.uat ?? null
+    if (!ipgMissingTimestampUat.value?.passed) {
+      error.value = 'Respons DANA tidak sesuai ekspektasi UAT IPG 4005402.'
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningIpgMissingTimestampUat.value = false
   }
 }
 
