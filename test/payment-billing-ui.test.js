@@ -74,6 +74,7 @@ test('UI riwayat menyediakan retry rekonsiliasi admin dan tidak memaksa paid', a
   assert.match(service, /invoices\/\$\{id\}\/subscription\/recover/)
   assert.match(detail, /Sinkronkan Ulang/)
   assert.match(detail, /Coba Checkout Lagi/)
+  assert.match(detail, /Pulihkan Checkout Parsial/)
   assert.match(detail, /Pulihkan Langganan/)
   assert.match(detail, /store\.synchronizeSelected/)
   assert.doesNotMatch(detail, /status\s*=\s*['"]paid['"]|status: ['"]paid['"]/)
@@ -85,6 +86,8 @@ test('UI riwayat menyediakan retry rekonsiliasi admin dan tidak memaksa paid', a
   assert.match(store, /retryCheckoutBlockedUntil/)
   assert.match(store, /recoverSubscriptionBlockedUntil/)
   assert.match(store, /getRetryAfterMilliseconds\(error\)/)
+  assert.match(store, /retryCheckoutMessage/)
+  assert.match(store, /payment_instruction\?\.payment_code/)
 })
 
 test('detail subscription menampilkan period event serta invoice terkait', async () => {

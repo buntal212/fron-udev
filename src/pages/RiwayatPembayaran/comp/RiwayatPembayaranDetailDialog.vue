@@ -29,6 +29,10 @@
           <template #avatar><q-icon name="error_outline" /></template>
           {{ store.retryCheckoutError }}
         </q-banner>
+        <q-banner v-if="store.retryCheckoutMessage" rounded class="sync-banner">
+          <template #avatar><q-icon name="info" /></template>
+          {{ store.retryCheckoutMessage }}
+        </q-banner>
         <q-banner
           v-if="store.recoverSubscriptionError"
           rounded

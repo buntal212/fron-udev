@@ -36,6 +36,7 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
     selectedAttempt: null,
     retryCheckoutLoading: false,
     retryCheckoutError: '',
+    retryCheckoutMessage: '',
     retryCheckoutBlockedUntil: 0,
     recoverSubscriptionLoading: false,
     recoverSubscriptionError: '',
@@ -144,6 +145,7 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
       this.detailLoading = true
       this.selectedAttempt = null
       this.retryCheckoutError = ''
+      this.retryCheckoutMessage = ''
       this.retryCheckoutBlockedUntil = 0
       this.recoverSubscriptionError = ''
       this.recoverSubscriptionBlockedUntil = 0
@@ -211,6 +213,7 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
 
       this.retryCheckoutLoading = true
       this.retryCheckoutError = ''
+      this.retryCheckoutMessage = ''
 
       try {
         const response = await paymentAttemptService.retryCheckout(
@@ -235,6 +238,15 @@ export const useRiwayatPembayaranStore = defineStore('riwayat-pembayaran', {
           } catch {
             // Fall through to the safe error below.
           }
+        }
+
+        const paymentCode =
+          this.selectedAttempt.payment_code ||
+          this.selectedAttempt.payment_instruction?.payment_code
+        if (typeof paymentCode === 'string' && paymentCode) {
+          this.retryCheckoutMessage =
+            'Checkout parsial berhasil dipulihkan. Instruksi pembayaran tersedia pada detail invoice; status tetap menunggu konfirmasi gateway.'
+          return
         }
 
         this.retryCheckoutError =
