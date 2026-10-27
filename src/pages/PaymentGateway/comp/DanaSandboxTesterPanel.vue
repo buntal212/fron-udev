@@ -43,6 +43,17 @@
           @click="runInvalidAmountUat"
         />
       </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
+          color="negative"
+          icon="science"
+          label="UAT Inconsistent Request (4045418)"
+          no-caps
+          :loading="runningInconsistentRequestUat"
+          @click="runInconsistentRequestUat"
+        />
+      </div>
       <div v-if="sandboxResultContext" class="col-12 col-sm-auto">
         <q-btn
           outline
@@ -107,6 +118,58 @@
         <span v-if="invalidAmountUat.received?.request_id">
           · Request ID: {{ invalidAmountUat.received.request_id }}</span
         >
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="inconsistentRequestUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar
+        ><q-icon
+          :name="
+            inconsistentRequestUat.passed ? 'check_circle' : 'error_outline'
+          "
+      /></template>
+      <div class="text-weight-bold"> UAT Inconsistent Request (4045418) </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="inconsistentRequestUat.passed ? 'positive' : 'negative'"
+        >
+          {{ inconsistentRequestUat.passed ? 'Lolos (4045418)' : 'Gagal' }}
+        </q-badge>
+        <span v-if="inconsistentRequestUat.request?.partner_reference_no">
+          · Ref:
+          <code>{{ inconsistentRequestUat.request.partner_reference_no }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        <span class="text-weight-medium">Request 1 (Rp100.000):</span>
+        DANA HTTP {{ inconsistentRequestUat.first_request?.http_status }} ·
+        responseCode
+        <code>{{
+          inconsistentRequestUat.first_request?.response_code ||
+          'Tidak tersedia'
+        }}</code>
+        · {{ inconsistentRequestUat.first_request?.response_message }}
+        <span v-if="inconsistentRequestUat.first_request?.request_id">
+          · Request ID: {{ inconsistentRequestUat.first_request.request_id }}
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        <span class="text-weight-medium">Request 2 (Rp200.000):</span>
+        DANA HTTP {{ inconsistentRequestUat.second_request?.http_status }} ·
+        responseCode
+        <code>{{
+          inconsistentRequestUat.second_request?.response_code ||
+          'Tidak tersedia'
+        }}</code>
+        · {{ inconsistentRequestUat.second_request?.response_message }}
+        <span v-if="inconsistentRequestUat.second_request?.request_id">
+          · Request ID: {{ inconsistentRequestUat.second_request.request_id }}
+        </span>
       </div>
     </q-banner>
 
@@ -557,6 +620,7 @@ const checkingStatus = ref(false)
 const checkingDanaStatus = ref(false)
 const runningMissingTimestampUat = ref(false)
 const runningInvalidAmountUat = ref(false)
+const runningInconsistentRequestUat = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
 const transaction = ref(null)
@@ -569,6 +633,7 @@ const sandboxResultContext = ref(null)
 const danaStatus = ref(null)
 const missingTimestampUat = ref(null)
 const invalidAmountUat = ref(null)
+const inconsistentRequestUat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
 const qrisError = ref(null)
@@ -691,6 +756,7 @@ function reset() {
   danaStatus.value = null
   missingTimestampUat.value = null
   invalidAmountUat.value = null
+  inconsistentRequestUat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
 
@@ -806,6 +872,28 @@ async function runInvalidAmountUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningInvalidAmountUat.value = false
+  }
+}
+
+async function runInconsistentRequestUat() {
+  if (!merchantId.value || runningInconsistentRequestUat.value) return
+  runningInconsistentRequestUat.value = true
+  error.value = null
+  inconsistentRequestUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testCreateOrderInconsistentRequest(
+        merchantId.value
+      )
+    inconsistentRequestUat.value = response.data?.data?.uat ?? null
+    if (!inconsistentRequestUat.value?.passed) {
+      error.value =
+        'Respons DANA tidak sesuai ekspektasi UAT 4045418 (Inconsistent Request).'
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningInconsistentRequestUat.value = false
   }
 }
 
