@@ -887,8 +887,11 @@ async function runInconsistentRequestUat() {
       )
     inconsistentRequestUat.value = response.data?.data?.uat ?? null
     if (!inconsistentRequestUat.value?.passed) {
-      error.value =
+      const diag =
+        inconsistentRequestUat.value?.second_request?.response_message ||
+        inconsistentRequestUat.value?.first_request?.response_message ||
         'Respons DANA tidak sesuai ekspektasi UAT 4045418 (Inconsistent Request).'
+      error.value = `UAT 4045418 belum terpenuhi: ${diag}`
     }
   } catch (requestError) {
     error.value = getApiErrorMessage(requestError)

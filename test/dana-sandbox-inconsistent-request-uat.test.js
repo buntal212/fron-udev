@@ -22,6 +22,7 @@ test('panel menyediakan UAT Create Order 4045418 inconsistent request dengan dua
   assert.match(panel, /inconsistentRequestUat\.request\?\.partner_reference_no/)
   assert.match(panel, /Request 1 \(Rp100\.000\)/)
   assert.match(panel, /Request 2 \(Rp200\.000\)/)
+  assert.match(panel, /UAT 4045418 belum terpenuhi:/)
   assert.match(panel, /4045418/)
   assert.match(panel, /Inconsistent Request/)
   const uatSection = panel.split('<div v-if="validation"')[0]
