@@ -227,6 +227,12 @@ export const danaGatewayMerchantService = {
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/validation`,
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  testCreateOrderMissingTimestamp: merchantId =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/create-order-missing-timestamp`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   sandboxTestHistory: (merchantId, params) =>
     api.get(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions`,

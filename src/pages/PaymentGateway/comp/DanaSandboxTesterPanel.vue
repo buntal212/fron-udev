@@ -21,6 +21,17 @@
           @click="validateConfiguration"
         />
       </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
+          color="negative"
+          icon="science"
+          label="UAT tanpa X-TIMESTAMP"
+          no-caps
+          :loading="runningMissingTimestampUat"
+          @click="runMissingTimestampUat"
+        />
+      </div>
       <div v-if="sandboxResultContext" class="col-12 col-sm-auto">
         <q-btn
           outline
@@ -36,6 +47,32 @@
     <q-banner v-if="error" rounded class="error-banner q-mt-md">
       <template #avatar><q-icon name="error_outline" /></template>
       {{ error }}
+    </q-banner>
+
+    <q-banner
+      v-if="missingTimestampUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar
+        ><q-icon
+          :name="missingTimestampUat.passed ? 'check_circle' : 'error_outline'"
+      /></template>
+      <div class="text-weight-bold">UAT Create Order tanpa X-TIMESTAMP</div>
+      <div>
+        DANA HTTP {{ missingTimestampUat.received?.http_status }} · responseCode
+        <code>{{
+          missingTimestampUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ missingTimestampUat.received?.response_message }}
+      </div>
+      <div class="text-caption q-mt-xs">
+        Header X-TIMESTAMP terkirim:
+        {{ missingTimestampUat.request?.x_timestamp_sent ? 'ya' : 'tidak' }}
+        <span v-if="missingTimestampUat.received?.request_id">
+          · Request ID: {{ missingTimestampUat.received.request_id }}</span
+        >
+      </div>
     </q-banner>
 
     <div v-if="validation" class="q-mt-md q-gutter-y-sm">
@@ -483,6 +520,7 @@ const validating = ref(false)
 const creatingTransaction = ref(false)
 const checkingStatus = ref(false)
 const checkingDanaStatus = ref(false)
+const runningMissingTimestampUat = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
 const transaction = ref(null)
@@ -493,6 +531,7 @@ const paymentMethod = ref('dana_wallet')
 const pendingTransactionAction = ref(null)
 const sandboxResultContext = ref(null)
 const danaStatus = ref(null)
+const missingTimestampUat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
 const qrisError = ref(null)
@@ -613,6 +652,7 @@ function reset() {
   pendingTransactionAction.value = null
   sandboxResultContext.value = null
   danaStatus.value = null
+  missingTimestampUat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
 
@@ -685,6 +725,27 @@ async function validateConfiguration() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     validating.value = false
+  }
+}
+
+async function runMissingTimestampUat() {
+  if (!merchantId.value || runningMissingTimestampUat.value) return
+  runningMissingTimestampUat.value = true
+  error.value = null
+  missingTimestampUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testCreateOrderMissingTimestamp(
+        merchantId.value
+      )
+    missingTimestampUat.value = response.data?.data?.uat ?? null
+    if (!missingTimestampUat.value?.passed) {
+      error.value = 'Respons DANA tidak sesuai ekspektasi UAT 4005402.'
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningMissingTimestampUat.value = false
   }
 }
 
