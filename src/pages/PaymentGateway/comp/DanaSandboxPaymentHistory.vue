@@ -327,7 +327,7 @@
                 {{ detail.payment_instruction.message || '' }}
               </div>
 
-              <!-- Tampilan QRIS Asli -->
+              <!-- Tampilan QRIS Asli yang Valid -->
               <div v-if="qrisPayload" class="qris-payload q-mt-sm">
                 <img
                   v-if="qrisDataUrl"
@@ -336,6 +336,7 @@
                   :src="qrisDataUrl"
                   alt="QRIS DANA Sandbox yang dibuat lokal"
                   decoding="async"
+                  @error="handleQrisImageError"
                 />
                 <div v-else-if="qrisLoading" class="qris-render-state">
                   <q-spinner color="warning" size="32px" />
@@ -367,7 +368,7 @@
                     color="primary"
                     icon="download"
                     label="Unduh QRIS"
-                    :disable="!qrisDataUrl"
+                    :disable="!qrisDataUrl || !isPngDataUrl(qrisDataUrl)"
                     @click="downloadQris"
                   />
                 </div>
@@ -382,7 +383,40 @@
                 </q-expansion-item>
               </div>
 
-              <!-- Tampilan Virtual Account / Kode Pembayaran (non-QRIS) -->
+              <!-- Kasus QRIS MPM tapi payload tidak valid EMVCo -->
+              <div
+                v-else-if="qrisValidation.isQris && !qrisValidation.valid"
+                class="qris-invalid-box q-mt-sm"
+              >
+                <q-banner dense rounded class="error-banner q-mb-sm">
+                  <template #avatar><q-icon name="warning" /></template>
+                  <div>
+                    <strong
+                      >Payload QRIS tidak valid sesuai standar EMVCo.</strong
+                    >
+                    <div class="text-caption">{{ qrisValidation.error }}</div>
+                  </div>
+                </q-banner>
+                <div
+                  v-if="qrisValidation.rawPayload"
+                  class="payment-code q-mt-xs"
+                >
+                  <span>{{ qrisValidation.rawPayload }}</span>
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    color="warning"
+                    icon="content_copy"
+                    aria-label="Salin kode pembayaran"
+                    @click="copyPaymentCode(qrisValidation.rawPayload)"
+                  >
+                    <q-tooltip>Salin kode</q-tooltip>
+                  </q-btn>
+                </div>
+              </div>
+
+              <!-- Tampilan Virtual Account / Kode Pembayaran / Custom Checkout non-MPM -->
               <div
                 v-else-if="detail.payment_instruction.payment_code"
                 class="payment-code q-mt-sm"
@@ -658,6 +692,7 @@
 import { computed, ref, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import QRCode from 'qrcode'
+import { validateEmvcoQris } from '@/utils/emvco-qris'
 import { danaGatewayMerchantService } from '@/services/udev-billing'
 import { getApiErrorMessage } from '@/utils/api-error'
 
@@ -741,23 +776,47 @@ const qrisLoading = ref(false)
 const qrisError = ref(null)
 let qrisRenderRequest = 0
 
-const qrisPayload = computed(() => {
+const qrisValidation = computed(() => {
   const instruction = detail.value?.payment_instruction
-  if (
-    instruction?.type === 'qris_mpm' &&
+  if (instruction?.type !== 'qris_mpm') {
+    return {
+      isQris: false,
+      valid: false,
+      payload: null,
+      rawPayload: null,
+      error: null
+    }
+  }
+
+  const raw =
     typeof instruction.qr_content === 'string' &&
     instruction.qr_content.trim() !== ''
-  ) {
-    return instruction.qr_content.trim()
+      ? instruction.qr_content.trim()
+      : typeof instruction.payment_code === 'string'
+        ? instruction.payment_code.trim()
+        : null
+
+  if (!raw) {
+    return {
+      isQris: true,
+      valid: false,
+      payload: null,
+      rawPayload: null,
+      error: 'Konten payload QRIS tidak tersedia pada respons gateway.'
+    }
   }
-  if (
-    typeof instruction?.payment_code === 'string' &&
-    instruction.payment_code.trim().startsWith('000201')
-  ) {
-    return instruction.payment_code.trim()
+
+  const result = validateEmvcoQris(raw)
+  return {
+    isQris: true,
+    valid: result.valid,
+    payload: result.valid ? raw : null,
+    rawPayload: raw,
+    error: result.valid ? null : result.error
   }
-  return null
 })
+
+const qrisPayload = computed(() => qrisValidation.value.payload)
 const requestId = ref(0)
 const detailRequestId = ref(0)
 const webhookRequestId = ref(0)
@@ -1193,11 +1252,15 @@ watch(
         color: { dark: '#000000', light: '#FFFFFF' }
       })
       if (request !== qrisRenderRequest) return
-      if (!isPngDataUrl(dataUrl)) throw new Error('QRIS bukan PNG')
+      if (!isPngDataUrl(dataUrl)) {
+        throw new Error('Hasil pembuatan QRIS bukan format PNG yang valid.')
+      }
       qrisDataUrl.value = dataUrl
-    } catch {
+    } catch (err) {
       if (request === qrisRenderRequest) {
-        qrisError.value = 'QRIS tidak dapat dibuat sebagai gambar di browser.'
+        qrisError.value =
+          'QRIS tidak dapat dibuat sebagai gambar di browser: ' +
+          (err?.message || 'Format tidak didukung.')
       }
     } finally {
       if (request === qrisRenderRequest) qrisLoading.value = false
@@ -1205,6 +1268,13 @@ watch(
   },
   { immediate: true }
 )
+
+function handleQrisImageError() {
+  qrisDataUrl.value = null
+  qrisLoading.value = false
+  qrisError.value =
+    'Gambar QRIS tidak dapat dirender atau rusak di browser. Gunakan kode teks cadangan.'
+}
 
 watch(detailOpen, open => {
   if (!open) {
@@ -1249,9 +1319,9 @@ async function copyPaymentCode(code) {
 }
 
 async function downloadQris() {
-  if (!isPngDataUrl(qrisDataUrl.value)) {
+  if (!qrisPayload.value || !isPngDataUrl(qrisDataUrl.value)) {
     $q.notify({
-      message: 'Gambar QRIS belum siap diunduh.',
+      message: 'Gambar QRIS belum siap atau tidak valid untuk diunduh.',
       color: 'negative',
       icon: 'error',
       position: 'top'
