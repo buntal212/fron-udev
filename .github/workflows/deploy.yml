@@ -139,11 +139,17 @@ jobs:
       - name: Upload production artifact
         uses: actions/upload-artifact@v4
         with:
-          name: udev-pwa-${{ github.run_id }}-${{ github.run_attempt }}
+          # run_id tetap sama saat "Re-run failed jobs". Jangan gunakan
+          # run_attempt: deploy yang diulang tidak selalu menjalankan build
+          # lagi, sehingga artifact attempt baru memang tidak ada.
+          name: udev-pwa-${{ github.run_id }}
           path: dist/pwa/
           if-no-files-found: error
           retention-days: 1
           include-hidden-files: false
+          # Bila seluruh workflow diulang dalam run yang sama, gantikan hanya
+          # artifact milik run ini; tidak pernah mengambil artifact run lama.
+          overwrite: true
 
   # ==========================================================
   # JOB 2 - DEPLOY KE HOMELAB
@@ -167,7 +173,8 @@ jobs:
     env:
       DEPLOY_PATH: /www/wwwroot/udev.udumbara.my.id
       QCLI_API_URL: https://apiudev.udumbara.my.id/api
-      ARTIFACT_PATH: /tmp/udev-pwa-${{ github.run_id }}-${{ github.run_attempt }}
+      ARTIFACT_NAME: udev-pwa-${{ github.run_id }}
+      ARTIFACT_PATH: /tmp/udev-pwa-${{ github.run_id }}
 
     steps:
       # ------------------------------------------------------
@@ -176,7 +183,10 @@ jobs:
       - name: Download production artifact
         uses: actions/download-artifact@v4
         with:
-          name: udev-pwa-${{ github.run_id }}-${{ github.run_attempt }}
+          # download-artifact tanpa run-id eksternal hanya membaca artifact
+          # dari workflow run ini. Jika build belum menghasilkan artifact,
+          # step gagal; tidak ada fallback artifact lama.
+          name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACT_PATH }}
 
       # ------------------------------------------------------
