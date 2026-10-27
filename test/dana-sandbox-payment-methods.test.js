@@ -76,3 +76,26 @@ test('panel mengikat retry pada snapshot tindakan dan membuat key baru saat nomi
   assert.match(panel, /Mulai Tindakan Baru/)
   assert.match(panel, /pendingTransactionAction\.value = null/)
 })
+
+test('form konfigurasi merchant menyediakan External Store ID Sandbox tanpa memasukkannya ke riwayat transaksi', async () => {
+  const form = await readFile(
+    new URL(
+      '../src/pages/PaymentGateway/comp/DanaGatewayMerchantDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  const history = await readFile(
+    new URL(
+      '../src/pages/PaymentGateway/comp/DanaSandboxPaymentHistory.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  assert.match(form, /configurationForm\.external_store_id/)
+  assert.match(form, /External Store ID Sandbox \(untuk QRIS\)/)
+  assert.match(form, /ID resmi dari DANA Sandbox/)
+  assert.match(form, /maxRule\(150\)/)
+  assert.doesNotMatch(history, /external_store_id/)
+})

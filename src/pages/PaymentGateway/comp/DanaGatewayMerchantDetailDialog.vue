@@ -586,7 +586,7 @@
                 outlined
                 dense
                 label="External Store ID Sandbox (untuk QRIS)"
-                hint="Opsional, tetapi wajib untuk pengujian QRIS."
+                hint="Wajib untuk QRIS. Isi hanya ID resmi dari DANA Sandbox, bukan nilai contoh."
                 persistent-hint
                 :error="Boolean(configurationErrors.external_store_id)"
                 :error-message="firstError('external_store_id')"
