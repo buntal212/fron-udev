@@ -79,6 +79,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="negative"
+          icon="error"
+          label="UAT General Error (5005400)"
+          no-caps
+          :loading="runningIpgGeneralErrorUat"
+          @click="runIpgGeneralErrorUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="warning"
           icon="science"
           label="UAT Status Not Found (4045501)"
@@ -436,6 +447,63 @@
         </span>
         <span v-if="ipgMissingTimestampUat.received?.request_id">
           · Request ID: {{ ipgMissingTimestampUat.received.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="ipgGeneralErrorUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="ipgGeneralErrorUat.passed ? 'check_circle' : 'error_outline'"
+        />
+      </template>
+      <div class="text-weight-bold">
+        UAT General Error (5005400) · Cashier Pay
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge :color="ipgGeneralErrorUat.passed ? 'positive' : 'negative'">
+          {{ ipgGeneralErrorUat.passed ? 'Lolos (5005400)' : 'Gagal' }}
+        </q-badge>
+        <span>
+          · Transaksi:
+          <q-badge color="negative">FAILED</q-badge>
+          · Target:
+          <code>{{
+            ipgGeneralErrorUat.request?.endpoint ||
+            '/rest/redirection/v1.0/debit/payment-host-to-host'
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        Nominal:
+        <code
+          >{{ ipgGeneralErrorUat.request?.amount_value || '505400.00' }}
+          {{ ipgGeneralErrorUat.request?.currency || 'IDR' }}</code
+        >
+        <span v-if="ipgGeneralErrorUat.request?.product_code">
+          · productCode:
+          <code>{{ ipgGeneralErrorUat.request.product_code }}</code>
+        </span>
+        <span v-if="ipgGeneralErrorUat.request?.support_deep_link_checkout_url">
+          · supportDeepLinkCheckoutUrl:
+          <code>{{
+            ipgGeneralErrorUat.request.support_deep_link_checkout_url
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ ipgGeneralErrorUat.received?.http_status }} · responseCode
+        <code>{{
+          ipgGeneralErrorUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ ipgGeneralErrorUat.received?.response_message }}
+        <span v-if="ipgGeneralErrorUat.received?.request_id">
+          · Request ID: {{ ipgGeneralErrorUat.received.request_id }}
         </span>
       </div>
     </q-banner>
@@ -1129,6 +1197,7 @@ const runningInvalidAmountUat = ref(false)
 const runningInconsistentRequestUat = ref(false)
 const runningIpgCreateOrderSuccessUat = ref(false)
 const runningIpgMissingTimestampUat = ref(false)
+const runningIpgGeneralErrorUat = ref(false)
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
@@ -1149,6 +1218,7 @@ const invalidAmountUat = ref(null)
 const inconsistentRequestUat = ref(null)
 const ipgCreateOrderSuccessUat = ref(null)
 const ipgMissingTimestampUat = ref(null)
+const ipgGeneralErrorUat = ref(null)
 const debitStatusNotFoundUat = ref(null)
 const debitStatusMissingTimestampUat = ref(null)
 const debitStatusInternalServerErrorUat = ref(null)
@@ -1279,6 +1349,7 @@ function reset() {
   inconsistentRequestUat.value = null
   ipgCreateOrderSuccessUat.value = null
   ipgMissingTimestampUat.value = null
+  ipgGeneralErrorUat.value = null
   debitStatusNotFoundUat.value = null
   debitStatusMissingTimestampUat.value = null
   debitStatusInternalServerErrorUat.value = null
@@ -1294,6 +1365,7 @@ const operationLabels = {
   dana_payment_status_queried: 'Query Status DANA',
   ipg_create_order_success_tested: 'UAT IPG Cashier Pay (2005400)',
   ipg_create_order_missing_ts_tested: 'UAT IPG Missing Timestamp (4005402)',
+  ipg_create_order_general_error_tested: 'UAT IPG General Error (5005400)',
   debit_status_transaction_not_found_tested: 'UAT Status Not Found (4045501)',
   debit_status_missing_timestamp_tested:
     'UAT Status Missing Timestamp (4005502)',
@@ -1493,6 +1565,32 @@ async function runIpgMissingTimestampUat() {
     await refreshHistory()
   } finally {
     runningIpgMissingTimestampUat.value = false
+  }
+}
+
+async function runIpgGeneralErrorUat() {
+  if (!merchantId.value || runningIpgGeneralErrorUat.value) return
+  runningIpgGeneralErrorUat.value = true
+  error.value = null
+  ipgGeneralErrorUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testIpgCreateOrderGeneralError(
+        merchantId.value
+      )
+    ipgGeneralErrorUat.value = response.data?.data?.uat ?? null
+    if (!ipgGeneralErrorUat.value?.passed) {
+      const diag =
+        ipgGeneralErrorUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT IPG 5005400 (General Error).'
+      error.value = `UAT 5005400 belum terpenuhi: ${diag}`
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    await refreshHistory()
+  } finally {
+    runningIpgGeneralErrorUat.value = false
   }
 }
 
