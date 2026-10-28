@@ -315,6 +315,19 @@
               <code>{{ ipgCreateOrderSuccessUat.request.scenario }}</code> ·
               {{ ipgCreateOrderSuccessUat.request.order_title }}
             </div>
+            <div
+              v-if="
+                ipgCreateOrderSuccessUat.request?.support_deep_link_checkout_url
+              "
+            >
+              supportDeepLinkCheckoutUrl:
+              <code>{{
+                ipgCreateOrderSuccessUat.request.support_deep_link_checkout_url
+              }}</code>
+              <span v-if="ipgCreateOrderSuccessUat.request?.valid_up_to">
+                · validUpTo: 15 menit
+              </span>
+            </div>
             <div>
               Header X-TIMESTAMP:
               {{
@@ -405,6 +418,14 @@
       <div class="text-caption q-mt-xs">
         Header X-TIMESTAMP terkirim:
         {{ ipgMissingTimestampUat.request?.x_timestamp_sent ? 'ya' : 'tidak' }}
+        <span
+          v-if="ipgMissingTimestampUat.request?.support_deep_link_checkout_url"
+        >
+          · supportDeepLinkCheckoutUrl:
+          <code>{{
+            ipgMissingTimestampUat.request.support_deep_link_checkout_url
+          }}</code>
+        </span>
         <span v-if="ipgMissingTimestampUat.received?.request_id">
           · Request ID: {{ ipgMissingTimestampUat.received.request_id }}
         </span>
