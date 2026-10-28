@@ -112,6 +112,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="negative"
+          icon="difference"
+          label="UAT Inconsistent Request (4045418)"
+          no-caps
+          :loading="runningIpgInconsistentRequestUat"
+          @click="runIpgInconsistentRequestUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="warning"
           icon="science"
           label="UAT Status Not Found (4045501)"
@@ -666,6 +677,97 @@
         · {{ ipgInvalidMerchantUat.received?.response_message }}
         <span v-if="ipgInvalidMerchantUat.received?.request_id">
           · Request ID: {{ ipgInvalidMerchantUat.received.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="ipgInconsistentRequestUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            ipgInconsistentRequestUat.passed ? 'check_circle' : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        UAT Inconsistent Request (4045418) · Cashier Pay
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="ipgInconsistentRequestUat.passed ? 'positive' : 'negative'"
+        >
+          {{ ipgInconsistentRequestUat.passed ? 'Lolos (4045418)' : 'Gagal' }}
+        </q-badge>
+        <span>
+          · Transaksi:
+          <q-badge color="negative">FAILED</q-badge>
+          · Target:
+          <code>{{
+            ipgInconsistentRequestUat.request?.endpoint ||
+            '/rest/redirection/v1.0/debit/payment-host-to-host'
+          }}</code>
+        </span>
+        <span v-if="ipgInconsistentRequestUat.request?.partner_reference_no">
+          · Ref:
+          <code>{{
+            ipgInconsistentRequestUat.request.partner_reference_no
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        <span class="text-weight-medium">Request 1 (Rp10.000):</span>
+        DANA HTTP {{ ipgInconsistentRequestUat.first_request?.http_status }} ·
+        responseCode
+        <code>{{
+          ipgInconsistentRequestUat.first_request?.response_code ||
+          'Tidak tersedia'
+        }}</code>
+        · {{ ipgInconsistentRequestUat.first_request?.response_message }}
+        <span v-if="ipgInconsistentRequestUat.first_request?.request_id">
+          · Request ID:
+          {{ ipgInconsistentRequestUat.first_request.request_id }}
+        </span>
+        <span v-if="ipgInconsistentRequestUat.first_request?.reference_no">
+          · DANA Ref:
+          {{ ipgInconsistentRequestUat.first_request.reference_no }}
+        </span>
+      </div>
+      <div class="q-mt-xs" v-if="ipgInconsistentRequestUat.second_request">
+        <span class="text-weight-medium">Request 2 (Rp20.000):</span>
+        DANA HTTP {{ ipgInconsistentRequestUat.second_request?.http_status }} ·
+        responseCode
+        <code>{{
+          ipgInconsistentRequestUat.second_request?.response_code ||
+          'Tidak tersedia'
+        }}</code>
+        · {{ ipgInconsistentRequestUat.second_request?.response_message }}
+        <span v-if="ipgInconsistentRequestUat.second_request?.request_id">
+          · Request ID:
+          {{ ipgInconsistentRequestUat.second_request.request_id }}
+        </span>
+      </div>
+      <div class="q-mt-xs text-negative" v-else>
+        Request 2 tidak dijalankan karena Request 1 gagal.
+      </div>
+      <div class="q-mt-xs">
+        <span v-if="ipgInconsistentRequestUat.request?.product_code">
+          productCode:
+          <code>{{ ipgInconsistentRequestUat.request.product_code }}</code>
+        </span>
+        <span
+          v-if="
+            ipgInconsistentRequestUat.request?.support_deep_link_checkout_url
+          "
+        >
+          · supportDeepLinkCheckoutUrl:
+          <code>{{
+            ipgInconsistentRequestUat.request.support_deep_link_checkout_url
+          }}</code>
         </span>
       </div>
     </q-banner>
@@ -1362,6 +1464,7 @@ const runningIpgMissingTimestampUat = ref(false)
 const runningIpgGeneralErrorUat = ref(false)
 const runningIpgTransactionNotPermittedUat = ref(false)
 const runningIpgInvalidMerchantUat = ref(false)
+const runningIpgInconsistentRequestUat = ref(false)
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
@@ -1385,6 +1488,7 @@ const ipgMissingTimestampUat = ref(null)
 const ipgGeneralErrorUat = ref(null)
 const ipgTransactionNotPermittedUat = ref(null)
 const ipgInvalidMerchantUat = ref(null)
+const ipgInconsistentRequestUat = ref(null)
 const debitStatusNotFoundUat = ref(null)
 const debitStatusMissingTimestampUat = ref(null)
 const debitStatusInternalServerErrorUat = ref(null)
@@ -1518,6 +1622,7 @@ function reset() {
   ipgGeneralErrorUat.value = null
   ipgTransactionNotPermittedUat.value = null
   ipgInvalidMerchantUat.value = null
+  ipgInconsistentRequestUat.value = null
   debitStatusNotFoundUat.value = null
   debitStatusMissingTimestampUat.value = null
   debitStatusInternalServerErrorUat.value = null
@@ -1538,6 +1643,8 @@ const operationLabels = {
     'UAT IPG Transaction Not Permitted (4035415)',
   ipg_create_order_invalid_merchant_tested:
     'UAT IPG Invalid Merchant (4045408)',
+  ipg_create_order_inconsistent_tested:
+    'UAT IPG Inconsistent Request (4045418)',
   debit_status_transaction_not_found_tested: 'UAT Status Not Found (4045501)',
   debit_status_missing_timestamp_tested:
     'UAT Status Missing Timestamp (4005502)',
@@ -1815,6 +1922,34 @@ async function runIpgInvalidMerchantUat() {
     await refreshHistory()
   } finally {
     runningIpgInvalidMerchantUat.value = false
+  }
+}
+
+async function runIpgInconsistentRequestUat() {
+  if (!merchantId.value || runningIpgInconsistentRequestUat.value) return
+  runningIpgInconsistentRequestUat.value = true
+  error.value = null
+  ipgInconsistentRequestUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testIpgCreateOrderInconsistentRequest(
+        merchantId.value
+      )
+    ipgInconsistentRequestUat.value = response.data?.data?.uat ?? null
+    if (!ipgInconsistentRequestUat.value?.passed) {
+      const diag =
+        ipgInconsistentRequestUat.value?.second_request?.response_message ||
+        ipgInconsistentRequestUat.value?.received?.response_message ||
+        ipgInconsistentRequestUat.value?.first_request?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT IPG 4045418 (Inconsistent Request).'
+      error.value = `UAT 4045418 belum terpenuhi: ${diag}`
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    await refreshHistory()
+  } finally {
+    runningIpgInconsistentRequestUat.value = false
   }
 }
 
