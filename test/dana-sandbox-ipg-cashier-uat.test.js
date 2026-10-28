@@ -27,6 +27,8 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(panel, /UAT Invalid Merchant \(4045408\)/)
   assert.match(panel, /runIpgInvalidMerchantUat/)
   assert.match(panel, /runIpgInconsistentRequestUat/)
+  assert.match(panel, /UAT Invalid Signature \(4015400\)/)
+  assert.match(panel, /runIpgInvalidSignatureUat/)
 
   // Verifikasi banner diagnostik dan target endpoint
   assert.match(panel, /\/rest\/redirection\/v1\.0\/debit\/payment-host-to-host/)
@@ -64,6 +66,8 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
     panel,
     /ipgInconsistentRequestUat\.request\?\.partner_reference_no/
   )
+  assert.match(panel, /ipgInvalidSignatureUat\.received\?\.response_code/)
+  assert.match(panel, /ipgInvalidSignatureUat\.request\?\.amount_value/)
 
   // Verifikasi riwayat otomatis diperbarui setelah UAT IPG
   const runIpgSuccessCode = panel
@@ -86,6 +90,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
     .split('async function runIpgInconsistentRequestUat')[1]
     ?.split('async function runDebitStatusNotFoundUat')[0]
   assert.match(runIpgInconsistentCode, /await refreshHistory\(\)/)
+  const runIpgInvalidSigCode = panel
+    .split('async function runIpgInvalidSignatureUat')[1]
+    ?.split('async function runDebitStatusNotFoundUat')[0]
+  assert.match(runIpgInvalidSigCode, /await refreshHistory\(\)/)
 
   // Verifikasi label aktivitas riwayat UAT IPG
   assert.match(
@@ -107,6 +115,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(
     panel,
     /ipg_create_order_inconsistent_tested:\s*'UAT IPG Inconsistent Request \(4045418\)'/
+  )
+  assert.match(
+    panel,
+    /ipg_create_order_invalid_signature_tested:\s*'UAT IPG Invalid Signature \(4015400\)'/
   )
 
   // Verifikasi tidak ada kebocoran kunci atau signature rahasia
@@ -137,5 +149,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(
     service,
     /sandbox-tester\/uat\/ipg-create-order-inconsistent-request/
+  )
+  assert.match(service, /testIpgCreateOrderInvalidSignature/)
+  assert.match(
+    service,
+    /sandbox-tester\/uat\/ipg-create-order-invalid-signature/
   )
 })

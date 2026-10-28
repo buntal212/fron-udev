@@ -123,6 +123,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="negative"
+          icon="vpn_key_off"
+          label="UAT Invalid Signature (4015400)"
+          no-caps
+          :loading="runningIpgInvalidSignatureUat"
+          @click="runIpgInvalidSignatureUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="warning"
           icon="science"
           label="UAT Status Not Found (4045501)"
@@ -768,6 +779,70 @@
           <code>{{
             ipgInconsistentRequestUat.request.support_deep_link_checkout_url
           }}</code>
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="ipgInvalidSignatureUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            ipgInvalidSignatureUat.passed ? 'check_circle' : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        UAT Invalid Signature (4015400) · Cashier Pay
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="ipgInvalidSignatureUat.passed ? 'positive' : 'negative'"
+        >
+          {{ ipgInvalidSignatureUat.passed ? 'Lolos (4015400)' : 'Gagal' }}
+        </q-badge>
+        <span>
+          · Transaksi:
+          <q-badge color="negative">FAILED</q-badge>
+          · Target:
+          <code>{{
+            ipgInvalidSignatureUat.request?.endpoint ||
+            '/rest/redirection/v1.0/debit/payment-host-to-host'
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        Nominal:
+        <code
+          >{{ ipgInvalidSignatureUat.request?.amount_value || '10000.00' }}
+          {{ ipgInvalidSignatureUat.request?.currency || 'IDR' }}</code
+        >
+        <span v-if="ipgInvalidSignatureUat.request?.product_code">
+          · productCode:
+          <code>{{ ipgInvalidSignatureUat.request.product_code }}</code>
+        </span>
+        <span
+          v-if="ipgInvalidSignatureUat.request?.support_deep_link_checkout_url"
+        >
+          · supportDeepLinkCheckoutUrl:
+          <code>{{
+            ipgInvalidSignatureUat.request.support_deep_link_checkout_url
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ ipgInvalidSignatureUat.received?.http_status }} ·
+        responseCode
+        <code>{{
+          ipgInvalidSignatureUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ ipgInvalidSignatureUat.received?.response_message }}
+        <span v-if="ipgInvalidSignatureUat.received?.request_id">
+          · Request ID: {{ ipgInvalidSignatureUat.received.request_id }}
         </span>
       </div>
     </q-banner>
@@ -1465,6 +1540,7 @@ const runningIpgGeneralErrorUat = ref(false)
 const runningIpgTransactionNotPermittedUat = ref(false)
 const runningIpgInvalidMerchantUat = ref(false)
 const runningIpgInconsistentRequestUat = ref(false)
+const runningIpgInvalidSignatureUat = ref(false)
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
@@ -1489,6 +1565,7 @@ const ipgGeneralErrorUat = ref(null)
 const ipgTransactionNotPermittedUat = ref(null)
 const ipgInvalidMerchantUat = ref(null)
 const ipgInconsistentRequestUat = ref(null)
+const ipgInvalidSignatureUat = ref(null)
 const debitStatusNotFoundUat = ref(null)
 const debitStatusMissingTimestampUat = ref(null)
 const debitStatusInternalServerErrorUat = ref(null)
@@ -1623,6 +1700,7 @@ function reset() {
   ipgTransactionNotPermittedUat.value = null
   ipgInvalidMerchantUat.value = null
   ipgInconsistentRequestUat.value = null
+  ipgInvalidSignatureUat.value = null
   debitStatusNotFoundUat.value = null
   debitStatusMissingTimestampUat.value = null
   debitStatusInternalServerErrorUat.value = null
@@ -1645,6 +1723,8 @@ const operationLabels = {
     'UAT IPG Invalid Merchant (4045408)',
   ipg_create_order_inconsistent_tested:
     'UAT IPG Inconsistent Request (4045418)',
+  ipg_create_order_invalid_signature_tested:
+    'UAT IPG Invalid Signature (4015400)',
   debit_status_transaction_not_found_tested: 'UAT Status Not Found (4045501)',
   debit_status_missing_timestamp_tested:
     'UAT Status Missing Timestamp (4005502)',
@@ -1950,6 +2030,32 @@ async function runIpgInconsistentRequestUat() {
     await refreshHistory()
   } finally {
     runningIpgInconsistentRequestUat.value = false
+  }
+}
+
+async function runIpgInvalidSignatureUat() {
+  if (!merchantId.value || runningIpgInvalidSignatureUat.value) return
+  runningIpgInvalidSignatureUat.value = true
+  error.value = null
+  ipgInvalidSignatureUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testIpgCreateOrderInvalidSignature(
+        merchantId.value
+      )
+    ipgInvalidSignatureUat.value = response.data?.data?.uat ?? null
+    if (!ipgInvalidSignatureUat.value?.passed) {
+      const diag =
+        ipgInvalidSignatureUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT IPG 4015400 (Invalid Signature).'
+      error.value = `UAT 4015400 belum terpenuhi: ${diag}`
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    await refreshHistory()
+  } finally {
+    runningIpgInvalidSignatureUat.value = false
   }
 }
 
