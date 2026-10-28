@@ -24,6 +24,8 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(panel, /runIpgGeneralErrorUat/)
   assert.match(panel, /UAT Transaction Not Permitted \(4035415\)/)
   assert.match(panel, /runIpgTransactionNotPermittedUat/)
+  assert.match(panel, /UAT Invalid Merchant \(4045408\)/)
+  assert.match(panel, /runIpgInvalidMerchantUat/)
 
   // Verifikasi banner diagnostik dan target endpoint
   assert.match(panel, /\/rest\/redirection\/v1\.0\/debit\/payment-host-to-host/)
@@ -47,6 +49,8 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
     /ipgTransactionNotPermittedUat\.received\?\.response_code/
   )
   assert.match(panel, /435415\.00/)
+  assert.match(panel, /ipgInvalidMerchantUat\.received\?\.response_code/)
+  assert.match(panel, /445408\.00/)
 
   // Verifikasi riwayat otomatis diperbarui setelah UAT IPG
   const runIpgSuccessCode = panel
@@ -61,6 +65,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
     .split('async function runIpgTransactionNotPermittedUat')[1]
     ?.split('async function runDebitStatusNotFoundUat')[0]
   assert.match(runIpgTxNotPermittedCode, /await refreshHistory\(\)/)
+  const runIpgInvalidMerchantCode = panel
+    .split('async function runIpgInvalidMerchantUat')[1]
+    ?.split('async function runDebitStatusNotFoundUat')[0]
+  assert.match(runIpgInvalidMerchantCode, /await refreshHistory\(\)/)
 
   // Verifikasi label aktivitas riwayat UAT IPG
   assert.match(
@@ -74,6 +82,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(
     panel,
     /ipg_create_order_tx_not_permitted_tested:\s*'UAT IPG Transaction Not Permitted \(4035415\)'/
+  )
+  assert.match(
+    panel,
+    /ipg_create_order_invalid_merchant_tested:\s*'UAT IPG Invalid Merchant \(4045408\)'/
   )
 
   // Verifikasi tidak ada kebocoran kunci atau signature rahasia
@@ -94,5 +106,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(
     service,
     /sandbox-tester\/uat\/ipg-create-order-transaction-not-permitted/
+  )
+  assert.match(service, /testIpgCreateOrderInvalidMerchant/)
+  assert.match(
+    service,
+    /sandbox-tester\/uat\/ipg-create-order-invalid-merchant/
   )
 })
