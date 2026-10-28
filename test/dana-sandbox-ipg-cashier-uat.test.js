@@ -32,6 +32,7 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   )
   assert.match(panel, /ipgCreateOrderSuccessUat\.request\?\.amount_value/)
   assert.match(panel, /supportDeepLinkCheckoutUrl/)
+  assert.match(panel, /productCode/)
   assert.match(panel, /validUpTo:\s*15\s*menit/)
   assert.match(panel, /ipgMissingTimestampUat\.received\?\.response_code/)
   assert.match(panel, /ipgMissingTimestampUat\.request\?\.x_timestamp_sent/)

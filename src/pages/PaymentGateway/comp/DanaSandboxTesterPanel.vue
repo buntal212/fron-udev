@@ -324,6 +324,10 @@
               <code>{{
                 ipgCreateOrderSuccessUat.request.support_deep_link_checkout_url
               }}</code>
+              <span v-if="ipgCreateOrderSuccessUat.request?.product_code">
+                · productCode:
+                <code>{{ ipgCreateOrderSuccessUat.request.product_code }}</code>
+              </span>
               <span v-if="ipgCreateOrderSuccessUat.request?.valid_up_to">
                 · validUpTo: 15 menit
               </span>
@@ -425,6 +429,10 @@
           <code>{{
             ipgMissingTimestampUat.request.support_deep_link_checkout_url
           }}</code>
+        </span>
+        <span v-if="ipgMissingTimestampUat.request?.product_code">
+          · productCode:
+          <code>{{ ipgMissingTimestampUat.request.product_code }}</code>
         </span>
         <span v-if="ipgMissingTimestampUat.received?.request_id">
           · Request ID: {{ ipgMissingTimestampUat.received.request_id }}
