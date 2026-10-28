@@ -287,6 +287,12 @@ export const danaGatewayMerchantService = {
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  testIpgCreateOrderExceedsAmountLimit: merchantId =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/ipg-create-order-exceeds-amount-limit`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   testDebitStatusTransactionNotFound: merchantId =>
     api.post(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/debit-status-transaction-not-found`,

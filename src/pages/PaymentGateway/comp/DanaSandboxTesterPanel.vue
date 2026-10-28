@@ -134,6 +134,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="negative"
+          icon="money_off"
+          label="UAT Exceeds Amount Limit (4035402)"
+          no-caps
+          :loading="runningIpgExceedsAmountLimitUat"
+          @click="runIpgExceedsAmountLimitUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="warning"
           icon="science"
           label="UAT Status Not Found (4045501)"
@@ -848,6 +859,74 @@
     </q-banner>
 
     <q-banner
+      v-if="ipgExceedsAmountLimitUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            ipgExceedsAmountLimitUat.passed ? 'check_circle' : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        UAT Exceeds Amount Limit (4035402) · Cashier Pay
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="ipgExceedsAmountLimitUat.passed ? 'positive' : 'negative'"
+        >
+          {{ ipgExceedsAmountLimitUat.passed ? 'Lolos (4035402)' : 'Gagal' }}
+        </q-badge>
+        <span>
+          · Transaksi:
+          <q-badge color="negative">FAILED</q-badge>
+          · Target:
+          <code>{{
+            ipgExceedsAmountLimitUat.request?.endpoint ||
+            '/rest/redirection/v1.0/debit/payment-host-to-host'
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        Nominal:
+        <code
+          >{{
+            ipgExceedsAmountLimitUat.request?.amount_value || '5000000000.00'
+          }}
+          {{ ipgExceedsAmountLimitUat.request?.currency || 'IDR' }}</code
+        >
+        <span v-if="ipgExceedsAmountLimitUat.request?.product_code">
+          · productCode:
+          <code>{{ ipgExceedsAmountLimitUat.request.product_code }}</code>
+        </span>
+        <span
+          v-if="
+            ipgExceedsAmountLimitUat.request?.support_deep_link_checkout_url
+          "
+        >
+          · supportDeepLinkCheckoutUrl:
+          <code>{{
+            ipgExceedsAmountLimitUat.request.support_deep_link_checkout_url
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ ipgExceedsAmountLimitUat.received?.http_status }} ·
+        responseCode
+        <code>{{
+          ipgExceedsAmountLimitUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ ipgExceedsAmountLimitUat.received?.response_message }}
+        <span v-if="ipgExceedsAmountLimitUat.received?.request_id">
+          · Request ID: {{ ipgExceedsAmountLimitUat.received.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
       v-if="debitStatusNotFoundUat"
       rounded
       class="transport-notice q-mt-md"
@@ -1541,6 +1620,7 @@ const runningIpgTransactionNotPermittedUat = ref(false)
 const runningIpgInvalidMerchantUat = ref(false)
 const runningIpgInconsistentRequestUat = ref(false)
 const runningIpgInvalidSignatureUat = ref(false)
+const runningIpgExceedsAmountLimitUat = ref(false)
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
@@ -1566,6 +1646,7 @@ const ipgTransactionNotPermittedUat = ref(null)
 const ipgInvalidMerchantUat = ref(null)
 const ipgInconsistentRequestUat = ref(null)
 const ipgInvalidSignatureUat = ref(null)
+const ipgExceedsAmountLimitUat = ref(null)
 const debitStatusNotFoundUat = ref(null)
 const debitStatusMissingTimestampUat = ref(null)
 const debitStatusInternalServerErrorUat = ref(null)
@@ -1701,6 +1782,7 @@ function reset() {
   ipgInvalidMerchantUat.value = null
   ipgInconsistentRequestUat.value = null
   ipgInvalidSignatureUat.value = null
+  ipgExceedsAmountLimitUat.value = null
   debitStatusNotFoundUat.value = null
   debitStatusMissingTimestampUat.value = null
   debitStatusInternalServerErrorUat.value = null
@@ -1725,6 +1807,8 @@ const operationLabels = {
     'UAT IPG Inconsistent Request (4045418)',
   ipg_create_order_invalid_signature_tested:
     'UAT IPG Invalid Signature (4015400)',
+  ipg_create_order_exceeds_amount_tested:
+    'UAT IPG Exceeds Amount Limit (4035402)',
   debit_status_transaction_not_found_tested: 'UAT Status Not Found (4045501)',
   debit_status_missing_timestamp_tested:
     'UAT Status Missing Timestamp (4005502)',
@@ -2056,6 +2140,32 @@ async function runIpgInvalidSignatureUat() {
     await refreshHistory()
   } finally {
     runningIpgInvalidSignatureUat.value = false
+  }
+}
+
+async function runIpgExceedsAmountLimitUat() {
+  if (!merchantId.value || runningIpgExceedsAmountLimitUat.value) return
+  runningIpgExceedsAmountLimitUat.value = true
+  error.value = null
+  ipgExceedsAmountLimitUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testIpgCreateOrderExceedsAmountLimit(
+        merchantId.value
+      )
+    ipgExceedsAmountLimitUat.value = response.data?.data?.uat ?? null
+    if (!ipgExceedsAmountLimitUat.value?.passed) {
+      const diag =
+        ipgExceedsAmountLimitUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT IPG 4035402 (Exceeds Transaction Amount Limit).'
+      error.value = `UAT 4035402 belum terpenuhi: ${diag}`
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    await refreshHistory()
+  } finally {
+    runningIpgExceedsAmountLimitUat.value = false
   }
 }
 

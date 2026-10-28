@@ -29,6 +29,8 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(panel, /runIpgInconsistentRequestUat/)
   assert.match(panel, /UAT Invalid Signature \(4015400\)/)
   assert.match(panel, /runIpgInvalidSignatureUat/)
+  assert.match(panel, /UAT Exceeds Amount Limit \(4035402\)/)
+  assert.match(panel, /runIpgExceedsAmountLimitUat/)
 
   // Verifikasi banner diagnostik dan target endpoint
   assert.match(panel, /\/rest\/redirection\/v1\.0\/debit\/payment-host-to-host/)
@@ -68,6 +70,8 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   )
   assert.match(panel, /ipgInvalidSignatureUat\.received\?\.response_code/)
   assert.match(panel, /ipgInvalidSignatureUat\.request\?\.amount_value/)
+  assert.match(panel, /ipgExceedsAmountLimitUat\.received\?\.response_code/)
+  assert.match(panel, /5000000000\.00/)
 
   // Verifikasi riwayat otomatis diperbarui setelah UAT IPG
   const runIpgSuccessCode = panel
@@ -94,6 +98,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
     .split('async function runIpgInvalidSignatureUat')[1]
     ?.split('async function runDebitStatusNotFoundUat')[0]
   assert.match(runIpgInvalidSigCode, /await refreshHistory\(\)/)
+  const runIpgExceedsAmountCode = panel
+    .split('async function runIpgExceedsAmountLimitUat')[1]
+    ?.split('async function runDebitStatusNotFoundUat')[0]
+  assert.match(runIpgExceedsAmountCode, /await refreshHistory\(\)/)
 
   // Verifikasi label aktivitas riwayat UAT IPG
   assert.match(
@@ -119,6 +127,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(
     panel,
     /ipg_create_order_invalid_signature_tested:\s*'UAT IPG Invalid Signature \(4015400\)'/
+  )
+  assert.match(
+    panel,
+    /ipg_create_order_exceeds_amount_tested:\s*'UAT IPG Exceeds Amount Limit \(4035402\)'/
   )
 
   // Verifikasi tidak ada kebocoran kunci atau signature rahasia
@@ -154,5 +166,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(
     service,
     /sandbox-tester\/uat\/ipg-create-order-invalid-signature/
+  )
+  assert.match(service, /testIpgCreateOrderExceedsAmountLimit/)
+  assert.match(
+    service,
+    /sandbox-tester\/uat\/ipg-create-order-exceeds-amount-limit/
   )
 })
