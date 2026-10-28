@@ -26,8 +26,29 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(panel, /ipgCreateOrderSuccessUat\.received\?\.response_code/)
   assert.match(panel, /ipgCreateOrderSuccessUat\.received\?\.reference_no/)
   assert.match(panel, /ipgCreateOrderSuccessUat\.received\?\.web_redirect_url/)
+  assert.match(
+    panel,
+    /ipgCreateOrderSuccessUat\.request\?\.partner_reference_no/
+  )
+  assert.match(panel, /ipgCreateOrderSuccessUat\.request\?\.amount_value/)
   assert.match(panel, /ipgMissingTimestampUat\.received\?\.response_code/)
   assert.match(panel, /ipgMissingTimestampUat\.request\?\.x_timestamp_sent/)
+
+  // Verifikasi riwayat otomatis diperbarui setelah UAT IPG
+  const runIpgSuccessCode = panel
+    .split('async function runIpgCreateOrderSuccessUat')[1]
+    ?.split('async function runIpgMissingTimestampUat')[0]
+  assert.match(runIpgSuccessCode, /await refreshHistory\(\)/)
+  const runIpgMissingCode = panel
+    .split('async function runIpgMissingTimestampUat')[1]
+    ?.split('async function runDebitStatusNotFoundUat')[0]
+  assert.match(runIpgMissingCode, /await refreshHistory\(\)/)
+
+  // Verifikasi label aktivitas riwayat UAT IPG
+  assert.match(
+    panel,
+    /ipg_create_order_success_tested:\s*'UAT IPG Cashier Pay \(2005400\)'/
+  )
 
   // Verifikasi tidak ada kebocoran kunci atau signature rahasia
   const uatSection = panel.split('<div v-if="validation"')[0]

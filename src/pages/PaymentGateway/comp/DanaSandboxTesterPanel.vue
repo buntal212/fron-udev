@@ -262,45 +262,119 @@
           "
         />
       </template>
-      <div class="text-weight-bold">
-        UAT IPG Cashier Pay Create Order (2005400)
+      <div class="row items-center justify-between q-col-gutter-sm">
+        <div class="col-auto">
+          <span class="text-weight-bold text-subtitle2">
+            UAT IPG Cashier Pay Create Order (2005400)
+          </span>
+          <q-badge
+            :color="ipgCreateOrderSuccessUat.passed ? 'positive' : 'negative'"
+            class="q-ml-sm"
+          >
+            {{ ipgCreateOrderSuccessUat.passed ? 'Lolos UAT' : 'Gagal' }}
+          </q-badge>
+          <q-badge outline color="warning" class="q-ml-xs">
+            Status Pembayaran: PENDING (Menunggu Konfirmasi)
+          </q-badge>
+        </div>
       </div>
-      <div>
-        Target: <code>/rest/redirection/v1.0/debit/payment-host-to-host</code> ·
-        DANA HTTP {{ ipgCreateOrderSuccessUat.received?.http_status }} ·
-        responseCode
-        <code>{{
-          ipgCreateOrderSuccessUat.received?.response_code || 'Tidak tersedia'
-        }}</code>
-        · {{ ipgCreateOrderSuccessUat.received?.response_message }}
-      </div>
-      <div class="text-caption q-mt-xs">
-        Header X-TIMESTAMP terkirim:
-        {{
-          ipgCreateOrderSuccessUat.request?.x_timestamp_sent ? 'ya' : 'tidak'
-        }}
-        <span v-if="ipgCreateOrderSuccessUat.received?.reference_no">
-          · Reference No:
-          <code>{{ ipgCreateOrderSuccessUat.received.reference_no }}</code>
-        </span>
-        <span v-if="ipgCreateOrderSuccessUat.received?.request_id">
-          · Request ID: {{ ipgCreateOrderSuccessUat.received.request_id }}
-        </span>
-      </div>
-      <div
-        v-if="ipgCreateOrderSuccessUat.received?.web_redirect_url"
-        class="q-mt-xs"
-      >
-        <span class="text-caption text-weight-medium">Checkout URL: </span>
-        <a
-          :href="ipgCreateOrderSuccessUat.received.web_redirect_url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-primary text-caption"
-          style="word-break: break-all"
-        >
-          {{ ipgCreateOrderSuccessUat.received.web_redirect_url }}
-        </a>
+
+      <div class="row q-col-gutter-md q-mt-xs">
+        <div class="col-12 col-md-6">
+          <q-card flat bordered class="bg-grey-1 text-caption q-pa-sm">
+            <div class="text-weight-bold q-mb-xs text-primary"
+              >Request UAT DANA SNAP:</div
+            >
+            <div
+              >Target:
+              <code
+                >/rest/redirection/v1.0/debit/payment-host-to-host</code
+              ></div
+            >
+            <div
+              >Method:
+              <code>{{
+                ipgCreateOrderSuccessUat.request?.http_method || 'POST'
+              }}</code></div
+            >
+            <div v-if="ipgCreateOrderSuccessUat.request?.partner_reference_no">
+              Partner Ref:
+              <code>{{
+                ipgCreateOrderSuccessUat.request.partner_reference_no
+              }}</code>
+            </div>
+            <div v-if="ipgCreateOrderSuccessUat.request?.amount_value">
+              Nominal:
+              <code
+                >{{ ipgCreateOrderSuccessUat.request.amount_value }}
+                {{ ipgCreateOrderSuccessUat.request.currency || 'IDR' }}</code
+              >
+            </div>
+            <div v-if="ipgCreateOrderSuccessUat.request?.scenario">
+              Scenario:
+              <code>{{ ipgCreateOrderSuccessUat.request.scenario }}</code> ·
+              {{ ipgCreateOrderSuccessUat.request.order_title }}
+            </div>
+            <div>
+              Header X-TIMESTAMP:
+              {{
+                ipgCreateOrderSuccessUat.request?.x_timestamp_sent
+                  ? 'Terkirim'
+                  : 'Tidak terkirim'
+              }}
+              <span v-if="ipgCreateOrderSuccessUat.request?.partner_id"
+                >· Partner ID:
+                {{ ipgCreateOrderSuccessUat.request.partner_id }}</span
+              >
+            </div>
+          </q-card>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <q-card flat bordered class="bg-grey-1 text-caption q-pa-sm">
+            <div class="text-weight-bold q-mb-xs text-primary"
+              >Response DANA Sandbox:</div
+            >
+            <div>
+              HTTP Status:
+              <code>{{ ipgCreateOrderSuccessUat.received?.http_status }}</code>
+              · responseCode:
+              <code>{{
+                ipgCreateOrderSuccessUat.received?.response_code ||
+                'Tidak tersedia'
+              }}</code>
+            </div>
+            <div>
+              responseMessage:
+              <code>{{
+                ipgCreateOrderSuccessUat.received?.response_message
+              }}</code>
+            </div>
+            <div v-if="ipgCreateOrderSuccessUat.received?.reference_no">
+              Reference No (DANA):
+              <code>{{ ipgCreateOrderSuccessUat.received.reference_no }}</code>
+            </div>
+            <div v-if="ipgCreateOrderSuccessUat.received?.request_id">
+              Request ID:
+              <code>{{ ipgCreateOrderSuccessUat.received.request_id }}</code>
+            </div>
+            <div
+              v-if="ipgCreateOrderSuccessUat.received?.web_redirect_url"
+              class="q-mt-xs"
+            >
+              <span class="text-weight-medium">Checkout URL: </span>
+              <a
+                :href="ipgCreateOrderSuccessUat.received.web_redirect_url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-primary"
+                style="word-break: break-all"
+              >
+                {{ ipgCreateOrderSuccessUat.received.web_redirect_url }}
+              </a>
+            </div>
+          </q-card>
+        </div>
       </div>
     </q-banner>
 
@@ -1184,8 +1258,26 @@ function reset() {
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
 }
 
+const operationLabels = {
+  configuration_validated: 'Validasi Konfigurasi',
+  transaction_created: 'Buat Transaksi Sandbox',
+  transaction_status_checked: 'Periksa Status Transaksi',
+  dana_payment_status_queried: 'Query Status DANA',
+  ipg_create_order_success_tested: 'UAT IPG Cashier Pay (2005400)',
+  ipg_create_order_missing_ts_tested: 'UAT IPG Missing Timestamp (4005402)',
+  debit_status_transaction_not_found_tested: 'UAT Status Not Found (4045501)',
+  debit_status_missing_timestamp_tested:
+    'UAT Status Missing Timestamp (4005502)',
+  debit_status_internal_server_error_tested:
+    'UAT Status Internal Error (5005501)',
+  debit_status_invalid_signature_tested:
+    'UAT Status Invalid Signature (4015500)',
+  uat_webhook_500_armed: 'Arm Webhook Simulasi 500'
+}
+
 function labelFor(value) {
-  return value ? String(value).replaceAll('_', ' ') : 'Tidak diketahui'
+  if (!value) return 'Tidak diketahui'
+  return operationLabels[value] || String(value).replaceAll('_', ' ')
 }
 
 function keyStatusColor(key) {
@@ -1335,10 +1427,15 @@ async function runIpgCreateOrderSuccessUat() {
     )
     ipgCreateOrderSuccessUat.value = response.data?.data?.uat ?? null
     if (!ipgCreateOrderSuccessUat.value?.passed) {
-      error.value = 'Respons DANA tidak sesuai ekspektasi UAT IPG 2005400.'
+      const diag =
+        ipgCreateOrderSuccessUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT IPG 2005400.'
+      error.value = `UAT 2005400 belum terpenuhi: ${diag}`
     }
+    await refreshHistory()
   } catch (requestError) {
     error.value = getApiErrorMessage(requestError)
+    await refreshHistory()
   } finally {
     runningIpgCreateOrderSuccessUat.value = false
   }
@@ -1356,10 +1453,15 @@ async function runIpgMissingTimestampUat() {
       )
     ipgMissingTimestampUat.value = response.data?.data?.uat ?? null
     if (!ipgMissingTimestampUat.value?.passed) {
-      error.value = 'Respons DANA tidak sesuai ekspektasi UAT IPG 4005402.'
+      const diag =
+        ipgMissingTimestampUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT IPG 4005402.'
+      error.value = `UAT 4005402 belum terpenuhi: ${diag}`
     }
+    await refreshHistory()
   } catch (requestError) {
     error.value = getApiErrorMessage(requestError)
+    await refreshHistory()
   } finally {
     runningIpgMissingTimestampUat.value = false
   }
