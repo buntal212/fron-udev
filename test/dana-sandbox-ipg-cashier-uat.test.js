@@ -22,6 +22,8 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(panel, /runIpgMissingTimestampUat/)
   assert.match(panel, /UAT General Error \(5005400\)/)
   assert.match(panel, /runIpgGeneralErrorUat/)
+  assert.match(panel, /UAT Transaction Not Permitted \(4035415\)/)
+  assert.match(panel, /runIpgTransactionNotPermittedUat/)
 
   // Verifikasi banner diagnostik dan target endpoint
   assert.match(panel, /\/rest\/redirection\/v1\.0\/debit\/payment-host-to-host/)
@@ -40,6 +42,11 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(panel, /ipgMissingTimestampUat\.request\?\.x_timestamp_sent/)
   assert.match(panel, /ipgGeneralErrorUat\.received\?\.response_code/)
   assert.match(panel, /505400\.00/)
+  assert.match(
+    panel,
+    /ipgTransactionNotPermittedUat\.received\?\.response_code/
+  )
+  assert.match(panel, /435415\.00/)
 
   // Verifikasi riwayat otomatis diperbarui setelah UAT IPG
   const runIpgSuccessCode = panel
@@ -50,6 +57,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
     .split('async function runIpgMissingTimestampUat')[1]
     ?.split('async function runDebitStatusNotFoundUat')[0]
   assert.match(runIpgMissingCode, /await refreshHistory\(\)/)
+  const runIpgTxNotPermittedCode = panel
+    .split('async function runIpgTransactionNotPermittedUat')[1]
+    ?.split('async function runDebitStatusNotFoundUat')[0]
+  assert.match(runIpgTxNotPermittedCode, /await refreshHistory\(\)/)
 
   // Verifikasi label aktivitas riwayat UAT IPG
   assert.match(
@@ -59,6 +70,10 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(
     panel,
     /ipg_create_order_general_error_tested:\s*'UAT IPG General Error \(5005400\)'/
+  )
+  assert.match(
+    panel,
+    /ipg_create_order_tx_not_permitted_tested:\s*'UAT IPG Transaction Not Permitted \(4035415\)'/
   )
 
   // Verifikasi tidak ada kebocoran kunci atau signature rahasia
@@ -75,4 +90,9 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   )
   assert.match(service, /testIpgCreateOrderGeneralError/)
   assert.match(service, /sandbox-tester\/uat\/ipg-create-order-general-error/)
+  assert.match(service, /testIpgCreateOrderTransactionNotPermitted/)
+  assert.match(
+    service,
+    /sandbox-tester\/uat\/ipg-create-order-transaction-not-permitted/
+  )
 })
