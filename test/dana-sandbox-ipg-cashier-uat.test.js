@@ -173,31 +173,36 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
     /sandbox-tester\/uat\/ipg-create-order-exceeds-amount-limit/
   )
 
-  // Verifikasi opsi nominal UAT Exceeds Amount Limit (Rp5.000.000.000 dan Rp10.000.000)
+  // Verifikasi opsi nominal UAT Exceeds Amount Limit (Default Rp10.000.001, Resmi Rp5.000.000.000, dan Manual Input)
+  assert.match(panel, /Default UAT:\s*Rp10\.000\.001/)
   assert.match(panel, /Nominal Resmi:\s*Rp5\.000\.000\.000/)
   assert.match(panel, /Nominal UAT:\s*Rp10\.000\.000/)
+  assert.match(panel, /Input Nominal Manual\.\.\./)
+  assert.match(panel, /Nominal Manual UAT Exceeds Amount/)
+  assert.match(panel, /10000001/)
   assert.match(panel, /5000000000/)
   assert.match(panel, /10000000/)
-  assert.match(panel, /Arahan DANA Support \(Rp10\.000\.000\)/)
+  assert.match(panel, /Default UAT \(Rp10\.000\.001\)/)
   assert.match(panel, /Nominal Resmi SNAP \(Rp5\.000\.000\.000\)/)
 
-  // Verifikasi forwarding nominal tanpa silent fallback
+  // Verifikasi forwarding nominal tanpa silent fallback dengan default 10000001
   assert.match(
     service,
-    /amount:\s*amount\s*\?\s*Number\(amount\)\s*:\s*5000000000/
+    /amount:\s*amount\s*!==\s*undefined\s*&&\s*amount\s*!==\s*null\s*\?\s*Number\(amount\)\s*:\s*10000001/
   )
 })
 
-test('service udev-billing meneruskan nominal UAT Exceeds Amount Limit secara eksplisit', () => {
+test('service udev-billing meneruskan nominal UAT Exceeds Amount Limit secara eksplisit dengan default Rp10.000.001', () => {
   function prepareExceedsAmountPayload(amount) {
-    return { amount: amount ? Number(amount) : 5000000000 }
+    return {
+      amount:
+        amount !== undefined && amount !== null ? Number(amount) : 10000001
+    }
   }
 
-  // Skenario 1: Nominal UAT Rp10.000.000 (arahan DANA Support)
-  assert.deepEqual(prepareExceedsAmountPayload(10000000), { amount: 10000000 })
-  assert.deepEqual(prepareExceedsAmountPayload('10000000'), {
-    amount: 10000000
-  })
+  // Skenario 1: Default Rp10.000.001 ketika parameter amount tidak disediakan
+  assert.deepEqual(prepareExceedsAmountPayload(undefined), { amount: 10000001 })
+  assert.deepEqual(prepareExceedsAmountPayload(null), { amount: 10000001 })
 
   // Skenario 2: Nominal Resmi Rp5.000.000.000 (Batas Standar SNAP)
   assert.deepEqual(prepareExceedsAmountPayload(5000000000), {
@@ -207,11 +212,59 @@ test('service udev-billing meneruskan nominal UAT Exceeds Amount Limit secara ek
     amount: 5000000000
   })
 
-  // Skenario 3: Default ketika argumen amount tidak disediakan
-  assert.deepEqual(prepareExceedsAmountPayload(undefined), {
-    amount: 5000000000
+  // Skenario 3: Nominal UAT Rp10.000.000 (arahan DANA Support)
+  assert.deepEqual(prepareExceedsAmountPayload(10000000), { amount: 10000000 })
+  assert.deepEqual(prepareExceedsAmountPayload('10000000'), {
+    amount: 10000000
   })
-  assert.deepEqual(prepareExceedsAmountPayload(null), { amount: 5000000000 })
+
+  // Skenario 4: Nominal manual kustom yang diinput admin (misal Rp25.000.000)
+  assert.deepEqual(prepareExceedsAmountPayload(25000000), { amount: 25000000 })
+  assert.deepEqual(prepareExceedsAmountPayload('25000000'), {
+    amount: 25000000
+  })
+})
+
+test('validasi nominal manual UAT Exceeds Amount Limit memastikan integer positif dan batas aman', () => {
+  function validateCustomAmount(value) {
+    const val = Number(value)
+    if (!Number.isInteger(val) || val < 1) {
+      return 'Nominal harus berupa bilangan bulat IDR positif (minimal Rp1).'
+    }
+    if (val > 10000000000) {
+      return 'Nominal melebihi batas aman maksimum (Rp10.000.000.000).'
+    }
+    return null
+  }
+
+  // Valid
+  assert.equal(validateCustomAmount(10000001), null)
+  assert.equal(validateCustomAmount(5000000000), null)
+  assert.equal(validateCustomAmount(10000000), null)
+  assert.equal(validateCustomAmount(25000000), null)
+  assert.equal(validateCustomAmount('10000001'), null)
+
+  // Invalid: Zero atau negatif
+  assert.equal(
+    validateCustomAmount(0),
+    'Nominal harus berupa bilangan bulat IDR positif (minimal Rp1).'
+  )
+  assert.equal(
+    validateCustomAmount(-500),
+    'Nominal harus berupa bilangan bulat IDR positif (minimal Rp1).'
+  )
+
+  // Invalid: Desimal/float
+  assert.equal(
+    validateCustomAmount(10000.5),
+    'Nominal harus berupa bilangan bulat IDR positif (minimal Rp1).'
+  )
+
+  // Invalid: Melebihi batas aman 10 Miliar
+  assert.equal(
+    validateCustomAmount(10000000001),
+    'Nominal melebihi batas aman maksimum (Rp10.000.000.000).'
+  )
 })
 
 test('pengujian mock UAT Exceeds Amount Limit memvalidasi respons aktual DANA 4035402 tanpa hardcode PASSED', () => {

@@ -142,7 +142,32 @@
           split
           @click="runIpgExceedsAmountLimitUat()"
         >
-          <q-list dense>
+          <q-list dense style="min-width: 320px">
+            <q-item-label
+              header
+              class="text-weight-bold text-caption text-uppercase"
+            >
+              Pilihan Nominal UAT
+            </q-item-label>
+            <q-item
+              clickable
+              v-close-popup
+              :active="selectedExceedsAmount === 10000001"
+              @click="runIpgExceedsAmountLimitUat(10000001)"
+            >
+              <q-item-section avatar>
+                <q-icon name="flag" color="primary" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Default UAT: Rp10.000.001</q-item-label>
+                <q-item-label caption
+                  >Nominal default pengujian batas transaksi</q-item-label
+                >
+              </q-item-section>
+              <q-item-section side v-if="selectedExceedsAmount === 10000001">
+                <q-icon name="check" color="positive" />
+              </q-item-section>
+            </q-item>
             <q-item
               clickable
               v-close-popup
@@ -169,7 +194,7 @@
               @click="runIpgExceedsAmountLimitUat(10000000)"
             >
               <q-item-section avatar>
-                <q-icon name="support_agent" color="primary" />
+                <q-icon name="support_agent" color="secondary" />
               </q-item-section>
               <q-item-section>
                 <q-item-label>Nominal UAT: Rp10.000.000</q-item-label>
@@ -179,6 +204,45 @@
               </q-item-section>
               <q-item-section side v-if="selectedExceedsAmount === 10000000">
                 <q-icon name="check" color="positive" />
+              </q-item-section>
+            </q-item>
+            <q-item
+              v-if="
+                selectedExceedsAmount !== 10000001 &&
+                selectedExceedsAmount !== 5000000000 &&
+                selectedExceedsAmount !== 10000000
+              "
+              clickable
+              v-close-popup
+              active
+              @click="runIpgExceedsAmountLimitUat(selectedExceedsAmount)"
+            >
+              <q-item-section avatar>
+                <q-icon name="tune" color="accent" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label
+                  >Nominal Manual:
+                  {{ formatRupiah(selectedExceedsAmount) }}</q-item-label
+                >
+                <q-item-label caption
+                  >Nominal kustom pilihan admin</q-item-label
+                >
+              </q-item-section>
+              <q-item-section side>
+                <q-icon name="check" color="positive" />
+              </q-item-section>
+            </q-item>
+            <q-separator class="q-my-xs" />
+            <q-item clickable @click="openCustomExceedsAmountDialog">
+              <q-item-section avatar>
+                <q-icon name="edit" color="warning" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Input Nominal Manual...</q-item-label>
+                <q-item-label caption
+                  >Ubah nominal sesuai kebutuhan pengujian</q-item-label
+                >
               </q-item-section>
             </q-item>
           </q-list>
@@ -940,22 +1004,28 @@
         >
         <q-badge
           :color="
-            ipgExceedsAmountLimitUat.request?.amount_value === '10000000.00'
-              ? 'info'
+            ipgExceedsAmountLimitUat.request?.amount_value === '10000001.00'
+              ? 'primary'
               : ipgExceedsAmountLimitUat.request?.amount_value ===
                   '5000000000.00'
                 ? 'secondary'
-                : 'grey-7'
+                : ipgExceedsAmountLimitUat.request?.amount_value ===
+                    '10000000.00'
+                  ? 'info'
+                  : 'purple-7'
           "
           class="q-ml-xs"
         >
           {{
-            ipgExceedsAmountLimitUat.request?.amount_value === '10000000.00'
-              ? 'Arahan DANA Support (Rp10.000.000)'
+            ipgExceedsAmountLimitUat.request?.amount_value === '10000001.00'
+              ? 'Default UAT (Rp10.000.001)'
               : ipgExceedsAmountLimitUat.request?.amount_value ===
                   '5000000000.00'
                 ? 'Nominal Resmi SNAP (Rp5.000.000.000)'
-                : 'Nominal Tidak Sesuai'
+                : ipgExceedsAmountLimitUat.request?.amount_value ===
+                    '10000000.00'
+                  ? 'Arahan DANA Support (Rp10.000.000)'
+                  : `Nominal Manual (${formatRupiah(Number(ipgExceedsAmountLimitUat.request?.amount_value))})`
           }}
         </q-badge>
         <span v-if="ipgExceedsAmountLimitUat.request?.product_code">
@@ -1648,6 +1718,77 @@
         @update:model-value="refreshHistory"
       />
     </div>
+
+    <q-dialog v-model="showCustomExceedsAmountDialog" persistent>
+      <q-card style="min-width: 360px; max-width: 480px">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6 text-negative">
+            <q-icon name="edit_note" class="q-mr-xs" />
+            Nominal Manual UAT Exceeds Amount
+          </div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-pt-sm">
+          <div class="text-caption text-grey-8 q-mb-md">
+            Masukkan nominal bilangan bulat IDR positif untuk menguji batas
+            nominal transaksi DANA Sandbox Cashier Pay (4035402).
+          </div>
+          <q-input
+            v-model.number="customExceedsAmountInput"
+            type="number"
+            label="Nominal IDR"
+            prefix="Rp"
+            outlined
+            dense
+            min="1"
+            max="10000000000"
+            step="1"
+            :error="Boolean(customAmountValidationError)"
+            :error-message="customAmountValidationError"
+            @keyup.enter="submitCustomExceedsAmount"
+          />
+          <div class="row q-gutter-xs q-mt-xs">
+            <q-btn
+              outline
+              size="sm"
+              dense
+              color="primary"
+              label="Default (Rp10.000.001)"
+              @click="customExceedsAmountInput = 10000001"
+            />
+            <q-btn
+              outline
+              size="sm"
+              dense
+              color="negative"
+              label="Resmi SNAP (Rp5 Miliar)"
+              @click="customExceedsAmountInput = 5000000000"
+            />
+            <q-btn
+              outline
+              size="sm"
+              dense
+              color="secondary"
+              label="Rp10.000.000"
+              @click="customExceedsAmountInput = 10000000"
+            />
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-px-md q-pb-md">
+          <q-btn flat label="Batal" color="grey" v-close-popup />
+          <q-btn
+            unelevated
+            color="negative"
+            label="Jalankan UAT"
+            :loading="runningIpgExceedsAmountLimitUat"
+            @click="submitCustomExceedsAmount"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-card-section>
 </template>
 
@@ -1681,7 +1822,10 @@ const runningIpgInvalidMerchantUat = ref(false)
 const runningIpgInconsistentRequestUat = ref(false)
 const runningIpgInvalidSignatureUat = ref(false)
 const runningIpgExceedsAmountLimitUat = ref(false)
-const selectedExceedsAmount = ref(5000000000)
+const selectedExceedsAmount = ref(10000001)
+const showCustomExceedsAmountDialog = ref(false)
+const customExceedsAmountInput = ref(10000001)
+const customAmountValidationError = ref('')
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
@@ -2204,12 +2348,35 @@ async function runIpgInvalidSignatureUat() {
   }
 }
 
+function openCustomExceedsAmountDialog() {
+  customExceedsAmountInput.value = selectedExceedsAmount.value || 10000001
+  customAmountValidationError.value = ''
+  showCustomExceedsAmountDialog.value = true
+}
+
+function submitCustomExceedsAmount() {
+  const val = Number(customExceedsAmountInput.value)
+  if (!Number.isInteger(val) || val < 1) {
+    customAmountValidationError.value =
+      'Nominal harus berupa bilangan bulat IDR positif (minimal Rp1).'
+    return
+  }
+  if (val > 10000000000) {
+    customAmountValidationError.value =
+      'Nominal melebihi batas aman maksimum (Rp10.000.000.000).'
+    return
+  }
+  customAmountValidationError.value = ''
+  showCustomExceedsAmountDialog.value = false
+  runIpgExceedsAmountLimitUat(val)
+}
+
 async function runIpgExceedsAmountLimitUat(targetAmount) {
   if (!merchantId.value || runningIpgExceedsAmountLimitUat.value) return
   const amountToUse =
     typeof targetAmount === 'number'
       ? targetAmount
-      : selectedExceedsAmount.value
+      : selectedExceedsAmount.value || 10000001
   selectedExceedsAmount.value = amountToUse
   runningIpgExceedsAmountLimitUat.value = true
   error.value = null

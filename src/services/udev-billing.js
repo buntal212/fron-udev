@@ -290,7 +290,10 @@ export const danaGatewayMerchantService = {
   testIpgCreateOrderExceedsAmountLimit: (merchantId, amount) =>
     api.post(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/ipg-create-order-exceeds-amount-limit`,
-      { amount: amount ? Number(amount) : 5000000000 },
+      {
+        amount:
+          amount !== undefined && amount !== null ? Number(amount) : 10000001
+      },
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
   testDebitStatusTransactionNotFound: merchantId =>
