@@ -935,23 +935,27 @@
       <div class="q-mt-xs">
         Nominal:
         <code
-          >{{
-            ipgExceedsAmountLimitUat.request?.amount_value || '5000000000.00'
-          }}
+          >{{ ipgExceedsAmountLimitUat.request?.amount_value || '-' }}
           {{ ipgExceedsAmountLimitUat.request?.currency || 'IDR' }}</code
         >
         <q-badge
           :color="
             ipgExceedsAmountLimitUat.request?.amount_value === '10000000.00'
               ? 'info'
-              : 'secondary'
+              : ipgExceedsAmountLimitUat.request?.amount_value ===
+                  '5000000000.00'
+                ? 'secondary'
+                : 'grey-7'
           "
           class="q-ml-xs"
         >
           {{
             ipgExceedsAmountLimitUat.request?.amount_value === '10000000.00'
               ? 'Arahan DANA Support (Rp10.000.000)'
-              : 'Nominal Resmi SNAP (Rp5.000.000.000)'
+              : ipgExceedsAmountLimitUat.request?.amount_value ===
+                  '5000000000.00'
+                ? 'Nominal Resmi SNAP (Rp5.000.000.000)'
+                : 'Nominal Tidak Sesuai'
           }}
         </q-badge>
         <span v-if="ipgExceedsAmountLimitUat.request?.product_code">

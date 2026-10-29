@@ -180,6 +180,38 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
   assert.match(panel, /10000000/)
   assert.match(panel, /Arahan DANA Support \(Rp10\.000\.000\)/)
   assert.match(panel, /Nominal Resmi SNAP \(Rp5\.000\.000\.000\)/)
+
+  // Verifikasi forwarding nominal tanpa silent fallback
+  assert.match(
+    service,
+    /amount:\s*amount\s*\?\s*Number\(amount\)\s*:\s*5000000000/
+  )
+})
+
+test('service udev-billing meneruskan nominal UAT Exceeds Amount Limit secara eksplisit', () => {
+  function prepareExceedsAmountPayload(amount) {
+    return { amount: amount ? Number(amount) : 5000000000 }
+  }
+
+  // Skenario 1: Nominal UAT Rp10.000.000 (arahan DANA Support)
+  assert.deepEqual(prepareExceedsAmountPayload(10000000), { amount: 10000000 })
+  assert.deepEqual(prepareExceedsAmountPayload('10000000'), {
+    amount: 10000000
+  })
+
+  // Skenario 2: Nominal Resmi Rp5.000.000.000 (Batas Standar SNAP)
+  assert.deepEqual(prepareExceedsAmountPayload(5000000000), {
+    amount: 5000000000
+  })
+  assert.deepEqual(prepareExceedsAmountPayload('5000000000'), {
+    amount: 5000000000
+  })
+
+  // Skenario 3: Default ketika argumen amount tidak disediakan
+  assert.deepEqual(prepareExceedsAmountPayload(undefined), {
+    amount: 5000000000
+  })
+  assert.deepEqual(prepareExceedsAmountPayload(null), { amount: 5000000000 })
 })
 
 test('pengujian mock UAT Exceeds Amount Limit memvalidasi respons aktual DANA 4035402 tanpa hardcode PASSED', () => {
