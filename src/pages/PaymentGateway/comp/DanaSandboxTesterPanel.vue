@@ -132,15 +132,57 @@
         />
       </div>
       <div class="col-12 col-sm-auto">
-        <q-btn
+        <q-btn-dropdown
           outline
           color="negative"
           icon="money_off"
           label="UAT Exceeds Amount Limit (4035402)"
           no-caps
           :loading="runningIpgExceedsAmountLimitUat"
-          @click="runIpgExceedsAmountLimitUat"
-        />
+          split
+          @click="runIpgExceedsAmountLimitUat()"
+        >
+          <q-list dense>
+            <q-item
+              clickable
+              v-close-popup
+              :active="selectedExceedsAmount === 5000000000"
+              @click="runIpgExceedsAmountLimitUat(5000000000)"
+            >
+              <q-item-section avatar>
+                <q-icon name="account_balance" color="negative" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Nominal Resmi: Rp5.000.000.000</q-item-label>
+                <q-item-label caption
+                  >Batas Transaksi Standar DANA SNAP (Rp5 Miliar)</q-item-label
+                >
+              </q-item-section>
+              <q-item-section side v-if="selectedExceedsAmount === 5000000000">
+                <q-icon name="check" color="positive" />
+              </q-item-section>
+            </q-item>
+            <q-item
+              clickable
+              v-close-popup
+              :active="selectedExceedsAmount === 10000000"
+              @click="runIpgExceedsAmountLimitUat(10000000)"
+            >
+              <q-item-section avatar>
+                <q-icon name="support_agent" color="primary" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Nominal UAT: Rp10.000.000</q-item-label>
+                <q-item-label caption
+                  >Arahan Support DANA Sandbox (Rp10 Juta)</q-item-label
+                >
+              </q-item-section>
+              <q-item-section side v-if="selectedExceedsAmount === 10000000">
+                <q-icon name="check" color="positive" />
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
       </div>
       <div class="col-12 col-sm-auto">
         <q-btn
@@ -898,6 +940,20 @@
           }}
           {{ ipgExceedsAmountLimitUat.request?.currency || 'IDR' }}</code
         >
+        <q-badge
+          :color="
+            ipgExceedsAmountLimitUat.request?.amount_value === '10000000.00'
+              ? 'info'
+              : 'secondary'
+          "
+          class="q-ml-xs"
+        >
+          {{
+            ipgExceedsAmountLimitUat.request?.amount_value === '10000000.00'
+              ? 'Arahan DANA Support (Rp10.000.000)'
+              : 'Nominal Resmi SNAP (Rp5.000.000.000)'
+          }}
+        </q-badge>
         <span v-if="ipgExceedsAmountLimitUat.request?.product_code">
           · productCode:
           <code>{{ ipgExceedsAmountLimitUat.request.product_code }}</code>
@@ -1621,6 +1677,7 @@ const runningIpgInvalidMerchantUat = ref(false)
 const runningIpgInconsistentRequestUat = ref(false)
 const runningIpgInvalidSignatureUat = ref(false)
 const runningIpgExceedsAmountLimitUat = ref(false)
+const selectedExceedsAmount = ref(5000000000)
 const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
@@ -2143,15 +2200,21 @@ async function runIpgInvalidSignatureUat() {
   }
 }
 
-async function runIpgExceedsAmountLimitUat() {
+async function runIpgExceedsAmountLimitUat(targetAmount) {
   if (!merchantId.value || runningIpgExceedsAmountLimitUat.value) return
+  const amountToUse =
+    typeof targetAmount === 'number'
+      ? targetAmount
+      : selectedExceedsAmount.value
+  selectedExceedsAmount.value = amountToUse
   runningIpgExceedsAmountLimitUat.value = true
   error.value = null
   ipgExceedsAmountLimitUat.value = null
   try {
     const response =
       await danaGatewayMerchantService.testIpgCreateOrderExceedsAmountLimit(
-        merchantId.value
+        merchantId.value,
+        amountToUse
       )
     ipgExceedsAmountLimitUat.value = response.data?.data?.uat ?? null
     if (!ipgExceedsAmountLimitUat.value?.passed) {

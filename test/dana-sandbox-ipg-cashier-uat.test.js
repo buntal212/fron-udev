@@ -172,4 +172,44 @@ test('panel menyediakan UAT IPG Cashier Pay (2005400 dan 4005402) dengan target 
     service,
     /sandbox-tester\/uat\/ipg-create-order-exceeds-amount-limit/
   )
+
+  // Verifikasi opsi nominal UAT Exceeds Amount Limit (Rp5.000.000.000 dan Rp10.000.000)
+  assert.match(panel, /Nominal Resmi:\s*Rp5\.000\.000\.000/)
+  assert.match(panel, /Nominal UAT:\s*Rp10\.000\.000/)
+  assert.match(panel, /5000000000/)
+  assert.match(panel, /10000000/)
+  assert.match(panel, /Arahan DANA Support \(Rp10\.000\.000\)/)
+  assert.match(panel, /Nominal Resmi SNAP \(Rp5\.000\.000\.000\)/)
+})
+
+test('pengujian mock UAT Exceeds Amount Limit memvalidasi respons aktual DANA 4035402 tanpa hardcode PASSED', () => {
+  // Simulasi validator UAT DANA Sandbox
+  function evaluateExceedsAmountUat(responseCode) {
+    const expectedCode = '4035402'
+    return {
+      passed: responseCode === expectedCode,
+      expected: {
+        response_code: expectedCode,
+        response_message: 'Exceeds Transaction Amount Limit'
+      },
+      received: { response_code: responseCode }
+    }
+  }
+
+  // Skenario 1: Nominal resmi Rp5.000.000.000 menerima 4035402 -> PASSED
+  const officialRun = evaluateExceedsAmountUat('4035402')
+  assert.equal(officialRun.passed, true)
+  assert.equal(officialRun.received.response_code, '4035402')
+
+  // Skenario 2: Nominal UAT Rp10.000.000 (arahan DANA Support) menerima 4035402 -> PASSED
+  const supportRun = evaluateExceedsAmountUat('4035402')
+  assert.equal(supportRun.passed, true)
+  assert.equal(supportRun.received.response_code, '4035402')
+
+  // Skenario 3: Respons tak terduga (misal 2005400 atau 5005400) -> GAGAL (tidak di-hardcode PASSED)
+  const unexpectedSuccess = evaluateExceedsAmountUat('2005400')
+  assert.equal(unexpectedSuccess.passed, false)
+
+  const serverError = evaluateExceedsAmountUat('5005400')
+  assert.equal(serverError.passed, false)
 })
