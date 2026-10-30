@@ -61,6 +61,18 @@ const routes = [
         path: 'payment-gateway',
         component: () => import('@/pages/PaymentGateway/IndexPage.vue')
       },
+      {
+        path: 'payment-gateway-dana',
+        redirect: '/payment-gateway'
+      },
+      {
+        path: 'payment-gateway-doku',
+        component: () => import('@/pages/PaymentGatewayDoku/IndexPage.vue')
+      },
+      {
+        path: 'payment-gateway/doku',
+        redirect: '/payment-gateway-doku'
+      },
       { path: 'merchant', redirect: '/aplikasi' }
     ]
   },

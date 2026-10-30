@@ -118,9 +118,14 @@ const sections = [
     items: [
       { label: 'Manajemen Admin', icon: 'manage_accounts', comingSoon: true },
       {
-        label: 'Payment Gateway',
+        label: 'Payment Gateway DANA',
         icon: 'account_balance_wallet',
         to: '/payment-gateway'
+      },
+      {
+        label: 'Payment Gateway DOKU',
+        icon: 'credit_card',
+        to: '/payment-gateway-doku'
       },
       { label: 'Pengaturan Lainnya', icon: 'settings', comingSoon: true }
     ]

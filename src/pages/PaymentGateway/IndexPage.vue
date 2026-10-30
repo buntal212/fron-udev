@@ -1,13 +1,13 @@
 <template>
   <q-page class="q-pa-md q-pa-lg-md">
     <div class="content-wrap">
-      <AppBreadcrumb title="Payment Gateway" />
+      <AppBreadcrumb title="Payment Gateway DANA" />
       <div
         class="row items-center justify-between q-mt-md q-mb-md q-col-gutter-md"
       >
         <div class="col-12 col-md">
           <p class="eyebrow">PENGATURAN</p>
-          <h1>Payment Gateway</h1>
+          <h1>Payment Gateway DANA</h1>
           <p class="page-description">
             Kelola provisioning merchant DANA dan mapping aplikasi dari satu
             halaman aman.
