@@ -445,3 +445,19 @@ export const danaGatewayMerchantService = {
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     )
 }
+
+export const dokuGatewayService = {
+  merchants: () => api.get('/v1/admin/doku-gateway/merchants'),
+  configuration: merchantCode =>
+    api.get('/v1/admin/doku-gateway/configuration', {
+      params: { merchant_code: merchantCode }
+    }),
+  saveConfiguration: payload =>
+    api.put('/v1/admin/doku-gateway/configuration', payload),
+  testToken: (merchantCode, forceRefresh = false) =>
+    api.post('/v1/admin/doku-gateway/test-token', {
+      merchant_code: merchantCode,
+      force_refresh: forceRefresh
+    }),
+  audits: params => getList('/v1/admin/doku-gateway/audits', params)
+}

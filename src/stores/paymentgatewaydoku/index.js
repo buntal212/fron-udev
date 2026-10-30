@@ -1,0 +1,197 @@
+import { defineStore } from 'pinia'
+import { Notify } from 'quasar'
+import { dokuGatewayService } from '@/services/udev-billing'
+import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
+
+const emptyForm = () => ({
+  merchant_code: 'udev-central',
+  merchant_name: 'UDEV Central Billing',
+  client_id: '',
+  private_key: '',
+  environment: 'sandbox',
+  is_active: true
+})
+
+export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
+  state: () => ({
+    merchants: [],
+    selectedMerchant: 'udev-central',
+    loading: false,
+    saving: false,
+    testing: false,
+    auditsLoading: false,
+    error: null,
+    testError: null,
+
+    // Konfigurasi terdaftar (termasking, tanpa private key)
+    config: null,
+
+    // Form input konfigurasi
+    form: emptyForm(),
+    formErrors: {},
+
+    // Hasil uji koneksi SNAP B2B
+    testResult: null,
+
+    // Data audit log
+    audits: [],
+    auditPagination: {
+      page: 1,
+      rowsPerPage: 15,
+      rowsNumber: 0
+    },
+    auditFilter: {
+      search: '',
+      status: null
+    }
+  }),
+
+  actions: {
+    async fetchMerchants() {
+      try {
+        const response = await dokuGatewayService.merchants()
+        this.merchants = response.data?.data || []
+      } catch (err) {
+        this.error = getApiErrorMessage(err)
+      }
+    },
+
+    async selectMerchant(merchantCode) {
+      this.selectedMerchant = merchantCode
+      const merchant = this.merchants.find(
+        m => m.merchant_code === merchantCode
+      )
+      this.form.merchant_code = merchantCode
+      this.form.merchant_name = merchant?.merchant_name || merchantCode
+      this.form.private_key = ''
+      this.form.client_id = ''
+      this.formErrors = {}
+      this.testResult = null
+      this.testError = null
+
+      await Promise.all([this.fetchConfiguration(), this.fetchAudits(1)])
+    },
+
+    async fetchConfiguration() {
+      this.loading = true
+      this.error = null
+      try {
+        const response = await dokuGatewayService.configuration(
+          this.selectedMerchant
+        )
+        this.config = response.data?.data || null
+      } catch (err) {
+        this.error = getApiErrorMessage(err)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async saveConfiguration() {
+      this.saving = true
+      this.formErrors = {}
+      try {
+        const payload = {
+          merchant_code: this.form.merchant_code,
+          merchant_name: this.form.merchant_name,
+          client_id: this.form.client_id,
+          private_key: this.form.private_key,
+          environment: 'sandbox',
+          is_active: this.form.is_active
+        }
+
+        const response = await dokuGatewayService.saveConfiguration(payload)
+
+        Notify.create({
+          type: 'positive',
+          message:
+            response.data?.message ||
+            'Kredensial DOKU Sandbox berhasil disimpan terenkripsi.'
+        })
+
+        // Kosongkan form private_key agar tidak tertinggal di browser memory
+        this.form.private_key = ''
+        this.form.client_id = ''
+
+        await Promise.all([this.fetchConfiguration(), this.fetchAudits(1)])
+        return true
+      } catch (err) {
+        this.formErrors = getApiValidationErrors(err)
+        const message = getApiErrorMessage(err)
+        Notify.create({
+          type: 'negative',
+          message: message || 'Gagal menyimpan kredensial DOKU Sandbox.'
+        })
+        return false
+      } finally {
+        this.saving = false
+      }
+    },
+
+    async testConnection(forceRefresh = false) {
+      this.testing = true
+      this.testError = null
+      try {
+        const response = await dokuGatewayService.testToken(
+          this.selectedMerchant,
+          forceRefresh
+        )
+
+        this.testResult = response.data?.data || null
+
+        Notify.create({
+          type: 'positive',
+          message: `SNAP B2B Token Berhasil! ResponseCode: ${this.testResult?.response_code} (${this.testResult?.is_cached ? 'Cache Hit' : 'Fresh Token'})`
+        })
+
+        await Promise.all([this.fetchConfiguration(), this.fetchAudits(1)])
+        return true
+      } catch (err) {
+        const message = getApiErrorMessage(err)
+        this.testError = message
+        this.testResult = err.response?.data?.data || null
+
+        Notify.create({
+          type: 'negative',
+          message: message || 'Pengujian SNAP B2B Token gagal.'
+        })
+        return false
+      } finally {
+        this.testing = false
+      }
+    },
+
+    async fetchAudits(page = 1) {
+      this.auditsLoading = true
+      try {
+        const params = {
+          merchant_code: this.selectedMerchant,
+          page,
+          per_page: this.auditPagination.rowsPerPage,
+          search: this.auditFilter.search || undefined,
+          status: this.auditFilter.status || undefined
+        }
+
+        const response = await dokuGatewayService.audits(params)
+        this.audits = response.data?.data || []
+        const meta = response.data?.meta || {}
+        this.auditPagination.page = meta.current_page || 1
+        this.auditPagination.rowsNumber = meta.total || this.audits.length
+      } catch (err) {
+        console.error('Gagal memuat audit log DOKU:', err)
+      } finally {
+        this.auditsLoading = false
+      }
+    },
+
+    resetForm() {
+      this.form = emptyForm()
+      this.formErrors = {}
+      if (this.config) {
+        this.form.merchant_code = this.config.merchant_code
+        this.form.merchant_name = this.config.merchant_name
+        this.form.is_active = this.config.is_active
+      }
+    }
+  }
+})

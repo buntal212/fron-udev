@@ -46,21 +46,23 @@ test('router mendaftarkan rute payment-gateway dan payment-gateway-doku', async 
   )
 })
 
-test('halaman Payment Gateway DOKU menampilkan placeholder Dalam Pengembangan dan tema Black & Gold', async () => {
+test('halaman Payment Gateway DOKU menampilkan modul SNAP B2B dan tema Black & Gold', async () => {
   const dokuPage = await readFile(
     new URL('../src/pages/PaymentGatewayDoku/IndexPage.vue', import.meta.url),
     'utf8'
   )
 
-  // Memastikan teks placeholder 'Dalam Pengembangan' ada
-  assert.match(dokuPage, /Dalam Pengembangan/)
+  // Memastikan judul dan breadcrumb ada
   assert.match(dokuPage, /Payment Gateway DOKU/)
-
-  // Memastikan AppBreadcrumb digunakan
   assert.match(dokuPage, /<AppBreadcrumb title="Payment Gateway DOKU"/)
 
+  // Memastikan komponen SNAP B2B terpasang
+  assert.match(dokuPage, /DokuCredentialForm/)
+  assert.match(dokuPage, /DokuTokenTester/)
+  assert.match(dokuPage, /DokuAuditTable/)
+
   // Memastikan elemen tema Black & Gold diterapkan
-  assert.match(dokuPage, /--udev-gold|#d6ad4d|#b88924/)
+  assert.match(dokuPage, /#b88924/)
   assert.match(dokuPage, /eyebrow/)
   assert.match(dokuPage, /content-wrap/)
 })
