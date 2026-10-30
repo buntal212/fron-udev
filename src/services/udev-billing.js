@@ -454,6 +454,15 @@ export const dokuGatewayService = {
     }),
   saveConfiguration: payload =>
     api.put('/v1/admin/doku-gateway/configuration', payload),
+  generateKey: (merchantCode, confirmRotation = false) =>
+    api.post('/v1/admin/doku-gateway/generate-key', {
+      merchant_code: merchantCode,
+      confirm_rotation: confirmRotation
+    }),
+  recoverKey: merchantCode =>
+    api.post('/v1/admin/doku-gateway/recover-key', {
+      merchant_code: merchantCode
+    }),
   testToken: (merchantCode, forceRefresh = false) =>
     api.post('/v1/admin/doku-gateway/test-token', {
       merchant_code: merchantCode,

@@ -53,7 +53,7 @@ test('DokuAuditTable menyediakan audit log dan modal detail aman tanpa secret', 
   assert.match(auditTable, /detailDialogOpen/)
 })
 
-test('store paymentgatewaydoku memproses konfigurasi dan pengujian token sesuai kontrak', async () => {
+test('store paymentgatewaydoku memproses konfigurasi, RSA key pair, dan pengujian token sesuai kontrak', async () => {
   const store = await readFile(
     new URL('../src/stores/paymentgatewaydoku/index.js', import.meta.url),
     'utf8'
@@ -64,10 +64,17 @@ test('store paymentgatewaydoku memproses konfigurasi dan pengujian token sesuai 
   assert.match(store, /dokuGatewayService\.saveConfiguration/)
   assert.match(store, /dokuGatewayService\.testToken/)
   assert.match(store, /dokuGatewayService\.audits/)
+  assert.match(store, /dokuGatewayService\.generateKey/)
+  assert.match(store, /dokuGatewayService\.recoverKey/)
+  assert.match(store, /generatingKey/)
+  assert.match(store, /recoveringKey/)
+  assert.match(store, /rotateDialogOpen/)
+  assert.match(store, /generateRsaKey\(confirmRotation = false\)/)
+  assert.match(store, /recoverPreviousKey\(\)/)
   assert.match(store, /this\.form\.private_key = ''/) // membersihkan plaintext dari state setelah simpan
 })
 
-test('service udev-billing mendaftarkan endpoint admin DOKU Gateway', async () => {
+test('service udev-billing mendaftarkan endpoint admin DOKU Gateway dan RSA key management', async () => {
   const service = await readFile(
     new URL('../src/services/udev-billing.js', import.meta.url),
     'utf8'
@@ -78,4 +85,29 @@ test('service udev-billing mendaftarkan endpoint admin DOKU Gateway', async () =
   assert.match(service, /\/v1\/admin\/doku-gateway\/configuration/)
   assert.match(service, /\/v1\/admin\/doku-gateway\/test-token/)
   assert.match(service, /\/v1\/admin\/doku-gateway\/audits/)
+  assert.match(service, /\/v1\/admin\/doku-gateway\/generate-key/)
+  assert.match(service, /\/v1\/admin\/doku-gateway\/recover-key/)
+})
+
+test('DokuCredentialForm menyediakan fitur Generate RSA Key Pair, dialog rotasi aman, pulihkan kunci, dan salin public key', async () => {
+  const form = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayDoku/comp/DokuCredentialForm.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  assert.match(form, /Generate RSA Key Pair|Rotasi RSA Key Pair/)
+  assert.match(form, /store\.generateRsaKey/)
+  assert.match(form, /store\.rotateDialogOpen/)
+  assert.match(form, /Konfirmasi Rotasi Kunci RSA/)
+  assert.match(form, /store\.recoveringKey/)
+  assert.match(form, /store\.config\?\.has_recovery_backup/)
+  assert.match(form, /Pulihkan Kunci Sebelumnya/)
+  assert.match(form, /store\.recoverPreviousKey/)
+  assert.match(form, /Salin Public Key/)
+  assert.match(form, /copyPublicKey/)
+  assert.match(form, /store\.config\?\.public_key/)
+  assert.match(form, /store\.config\?\.public_key_fingerprint/)
 })

@@ -33,6 +33,11 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
     // Hasil uji koneksi SNAP B2B
     testResult: null,
 
+    // Status aksi RSA Key Pair
+    generatingKey: false,
+    recoveringKey: false,
+    rotateDialogOpen: false,
+
     // Data audit log
     audits: [],
     auditPagination: {
@@ -125,6 +130,75 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
         return false
       } finally {
         this.saving = false
+      }
+    },
+
+    async generateRsaKey(confirmRotation = false) {
+      if (!confirmRotation && this.config?.has_private_key) {
+        this.rotateDialogOpen = true
+        return { confirmationRequired: true }
+      }
+
+      this.generatingKey = true
+      try {
+        const response = await dokuGatewayService.generateKey(
+          this.selectedMerchant,
+          confirmRotation
+        )
+
+        this.rotateDialogOpen = false
+
+        Notify.create({
+          type: 'positive',
+          message:
+            response.data?.message ||
+            'Pasangan RSA Key Pair 2048-bit berhasil dibuat dan disimpan terenkripsi.'
+        })
+
+        await Promise.all([this.fetchConfiguration(), this.fetchAudits(1)])
+        return { success: true, data: response.data?.data }
+      } catch (err) {
+        if (err.response?.status === 409) {
+          this.rotateDialogOpen = true
+          return { confirmationRequired: true, data: err.response?.data?.data }
+        }
+
+        const message = getApiErrorMessage(err)
+        Notify.create({
+          type: 'negative',
+          message: message || 'Gagal membuat pasangan RSA Key Pair.'
+        })
+        return { success: false, error: err }
+      } finally {
+        this.generatingKey = false
+      }
+    },
+
+    async recoverPreviousKey() {
+      this.recoveringKey = true
+      try {
+        const response = await dokuGatewayService.recoverKey(
+          this.selectedMerchant
+        )
+
+        Notify.create({
+          type: 'positive',
+          message:
+            response.data?.message ||
+            'Pasangan kunci RSA sebelumnya berhasil dipulihkan.'
+        })
+
+        await Promise.all([this.fetchConfiguration(), this.fetchAudits(1)])
+        return { success: true, data: response.data?.data }
+      } catch (err) {
+        const message = getApiErrorMessage(err)
+        Notify.create({
+          type: 'negative',
+          message: message || 'Gagal memulihkan kunci RSA sebelumnya.'
+        })
+        return { success: false, error: err }
+      } finally {
+        this.recoveringKey = false
       }
     },
 
