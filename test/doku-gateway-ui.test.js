@@ -62,15 +62,19 @@ test('store paymentgatewaydoku memproses konfigurasi, RSA key pair, dan pengujia
   assert.match(store, /dokuGatewayService\.merchants/)
   assert.match(store, /dokuGatewayService\.configuration/)
   assert.match(store, /dokuGatewayService\.saveConfiguration/)
+  assert.match(store, /dokuGatewayService\.deleteConfiguration/)
   assert.match(store, /dokuGatewayService\.testToken/)
   assert.match(store, /dokuGatewayService\.audits/)
   assert.match(store, /dokuGatewayService\.generateKey/)
   assert.match(store, /dokuGatewayService\.recoverKey/)
   assert.match(store, /generatingKey/)
   assert.match(store, /recoveringKey/)
+  assert.match(store, /deletingConfig/)
   assert.match(store, /rotateDialogOpen/)
+  assert.match(store, /deleteDialogOpen/)
   assert.match(store, /generateRsaKey\(confirmRotation = false\)/)
   assert.match(store, /recoverPreviousKey\(\)/)
+  assert.match(store, /deleteConfiguration\(\)/)
   assert.match(store, /this\.form\.private_key = ''/) // membersihkan plaintext dari state setelah simpan
 })
 
@@ -83,13 +87,14 @@ test('service udev-billing mendaftarkan endpoint admin DOKU Gateway dan RSA key 
   assert.match(service, /dokuGatewayService = {/)
   assert.match(service, /\/v1\/admin\/doku-gateway\/merchants/)
   assert.match(service, /\/v1\/admin\/doku-gateway\/configuration/)
+  assert.match(service, /deleteConfiguration:/)
   assert.match(service, /\/v1\/admin\/doku-gateway\/test-token/)
   assert.match(service, /\/v1\/admin\/doku-gateway\/audits/)
   assert.match(service, /\/v1\/admin\/doku-gateway\/generate-key/)
   assert.match(service, /\/v1\/admin\/doku-gateway\/recover-key/)
 })
 
-test('DokuCredentialForm menyediakan fitur Generate RSA Key Pair, dialog rotasi aman, pulihkan kunci, dan salin public key', async () => {
+test('DokuCredentialForm menyediakan fitur Generate RSA Key Pair, dialog rotasi aman, pulihkan kunci, hapus konfigurasi, dan bedakan reset form', async () => {
   const form = await readFile(
     new URL(
       '../src/pages/PaymentGatewayDoku/comp/DokuCredentialForm.vue',
@@ -98,6 +103,7 @@ test('DokuCredentialForm menyediakan fitur Generate RSA Key Pair, dialog rotasi 
     'utf8'
   )
 
+  // Fitur RSA
   assert.match(form, /Generate RSA Key Pair|Rotasi RSA Key Pair/)
   assert.match(form, /store\.generateRsaKey/)
   assert.match(form, /store\.rotateDialogOpen/)
@@ -110,4 +116,13 @@ test('DokuCredentialForm menyediakan fitur Generate RSA Key Pair, dialog rotasi 
   assert.match(form, /copyPublicKey/)
   assert.match(form, /store\.config\?\.public_key/)
   assert.match(form, /store\.config\?\.public_key_fingerprint/)
+
+  // Fitur Hapus Konfigurasi & Pembedaan Reset Form
+  assert.match(form, /Hapus Konfigurasi/)
+  assert.match(form, /store\.deleteDialogOpen/)
+  assert.match(form, /store\.deletingConfig/)
+  assert.match(form, /confirmDeleteConfig/)
+  assert.match(form, /Konfirmasi Hapus Konfigurasi/)
+  assert.match(form, /Reset Form/)
+  assert.match(form, /store\.resetForm/)
 })

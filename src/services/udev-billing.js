@@ -454,6 +454,10 @@ export const dokuGatewayService = {
     }),
   saveConfiguration: payload =>
     api.put('/v1/admin/doku-gateway/configuration', payload),
+  deleteConfiguration: merchantCode =>
+    api.delete('/v1/admin/doku-gateway/configuration', {
+      params: { merchant_code: merchantCode }
+    }),
   generateKey: (merchantCode, confirmRotation = false) =>
     api.post('/v1/admin/doku-gateway/generate-key', {
       merchant_code: merchantCode,

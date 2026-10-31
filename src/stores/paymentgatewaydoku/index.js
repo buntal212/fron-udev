@@ -33,10 +33,12 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
     // Hasil uji koneksi SNAP B2B
     testResult: null,
 
-    // Status aksi RSA Key Pair
+    // Status aksi RSA Key Pair & Konfigurasi
     generatingKey: false,
     recoveringKey: false,
+    deletingConfig: false,
     rotateDialogOpen: false,
+    deleteDialogOpen: false,
 
     // Data audit log
     audits: [],
@@ -130,6 +132,50 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
         return false
       } finally {
         this.saving = false
+      }
+    },
+
+    async deleteConfiguration() {
+      this.deletingConfig = true
+      try {
+        const response = await dokuGatewayService.deleteConfiguration(
+          this.selectedMerchant
+        )
+
+        this.deleteDialogOpen = false
+
+        Notify.create({
+          type: 'positive',
+          message:
+            response.data?.message ||
+            'Konfigurasi DOKU Sandbox berhasil dihapus.'
+        })
+
+        this.form = emptyForm()
+        this.form.merchant_code = this.selectedMerchant
+        const currentMerchant = this.merchants.find(
+          m => m.merchant_code === this.selectedMerchant
+        )
+        this.form.merchant_name =
+          currentMerchant?.merchant_name || this.selectedMerchant
+        this.testResult = null
+        this.testError = null
+
+        await Promise.all([
+          this.fetchMerchants(),
+          this.fetchConfiguration(),
+          this.fetchAudits(1)
+        ])
+        return { success: true, data: response.data?.data }
+      } catch (err) {
+        const message = getApiErrorMessage(err)
+        Notify.create({
+          type: 'negative',
+          message: message || 'Gagal menghapus konfigurasi DOKU Sandbox.'
+        })
+        return { success: false, error: err }
+      } finally {
+        this.deletingConfig = false
       }
     },
 

@@ -1,5 +1,6 @@
 <template>
   <div class="credential-form-wrap">
+    <!-- Header Bagian Konfigurasi & Status -->
     <div class="row items-center justify-between q-mb-md q-col-gutter-md">
       <div>
         <h2 class="section-title">Konfigurasi Kredensial SNAP Sandbox</h2>
@@ -9,7 +10,23 @@
           text.
         </p>
       </div>
-      <div>
+      <div class="row items-center q-gutter-sm">
+        <q-btn
+          v-if="store.config?.is_configured"
+          outline
+          color="negative"
+          icon="delete_outline"
+          label="Hapus Konfigurasi"
+          no-caps
+          class="text-weight-bold"
+          :loading="store.deletingConfig"
+          @click="store.deleteDialogOpen = true"
+        >
+          <q-tooltip>
+            Hapus kredensial aktif merchant terpilih secara aman dari server
+          </q-tooltip>
+        </q-btn>
+
         <q-badge
           :color="store.config?.is_configured ? 'positive' : 'warning'"
           :label="
@@ -17,10 +34,28 @@
               ? 'Terkonfigurasi'
               : 'Belum Dikonfigurasi'
           "
-          class="q-px-sm q-py-xs"
+          class="q-px-sm q-py-xs text-weight-bold"
         />
       </div>
     </div>
+
+    <!-- Banner Notifikasi Pemulihan Jika Belum Dikonfigurasi Namun Backup Tersedia -->
+    <q-banner
+      v-if="!store.config?.is_configured && store.config?.has_recovery_backup"
+      dense
+      rounded
+      class="bg-blue-1 text-primary q-mb-md border-blue"
+    >
+      <template #avatar>
+        <q-icon name="history" color="primary" />
+      </template>
+      <div class="text-caption">
+        <strong>Cadangan Pemulihan Kunci Tersedia:</strong> Merchant ini belum
+        memiliki kredensial aktif, namun memiliki arsip pasangan kunci RSA
+        sebelumnya. Anda dapat mengkliknya melalui tombol
+        <strong>Pulihkan Kunci Sebelumnya</strong> di bawah.
+      </div>
+    </q-banner>
 
     <!-- Info Banner Kredensial Aktif -->
     <q-card
@@ -66,7 +101,7 @@
     <!-- Card Manajemen Kunci RSA 2048-bit -->
     <q-card flat bordered class="rsa-card q-mb-lg q-pa-md">
       <div class="row items-center justify-between q-col-gutter-md">
-        <div class="col-12 col-md-8">
+        <div class="col-12 col-md-7">
           <div
             class="text-subtitle1 text-weight-bold text-dark row items-center"
           >
@@ -80,7 +115,7 @@
           </p>
         </div>
 
-        <div class="col-12 col-md-4 row items-center justify-end q-gutter-sm">
+        <div class="col-12 col-md-5 row items-center justify-end q-gutter-sm">
           <q-btn
             v-if="store.config?.has_recovery_backup"
             flat
@@ -88,9 +123,14 @@
             icon="history"
             label="Pulihkan Kunci Sebelumnya"
             no-caps
+            class="text-weight-bold"
             :loading="store.recoveringKey"
             @click="recoveryDialogOpen = true"
-          />
+          >
+            <q-tooltip>
+              Pulihkan pasangan kunci RSA dari cadangan arsip sebelumnya
+            </q-tooltip>
+          </q-btn>
           <q-btn
             color="warning"
             text-color="dark"
@@ -104,7 +144,15 @@
             class="text-weight-bold"
             :loading="store.generatingKey"
             @click="handleGenerateClick"
-          />
+          >
+            <q-tooltip>
+              {{
+                store.config?.has_private_key
+                  ? 'Rotasi pasangan kunci RSA (kunci lama akan diarsipkan ke cadangan)'
+                  : 'Buat pasangan kunci RSA 2048-bit baru secara otomatis'
+              }}
+            </q-tooltip>
+          </q-btn>
         </div>
       </div>
 
@@ -152,8 +200,8 @@
       </div>
       <div v-else class="q-mt-sm text-caption text-grey-7">
         <q-icon name="info" color="grey-6" class="q-mr-xs" />
-        Belum ada pasangan kunci RSA yang di-generate. Klik tombol "Generate RSA
-        Key Pair" di atas untuk membuatnya secara otomatis.
+        Belum ada pasangan kunci RSA aktif yang di-generate. Klik tombol
+        "Generate RSA Key Pair" di atas untuk membuatnya secara otomatis.
       </div>
     </q-card>
 
@@ -241,10 +289,15 @@
               <q-btn
                 flat
                 color="grey-8"
-                label="Reset"
+                label="Reset Form"
                 no-caps
                 @click="store.resetForm"
-              />
+              >
+                <q-tooltip>
+                  Kosongkan isian form di layar (tidak mengubah data tersimpan
+                  di server)
+                </q-tooltip>
+              </q-btn>
               <q-btn
                 color="warning"
                 text-color="dark"
@@ -259,6 +312,71 @@
         </div>
       </q-form>
     </q-card>
+
+    <!-- Dialog Konfirmasi Hapus Konfigurasi -->
+    <q-dialog v-model="store.deleteDialogOpen" persistent>
+      <q-card style="min-width: 380px; max-width: 540px; border-radius: 12px">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="row items-center">
+            <q-avatar
+              icon="delete_forever"
+              color="red-1"
+              text-color="negative"
+              class="q-mr-sm"
+            />
+            <span class="text-h6 text-weight-bold text-dark"
+              >Konfirmasi Hapus Konfigurasi</span
+            >
+          </div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-pt-md">
+          <p class="text-body2 text-grey-8 q-mb-sm">
+            Apakah Anda yakin ingin menghapus konfigurasi aktif DOKU Sandbox
+            untuk merchant <strong>{{ store.selectedMerchant }}</strong
+            >?
+          </p>
+          <div
+            class="text-caption text-grey-9 q-mb-md bg-grey-2 q-pa-sm rounded-borders"
+          >
+            <div
+              >• Kredensial aktif (Client ID dan Private Key) di server akan
+              dihapus.</div
+            >
+            <div>• Cache token SNAP B2B akan dibersihkan seketika.</div>
+            <div
+              >• Status konfigurasi merchant akan berubah menjadi
+              <strong>Belum Dikonfigurasi</strong>.</div
+            >
+          </div>
+
+          <q-banner dense rounded class="bg-amber-1 text-amber-10 q-mt-sm">
+            <template #avatar>
+              <q-icon name="security" color="amber-9" />
+            </template>
+            <div class="text-caption">
+              <strong>Data Tetap Aman:</strong> Riwayat Audit Trail, data
+              invoice, transaksi billing, konfigurasi DANA, dan cadangan
+              pemulihan RSA sebelumnya <strong>tidak akan terhapus</strong>.
+            </div>
+          </q-banner>
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-md">
+          <q-btn flat label="Batal" color="grey-8" v-close-popup no-caps />
+          <q-btn
+            color="negative"
+            label="Ya, Hapus Konfigurasi"
+            no-caps
+            class="text-weight-bold"
+            :loading="store.deletingConfig"
+            @click="confirmDeleteConfig"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
 
     <!-- Dialog Konfirmasi Rotasi Kunci -->
     <q-dialog v-model="store.rotateDialogOpen" persistent>
@@ -382,6 +500,10 @@ async function confirmRecoverKey() {
   }
 }
 
+async function confirmDeleteConfig() {
+  await store.deleteConfiguration()
+}
+
 async function copyPublicKey() {
   if (!store.config?.public_key) return
   try {
@@ -429,6 +551,9 @@ async function copyPublicKey() {
   background: #ffffff;
   border: 1px solid #e0d7c6;
   border-radius: 12px;
+}
+.border-blue {
+  border: 1px solid #90caf9;
 }
 .public-key-box {
   background: #17130c;
