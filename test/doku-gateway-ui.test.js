@@ -214,3 +214,48 @@ test('PaymentGatewayDoku IndexPage menyatukan 5 tab navigasi dengan tema Black &
   assert.match(page, /DokuTokenTester/)
   assert.match(page, /DokuAuditTable/)
 })
+
+test('readiness B2B SNAP terpisah, mengaktifkan tombol tester saat Client ID dan RSA aktif tanpa mewajibkan private key manual', async () => {
+  const storeCode = await readFile(
+    new URL('../src/stores/paymentgatewaydoku/index.js', import.meta.url),
+    'utf8'
+  )
+  const tester = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayDoku/comp/DokuTokenTester.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  const form = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayDoku/comp/DokuCredentialForm.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  const page = await readFile(
+    new URL('../src/pages/PaymentGatewayDoku/IndexPage.vue', import.meta.url),
+    'utf8'
+  )
+
+  // Store getter isB2bReady
+  assert.match(storeCode, /isB2bReady/)
+  assert.match(storeCode, /has_client_id/)
+  assert.match(storeCode, /has_private_key/)
+
+  // Tester button disabled based on isB2bReady
+  assert.match(tester, /:disable="!store\.isB2bReady"/)
+  assert.match(tester, /!store\.isB2bReady/)
+  assert.match(tester, /RSA Key Pair aktif di server, namun belum memiliki/)
+
+  // Form label and hint explain private key is optional
+  assert.match(form, /Opsional jika sudah generate RSA/)
+  assert.match(form, /store\.isB2bReady/)
+  assert.match(form, /Siap SNAP B2B/)
+
+  // IndexPage status
+  assert.match(page, /store\.isB2bReady/)
+  assert.match(page, /Siap SNAP B2B/)
+  assert.match(page, /Menunggu Client ID/)
+})

@@ -28,11 +28,19 @@
         </q-btn>
 
         <q-badge
-          :color="store.config?.is_configured ? 'positive' : 'warning'"
+          :color="
+            store.isB2bReady
+              ? 'positive'
+              : store.config?.has_private_key
+                ? 'info'
+                : 'warning'
+          "
           :label="
-            store.config?.is_configured
-              ? 'Terkonfigurasi'
-              : 'Belum Dikonfigurasi'
+            store.isB2bReady
+              ? 'Siap SNAP B2B'
+              : store.config?.has_private_key
+                ? 'Kunci RSA Aktif (Menunggu Client ID)'
+                : 'Belum Dikonfigurasi'
           "
           class="q-px-sm q-py-xs text-weight-bold"
         />
@@ -262,8 +270,12 @@
               outlined
               type="textarea"
               rows="5"
-              label="RSA Private Key (PEM format) *"
-              hint="Opsional jika menggunakan fitur Generate RSA Key Pair di atas. Masukkan format lengkap (-----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY-----)"
+              label="RSA Private Key (PEM format, Opsional jika sudah generate RSA)"
+              :hint="
+                store.config?.has_private_key
+                  ? 'Private key aktif tersimpan terenkripsi di server. Kosongkan isian ini jika hanya ingin memperbarui Client ID.'
+                  : 'Opsional jika menggunakan fitur Generate RSA Key Pair di atas. Masukkan format lengkap (-----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY-----)'
+              "
               :error="!!store.formErrors?.private_key"
               :error-message="store.formErrors?.private_key?.[0]"
               bg-color="white"

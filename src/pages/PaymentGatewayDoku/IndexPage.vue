@@ -53,13 +53,19 @@
               Status:
               <strong
                 :class="
-                  store.config?.is_configured ? 'text-positive' : 'text-warning'
+                  store.isB2bReady
+                    ? 'text-positive'
+                    : store.config?.has_private_key
+                      ? 'text-info'
+                      : 'text-warning'
                 "
               >
                 {{
-                  store.config?.is_configured
-                    ? 'Terkonfigurasi'
-                    : 'Belum Lengkap'
+                  store.isB2bReady
+                    ? 'Siap SNAP B2B'
+                    : store.config?.has_private_key
+                      ? 'Menunggu Client ID'
+                      : 'Belum Lengkap'
                 }}
               </strong>
             </div>

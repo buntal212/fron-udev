@@ -111,6 +111,20 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
     merchantMappingOptions: []
   }),
 
+  getters: {
+    isB2bReady: state => {
+      if (!state.config) return false
+      if (state.config.is_b2b_ready !== undefined) {
+        return Boolean(state.config.is_b2b_ready)
+      }
+      return Boolean(
+        state.config.has_client_id &&
+        state.config.has_private_key &&
+        state.config.is_active
+      )
+    }
+  },
+
   actions: {
     async fetchMerchants(customFilter = null) {
       if (customFilter) {
@@ -267,14 +281,23 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
         m => m.merchant_code === merchantCode
       )
       this.form.merchant_code = merchantCode
-      this.form.merchant_name = merchant?.merchant_name || merchantCode
+      this.form.merchant_name =
+        merchant?.merchant_name ||
+        (merchantCode === 'udev-central'
+          ? 'UDEV Central Billing'
+          : merchantCode)
       this.form.private_key = ''
-      this.form.client_id = ''
+      this.form.client_id = merchant?.client_id || ''
+      this.form.is_active =
+        merchant?.is_active !== undefined ? Boolean(merchant.is_active) : true
       this.formErrors = {}
       this.testResult = null
       this.testError = null
 
       await Promise.all([this.fetchConfiguration(), this.fetchAudits(1)])
+      if (this.config?.client_id && !this.form.client_id) {
+        this.form.client_id = this.config.client_id
+      }
     },
 
     async fetchConfiguration() {
@@ -285,6 +308,18 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
           this.selectedMerchant
         )
         this.config = response.data?.data || null
+        if (this.config) {
+          this.form.merchant_code =
+            this.config.merchant_code || this.selectedMerchant
+          this.form.merchant_name =
+            this.config.merchant_name || this.form.merchant_name
+          if (this.config.client_id) {
+            this.form.client_id = this.config.client_id
+          }
+          if (this.config.is_active !== undefined) {
+            this.form.is_active = Boolean(this.config.is_active)
+          }
+        }
       } catch (err) {
         this.error = getApiErrorMessage(err)
       } finally {
@@ -299,8 +334,10 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
         const payload = {
           merchant_code: this.form.merchant_code,
           merchant_name: this.form.merchant_name,
-          client_id: this.form.client_id,
-          private_key: this.form.private_key,
+          client_id: this.form.client_id ? this.form.client_id.trim() : '',
+          private_key: this.form.private_key
+            ? this.form.private_key.trim()
+            : undefined,
           environment: 'sandbox',
           is_active: this.form.is_active
         }
@@ -316,9 +353,15 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
 
         // Kosongkan form private_key agar tidak tertinggal di browser memory
         this.form.private_key = ''
-        this.form.client_id = ''
+        if (response.data?.data?.client_id) {
+          this.form.client_id = response.data.data.client_id
+        }
 
-        await Promise.all([this.fetchConfiguration(), this.fetchAudits(1)])
+        await Promise.all([
+          this.fetchMerchants(),
+          this.fetchConfiguration(),
+          this.fetchAudits(1)
+        ])
         return true
       } catch (err) {
         this.formErrors = getApiValidationErrors(err)

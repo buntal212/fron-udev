@@ -31,23 +31,50 @@
           label="Uji Koneksi SNAP B2B"
           no-caps
           :loading="store.testing"
-          :disable="!store.config?.is_configured"
+          :disable="!store.isB2bReady"
           @click="store.testConnection(forceRefresh)"
         />
       </div>
     </div>
 
-    <!-- Peringatan jika belum dikonfigurasi -->
+    <!-- Peringatan jika belum siap SNAP B2B -->
     <q-banner
-      v-if="!store.config?.is_configured"
+      v-if="!store.isB2bReady"
       rounded
       class="bg-amber-1 text-brown-9 q-mb-lg border-warning"
     >
       <template #avatar><q-icon name="warning" color="warning" /></template>
-      Kredensial DOKU Sandbox untuk merchant
-      <strong>{{ store.selectedMerchant }}</strong> belum lengkap. Silakan
-      simpan Client ID dan RSA Private Key pada tab
-      <strong>Kredensial Sandbox</strong> terlebih dahulu.
+      <div
+        v-if="!store.config?.has_private_key && !store.config?.has_client_id"
+      >
+        Kredensial SNAP B2B untuk merchant
+        <strong>{{ store.selectedMerchant }}</strong> belum lengkap. Silakan
+        buat pasangan kunci RSA dan masukkan Client ID pada tab
+        <strong>Kredensial Sandbox</strong>.
+      </div>
+      <div v-else-if="!store.config?.has_private_key">
+        Merchant <strong>{{ store.selectedMerchant }}</strong> belum memiliki
+        pasangan kunci RSA aktif. Silakan klik
+        <strong>Generate RSA Key Pair</strong> pada tab
+        <strong>Kredensial Sandbox</strong>.
+      </div>
+      <div v-else-if="!store.config?.has_client_id">
+        Merchant <strong>{{ store.selectedMerchant }}</strong> sudah memiliki
+        RSA Key Pair aktif di server, namun belum memiliki
+        <strong>Client ID</strong>. Silakan masukkan dan simpan Client ID pada
+        tab <strong>Kredensial Sandbox</strong> tanpa perlu mengisi private key
+        manual.
+      </div>
+      <div v-else-if="!store.config?.is_active">
+        Merchant <strong>{{ store.selectedMerchant }}</strong> saat ini sedang
+        nonaktif. Aktifkan merchant terlebih dahulu agar dapat melakukan
+        pengujian token SNAP B2B.
+      </div>
+      <div v-else>
+        Kredensial SNAP B2B untuk merchant
+        <strong>{{ store.selectedMerchant }}</strong> belum lengkap. Silakan
+        lengkapi konfigurasi pada tab <strong>Kredensial Sandbox</strong>.
+      </div>
     </q-banner>
 
     <!-- Hasil Pengujian SNAP B2B Token -->
