@@ -94,11 +94,18 @@
               class="q-px-sm q-py-xs text-weight-bold"
             />
             <q-badge
-              color="amber-8"
-              :label="'Response Code: ' + store.testResult.response_code"
+              v-if="store.testResult.http_status"
+              :color="store.testResult.status === 'success' ? 'teal-8' : 'deep-orange-9'"
+              :label="'HTTP ' + store.testResult.http_status"
               class="q-px-sm q-py-xs text-weight-bold"
             />
             <q-badge
+              color="amber-8"
+              :label="'Response Code: ' + (store.testResult.response_code || '-')"
+              class="q-px-sm q-py-xs text-weight-bold"
+            />
+            <q-badge
+              v-if="store.testResult.status === 'success'"
               :color="store.testResult.is_cached ? 'blue-8' : 'teal-8'"
               :label="store.testResult.is_cached ? 'Cache Hit' : 'Fresh Token'"
               class="q-px-sm q-py-xs"
@@ -114,9 +121,15 @@
           <div class="col-12 col-md-3">
             <div class="stat-box">
               <div class="stat-label">Response Message</div>
-              <div class="stat-val text-positive">{{
-                store.testResult.response_message || 'Successful'
-              }}</div>
+              <div
+                class="stat-val"
+                :class="store.testResult.status === 'success' ? 'text-positive' : 'text-negative'"
+              >
+                {{
+                  store.testResult.response_message ||
+                  (store.testResult.status === 'success' ? 'Successful' : 'Pengujian Gagal')
+                }}
+              </div>
             </div>
           </div>
 
@@ -124,9 +137,14 @@
             <div class="stat-box">
               <div class="stat-label">Token Type / Masa Berlaku</div>
               <div class="stat-val text-dark">
-                {{ store.testResult.token_type || 'Bearer' }} ({{
-                  store.testResult.expires_in || 900
-                }}s)
+                <template v-if="store.testResult.status === 'success' && store.testResult.token_type">
+                  {{ store.testResult.token_type }} ({{
+                    store.testResult.expires_in || 900
+                  }}s)
+                </template>
+                <template v-else>
+                  <span class="text-grey-6">- (Tidak diterbitkan)</span>
+                </template>
               </div>
             </div>
           </div>
@@ -135,7 +153,12 @@
             <div class="stat-box">
               <div class="stat-label">Strategi Cache (Buffer 60s)</div>
               <div class="stat-val text-dark">
-                TTL: {{ store.testResult.cache_ttl_seconds || 840 }} detik
+                <template v-if="store.testResult.status === 'success' && store.testResult.cache_ttl_seconds">
+                  TTL: {{ store.testResult.cache_ttl_seconds }} detik
+                </template>
+                <template v-else>
+                  <span class="text-grey-6">- (Tidak disimpan)</span>
+                </template>
               </div>
             </div>
           </div>
@@ -157,21 +180,30 @@
           <div class="col-12">
             <div class="token-display-box q-pa-md">
               <div class="row items-center justify-between q-mb-xs">
-                <span class="text-caption text-weight-bold text-amber-9">
+                <span
+                  class="text-caption text-weight-bold"
+                  :class="store.testResult.status === 'success' ? 'text-amber-9' : 'text-grey-7'"
+                >
                   <q-icon name="security" class="q-mr-xs" />Masked Access Token
                   (SNAP B2B Bearer)
                 </span>
-                <span class="text-caption text-grey-7"
-                  >Rahasia mentah tidak dikirim ke frontend</span
-                >
+                <span class="text-caption text-grey-7">
+                  {{
+                    store.testResult.status === 'success'
+                      ? 'Rahasia mentah tidak dikirim ke frontend'
+                      : 'Tidak ada token yang diterbitkan'
+                  }}
+                </span>
               </div>
               <div
                 class="font-mono text-dark bg-white q-pa-sm rounded-borders token-text"
               >
-                {{
-                  store.testResult.masked_token ||
-                  'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.***[TERMASKING]***'
-                }}
+                <template v-if="store.testResult.status === 'success' && store.testResult.masked_token">
+                  {{ store.testResult.masked_token }}
+                </template>
+                <template v-else>
+                  <span class="text-grey-6 italic">Tidak ada token yang diterbitkan (pengujian gagal atau upstream error).</span>
+                </template>
               </div>
             </div>
           </div>

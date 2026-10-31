@@ -35,6 +35,13 @@ test('DokuTokenTester mendukung pengujian SNAP B2B, responseCode 2007300, dan bu
   assert.match(tester, /RSA-SHA256/)
   assert.match(tester, /Buffer 60s|buffer 60 detik/i)
   assert.match(tester, /Masked Access Token/)
+  // Regression test: saat status failed tidak menampilkan Bearer 900s, TTL 840s, atau masked token contoh
+  assert.doesNotMatch(tester, /store\.testResult\.token_type \|\| 'Bearer'/)
+  assert.doesNotMatch(tester, /store\.testResult\.cache_ttl_seconds \|\| 840/)
+  assert.doesNotMatch(tester, /eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.\*\*\*\[TERMASKING\]\*\*\*/)
+  assert.match(tester, /Tidak diterbitkan/)
+  assert.match(tester, /Tidak disimpan/)
+  assert.match(tester, /Tidak ada token yang diterbitkan/)
 })
 
 test('DokuAuditTable menyediakan audit log dan modal detail aman tanpa secret', async () => {
