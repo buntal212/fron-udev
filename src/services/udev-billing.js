@@ -192,13 +192,14 @@ export const paymentGatewayService = {
     getList('/v1/admin/payment-gateway/billing-transactions', params),
   billingTransaction: id =>
     api.get(`/v1/admin/payment-gateway/billing-transactions/${id}`),
-  merchantOptions: environment =>
+  merchantOptions: (environment, provider = 'dana') =>
     api.get('/v1/admin/payment-gateways/merchants', {
-      params: { environment }
+      params: { environment, provider }
     }),
   create: payload => api.post('/v1/admin/payment-gateways', payload),
   update: (id, payload) =>
-    api.patch(`/v1/admin/payment-gateways/${id}`, payload)
+    api.patch(`/v1/admin/payment-gateways/${id}`, payload),
+  delete: id => api.delete(`/v1/admin/payment-gateways/${id}`)
 }
 
 export const danaGatewayMerchantService = {
@@ -447,7 +448,17 @@ export const danaGatewayMerchantService = {
 }
 
 export const dokuGatewayService = {
-  merchants: () => api.get('/v1/admin/doku-gateway/merchants'),
+  merchants: params => api.get('/v1/admin/doku-gateway/merchants', { params }),
+  createMerchant: payload =>
+    api.post('/v1/admin/doku-gateway/merchants', payload),
+  updateMerchant: (merchantCode, payload) =>
+    api.put(`/v1/admin/doku-gateway/merchants/${merchantCode}`, payload),
+  toggleMerchantStatus: (merchantCode, isActive) =>
+    api.patch(`/v1/admin/doku-gateway/merchants/${merchantCode}/status`, {
+      is_active: isActive
+    }),
+  deleteMerchant: merchantCode =>
+    api.delete(`/v1/admin/doku-gateway/merchants/${merchantCode}`),
   configuration: merchantCode =>
     api.get('/v1/admin/doku-gateway/configuration', {
       params: { merchant_code: merchantCode }

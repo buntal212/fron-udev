@@ -126,3 +126,88 @@ test('DokuCredentialForm menyediakan fitur Generate RSA Key Pair, dialog rotasi 
   assert.match(form, /Reset Form/)
   assert.match(form, /store\.resetForm/)
 })
+
+test('DokuMerchantTable dan DokuMerchantFormDialog menyediakan Daftar Merchant DOKU, pencarian, status filter, toggle, dan CRUD', async () => {
+  const table = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayDoku/comp/DokuMerchantTable.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayDoku/comp/DokuMerchantFormDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Table assertions
+  assert.match(table, /Daftar Merchant DOKU/)
+  assert.match(table, /store\.merchants/)
+  assert.match(table, /store\.merchantFilter\.search/)
+  assert.match(table, /store\.merchantFilter\.status/)
+  assert.match(table, /store\.toggleMerchantStatus/)
+  assert.match(table, /store\.openCreateMerchantDialog/)
+  assert.match(table, /store\.openEditMerchantDialog/)
+  assert.match(table, /store\.confirmDeleteMerchant/)
+  assert.match(table, /Konfirmasi Hapus Merchant/)
+
+  // Dialog assertions
+  assert.match(dialog, /store\.merchantFormDialogOpen/)
+  assert.match(dialog, /store\.merchantForm\.merchant_code/)
+  assert.match(dialog, /store\.merchantForm\.merchant_name/)
+  assert.match(dialog, /store\.merchantForm\.client_id/)
+  assert.match(dialog, /store\.merchantForm\.is_active/)
+  assert.match(dialog, /store\.saveMerchant/)
+})
+
+test('DokuApplicationMappingTable dan Dialog mendukung mapping aplikasi ke DOKU provider sandbox', async () => {
+  const table = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayDoku/comp/DokuApplicationMappingTable.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayDoku/comp/DokuApplicationMappingDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Table assertions
+  assert.match(table, /Mapping Aplikasi ke DOKU Gateway/)
+  assert.match(table, /store\.mappings/)
+  assert.match(table, /store\.openCreateMappingDialog/)
+  assert.match(table, /store\.openEditMappingDialog/)
+  assert.match(table, /store\.toggleMappingStatus/)
+  assert.match(table, /store\.deleteMapping/)
+
+  // Dialog assertions
+  assert.match(dialog, /store\.mappingDialogOpen/)
+  assert.match(dialog, /store\.mappingForm\.application_id/)
+  assert.match(dialog, /store\.mappingForm\.gateway_merchant_code/)
+  assert.match(dialog, /store\.saveMapping/)
+})
+
+test('PaymentGatewayDoku IndexPage menyatukan 5 tab navigasi dengan tema Black & Gold', async () => {
+  const page = await readFile(
+    new URL('../src/pages/PaymentGatewayDoku/IndexPage.vue', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(page, /name="merchants".*label="Daftar Merchant"/)
+  assert.match(page, /name="mappings".*label="Mapping Aplikasi"/)
+  assert.match(page, /name="credentials".*label="Kredensial & RSA Sandbox"/)
+  assert.match(page, /name="tester".*label="Uji SNAP B2B Token"/)
+  assert.match(page, /name="audits".*label="Audit Log Gateway"/)
+  assert.match(page, /DokuMerchantTable/)
+  assert.match(page, /DokuApplicationMappingTable/)
+  assert.match(page, /DokuCredentialForm/)
+  assert.match(page, /DokuTokenTester/)
+  assert.match(page, /DokuAuditTable/)
+})

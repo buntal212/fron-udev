@@ -11,8 +11,8 @@
           <p class="eyebrow">PENGATURAN PAYMENT GATEWAY</p>
           <h1>Payment Gateway DOKU</h1>
           <p class="page-description">
-            Kelola konfigurasi DOKU SNAP B2B Sandbox, pengujian koneksi token
-            RSA-SHA256, dan pemantauan audit keamanan.
+            Kelola merchant DOKU, mapping aplikasi, konfigurasi SNAP B2B Sandbox
+            terenkripsi, uji token RSA-SHA256, dan audit trail keamanan.
           </p>
         </div>
 
@@ -31,7 +31,7 @@
         <div class="row items-center justify-between q-col-gutter-sm">
           <div class="col-12 col-sm-auto row items-center">
             <span class="text-caption text-weight-bold text-grey-8 q-mr-sm"
-              >Pilih Merchant:</span
+              >Pilih Merchant Aktif:</span
             >
             <q-btn-toggle
               v-model="store.selectedMerchant"
@@ -94,7 +94,13 @@
         class="gateway-tabs"
         narrow-indicator
       >
-        <q-tab name="credentials" icon="vpn_key" label="Kredensial Sandbox" />
+        <q-tab name="merchants" icon="storefront" label="Daftar Merchant" />
+        <q-tab name="mappings" icon="account_tree" label="Mapping Aplikasi" />
+        <q-tab
+          name="credentials"
+          icon="vpn_key"
+          label="Kredensial & RSA Sandbox"
+        />
         <q-tab name="tester" icon="sync_alt" label="Uji SNAP B2B Token" />
         <q-tab name="audits" icon="history" label="Audit Log Gateway" />
       </q-tabs>
@@ -102,18 +108,35 @@
 
       <!-- Tab Panels -->
       <q-tab-panels v-model="activeTab" animated class="gateway-panels">
+        <!-- Tab 1: Daftar Merchant -->
+        <q-tab-panel name="merchants" class="q-px-none q-pt-lg">
+          <DokuMerchantTable @configure="onConfigureMerchant" />
+        </q-tab-panel>
+
+        <!-- Tab 2: Mapping Aplikasi -->
+        <q-tab-panel name="mappings" class="q-px-none q-pt-lg">
+          <DokuApplicationMappingTable />
+        </q-tab-panel>
+
+        <!-- Tab 3: Kredensial & RSA -->
         <q-tab-panel name="credentials" class="q-px-none q-pt-lg">
           <DokuCredentialForm />
         </q-tab-panel>
 
+        <!-- Tab 4: Tester Token -->
         <q-tab-panel name="tester" class="q-px-none q-pt-lg">
           <DokuTokenTester />
         </q-tab-panel>
 
+        <!-- Tab 5: Audit Log -->
         <q-tab-panel name="audits" class="q-px-none q-pt-lg">
           <DokuAuditTable />
         </q-tab-panel>
       </q-tab-panels>
+
+      <!-- Modal Dialogs -->
+      <DokuMerchantFormDialog />
+      <DokuApplicationMappingDialog />
     </div>
   </q-page>
 </template>
@@ -122,12 +145,16 @@
 import { computed, onMounted, ref } from 'vue'
 import AppBreadcrumb from '@/components/AppBreadcrumb.vue'
 import { usePaymentGatewayDokuStore } from '@/stores/paymentgatewaydoku'
+import DokuApplicationMappingDialog from './comp/DokuApplicationMappingDialog.vue'
+import DokuApplicationMappingTable from './comp/DokuApplicationMappingTable.vue'
 import DokuAuditTable from './comp/DokuAuditTable.vue'
 import DokuCredentialForm from './comp/DokuCredentialForm.vue'
+import DokuMerchantFormDialog from './comp/DokuMerchantFormDialog.vue'
+import DokuMerchantTable from './comp/DokuMerchantTable.vue'
 import DokuTokenTester from './comp/DokuTokenTester.vue'
 
 const store = usePaymentGatewayDokuStore()
-const activeTab = ref('credentials')
+const activeTab = ref('merchants')
 
 const merchantOptions = computed(() => {
   if (!store.merchants || store.merchants.length === 0) {
@@ -142,6 +169,11 @@ const merchantOptions = computed(() => {
     value: m.merchant_code
   }))
 })
+
+const onConfigureMerchant = async merchantCode => {
+  await store.selectMerchant(merchantCode)
+  activeTab.value = 'credentials'
+}
 
 onMounted(async () => {
   await store.fetchMerchants()
