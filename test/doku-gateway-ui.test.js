@@ -202,7 +202,10 @@ test('PaymentGatewayDoku IndexPage menyatukan 5 tab navigasi dengan tema Black &
 
   assert.match(page, /name="merchants"[\s\S]*label="Daftar Merchant"/)
   assert.match(page, /name="mappings"[\s\S]*label="Mapping Aplikasi"/)
-  assert.match(page, /name="credentials"[\s\S]*label="Kredensial & RSA Sandbox"/)
+  assert.match(
+    page,
+    /name="credentials"[\s\S]*label="Kredensial & RSA Sandbox"/
+  )
   assert.match(page, /name="tester"[\s\S]*label="Uji SNAP B2B Token"/)
   assert.match(page, /name="audits"[\s\S]*label="Audit Log Gateway"/)
   assert.match(page, /DokuMerchantTable/)
