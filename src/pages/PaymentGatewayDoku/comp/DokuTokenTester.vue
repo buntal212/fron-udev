@@ -95,13 +95,19 @@
             />
             <q-badge
               v-if="store.testResult.http_status"
-              :color="store.testResult.status === 'success' ? 'teal-8' : 'deep-orange-9'"
+              :color="
+                store.testResult.status === 'success'
+                  ? 'teal-8'
+                  : 'deep-orange-9'
+              "
               :label="'HTTP ' + store.testResult.http_status"
               class="q-px-sm q-py-xs text-weight-bold"
             />
             <q-badge
               color="amber-8"
-              :label="'Response Code: ' + (store.testResult.response_code || '-')"
+              :label="
+                'Response Code: ' + (store.testResult.response_code || '-')
+              "
               class="q-px-sm q-py-xs text-weight-bold"
             />
             <q-badge
@@ -117,18 +123,16 @@
           </div>
         </div>
 
-        <div class="row q-col-gutter-md">
+        <!-- TAMPILAN JIKA STATUS SUKSES (Token Berhasil Diterbitkan) -->
+        <div
+          v-if="store.testResult.status === 'success'"
+          class="row q-col-gutter-md"
+        >
           <div class="col-12 col-md-3">
             <div class="stat-box">
               <div class="stat-label">Response Message</div>
-              <div
-                class="stat-val"
-                :class="store.testResult.status === 'success' ? 'text-positive' : 'text-negative'"
-              >
-                {{
-                  store.testResult.response_message ||
-                  (store.testResult.status === 'success' ? 'Successful' : 'Pengujian Gagal')
-                }}
+              <div class="stat-val text-positive">
+                {{ store.testResult.response_message || 'Successful' }}
               </div>
             </div>
           </div>
@@ -137,14 +141,9 @@
             <div class="stat-box">
               <div class="stat-label">Token Type / Masa Berlaku</div>
               <div class="stat-val text-dark">
-                <template v-if="store.testResult.status === 'success' && store.testResult.token_type">
-                  {{ store.testResult.token_type }} ({{
-                    store.testResult.expires_in || 900
-                  }}s)
-                </template>
-                <template v-else>
-                  <span class="text-grey-6">- (Tidak diterbitkan)</span>
-                </template>
+                {{ store.testResult.token_type }} ({{
+                  store.testResult.expires_in
+                }}s)
               </div>
             </div>
           </div>
@@ -153,12 +152,7 @@
             <div class="stat-box">
               <div class="stat-label">Strategi Cache (Buffer 60s)</div>
               <div class="stat-val text-dark">
-                <template v-if="store.testResult.status === 'success' && store.testResult.cache_ttl_seconds">
-                  TTL: {{ store.testResult.cache_ttl_seconds }} detik
-                </template>
-                <template v-else>
-                  <span class="text-grey-6">- (Tidak disimpan)</span>
-                </template>
+                TTL: {{ store.testResult.cache_ttl_seconds }} detik
               </div>
             </div>
           </div>
@@ -176,35 +170,114 @@
             </div>
           </div>
 
-          <!-- Masked Access Token Box -->
+          <!-- Target Endpoint on Success -->
+          <div v-if="store.testResult.target_endpoint" class="col-12">
+            <div class="endpoint-box q-pa-sm text-caption text-grey-8">
+              <strong>Target Endpoint:</strong>
+              <code class="q-ml-xs font-mono">{{
+                store.testResult.target_endpoint
+              }}</code>
+            </div>
+          </div>
+
+          <!-- Masked Access Token Box (Hanya Muncul Jika Sukses) -->
           <div class="col-12">
             <div class="token-display-box q-pa-md">
               <div class="row items-center justify-between q-mb-xs">
-                <span
-                  class="text-caption text-weight-bold"
-                  :class="store.testResult.status === 'success' ? 'text-amber-9' : 'text-grey-7'"
-                >
+                <span class="text-caption text-weight-bold text-amber-9">
                   <q-icon name="security" class="q-mr-xs" />Masked Access Token
                   (SNAP B2B Bearer)
                 </span>
                 <span class="text-caption text-grey-7">
-                  {{
-                    store.testResult.status === 'success'
-                      ? 'Rahasia mentah tidak dikirim ke frontend'
-                      : 'Tidak ada token yang diterbitkan'
-                  }}
+                  Rahasia mentah tidak dikirim ke frontend
                 </span>
               </div>
               <div
                 class="font-mono text-dark bg-white q-pa-sm rounded-borders token-text"
               >
-                <template v-if="store.testResult.status === 'success' && store.testResult.masked_token">
-                  {{ store.testResult.masked_token }}
-                </template>
-                <template v-else>
-                  <span class="text-grey-6 italic">Tidak ada token yang diterbitkan (pengujian gagal atau upstream error).</span>
-                </template>
+                {{ store.testResult.masked_token }}
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAMPILAN JIKA STATUS GAGAL (Diagnostik Lengkap: HTTP status, response_code, response_message, latency, target_endpoint) -->
+        <div v-else class="row q-col-gutter-md failure-section">
+          <div class="col-12 col-sm-6 col-md-3">
+            <div class="stat-box stat-box-failed">
+              <div class="stat-label">HTTP Status</div>
+              <div class="stat-val text-negative font-mono">
+                HTTP {{ store.testResult.http_status || '-' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-sm-6 col-md-3">
+            <div class="stat-box stat-box-failed">
+              <div class="stat-label">Response Code</div>
+              <div class="stat-val text-negative font-mono">
+                {{ store.testResult.response_code || '-' }}
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-sm-6 col-md-3">
+            <div class="stat-box">
+              <div class="stat-label">Latensi Jaringan</div>
+              <div class="stat-val text-dark font-mono">
+                {{
+                  store.testResult.latency_ms !== undefined
+                    ? store.testResult.latency_ms + ' ms'
+                    : '0 ms'
+                }}
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-sm-6 col-md-3">
+            <div class="stat-box">
+              <div class="stat-label">Status Token</div>
+              <div class="stat-val text-grey-7"> Tidak Diterbitkan </div>
+            </div>
+          </div>
+
+          <!-- Target Endpoint on Failure -->
+          <div class="col-12">
+            <div class="endpoint-box-failed q-pa-sm text-caption text-grey-9">
+              <q-icon name="link" class="q-mr-xs text-negative" />
+              <strong>Target Endpoint:</strong>
+              <code class="q-ml-xs font-mono">{{
+                store.testResult.target_endpoint ||
+                'https://api-sandbox.doku.com/authorization/v1/access-token/b2b'
+              }}</code>
+            </div>
+          </div>
+
+          <!-- Response Message on Failure -->
+          <div class="col-12">
+            <div class="response-message-box q-pa-md">
+              <div class="text-caption text-weight-bold text-negative q-mb-xs">
+                <q-icon name="error_outline" class="q-mr-xs" />Response Message
+              </div>
+              <div
+                class="response-message-text text-negative font-mono text-body2"
+              >
+                {{
+                  store.testResult.response_message ||
+                  'Pengujian SNAP B2B Token gagal. Silakan periksa kembali konfigurasi kredensial atau status layanan upstream.'
+                }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Notice: No fake token issued -->
+          <div class="col-12">
+            <div
+              class="failure-token-notice q-pa-sm text-caption text-grey-8 italic"
+            >
+              <q-icon name="info" color="grey-7" class="q-mr-xs" />
+              Tidak ada SNAP B2B Access Token yang diterbitkan (pengujian gagal
+              atau upstream error).
             </div>
           </div>
         </div>
@@ -314,6 +387,35 @@ const forceRefresh = ref(false)
   font-family:
     SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
+}
+.stat-box-failed {
+  background: #fdf5f4;
+  border-color: #f1cfcb;
+}
+.endpoint-box {
+  background: #fbf9f5;
+  border: 1px solid #ebd8b0;
+  border-radius: 8px;
+  word-break: break-all;
+}
+.endpoint-box-failed {
+  background: #fdf5f4;
+  border: 1px solid #f1cfcb;
+  border-radius: 8px;
+  word-break: break-all;
+}
+.response-message-box {
+  background: #fdf5f4;
+  border: 1px solid #f1cfcb;
+  border-radius: 8px;
+}
+.response-message-text {
+  word-break: break-word;
+}
+.failure-token-notice {
+  background: #f8f6f0;
+  border: 1px dashed #d5cebf;
+  border-radius: 8px;
 }
 .border-warning {
   border: 1px solid #e6c575;

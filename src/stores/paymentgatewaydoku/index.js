@@ -510,7 +510,60 @@ export const usePaymentGatewayDokuStore = defineStore('payment-gateway-doku', {
       } catch (err) {
         const message = getApiErrorMessage(err)
         this.testError = message
-        this.testResult = err.response?.data?.data || null
+        const responseData = err.response?.data
+        const data =
+          responseData?.data ||
+          (responseData &&
+          typeof responseData === 'object' &&
+          responseData.response_code
+            ? responseData
+            : null)
+
+        if (data) {
+          this.testResult = {
+            ...data,
+            status: data.status || 'failed',
+            http_status: data.http_status || err.response?.status || 500,
+            response_code:
+              data.response_code ||
+              (err.response?.status ? `${err.response.status}7300` : '5007300'),
+            response_message:
+              data.response_message ||
+              responseData?.message ||
+              message ||
+              'Pengujian SNAP B2B Token gagal.',
+            target_endpoint:
+              data.target_endpoint ||
+              'https://api-sandbox.doku.com/authorization/v1/access-token/b2b',
+            latency_ms: data.latency_ms !== undefined ? data.latency_ms : 0,
+            tested_at: data.tested_at || new Date().toISOString()
+          }
+        } else if (err.response) {
+          this.testResult = {
+            status: 'failed',
+            http_status: err.response.status,
+            response_code: `${err.response.status}7300`,
+            response_message:
+              responseData?.message ||
+              message ||
+              `Layanan mengembalikan HTTP ${err.response.status}`,
+            target_endpoint:
+              'https://api-sandbox.doku.com/authorization/v1/access-token/b2b',
+            latency_ms: 0,
+            tested_at: new Date().toISOString()
+          }
+        } else {
+          this.testResult = {
+            status: 'failed',
+            http_status: 0,
+            response_code: '0007300',
+            response_message: message || 'Koneksi jaringan gagal.',
+            target_endpoint:
+              'https://api-sandbox.doku.com/authorization/v1/access-token/b2b',
+            latency_ms: 0,
+            tested_at: new Date().toISOString()
+          }
+        }
 
         Notify.create({
           type: 'negative',

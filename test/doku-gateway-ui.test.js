@@ -37,11 +37,52 @@ test('DokuTokenTester mendukung pengujian SNAP B2B, responseCode 2007300, dan bu
   assert.match(tester, /Masked Access Token/)
   // Regression test: saat status failed tidak menampilkan Bearer 900s, TTL 840s, atau masked token contoh
   assert.doesNotMatch(tester, /store\.testResult\.token_type \|\| 'Bearer'/)
+  assert.doesNotMatch(tester, /store\.testResult\.expires_in \|\| 900/)
   assert.doesNotMatch(tester, /store\.testResult\.cache_ttl_seconds \|\| 840/)
-  assert.doesNotMatch(tester, /eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.\*\*\*\[TERMASKING\]\*\*\*/)
-  assert.match(tester, /Tidak diterbitkan/)
-  assert.match(tester, /Tidak disimpan/)
-  assert.match(tester, /Tidak ada token yang diterbitkan/)
+  assert.doesNotMatch(
+    tester,
+    /eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9\.\*\*\*\[TERMASKING\]\*\*\*/
+  )
+  assert.match(tester, /Tidak Diterbitkan|Tidak diterbitkan/)
+  assert.match(
+    tester,
+    /Tidak ada SNAP B2B Access Token yang diterbitkan|Tidak ada token yang diterbitkan/
+  )
+})
+
+test('DokuTokenTester saat gagal menampilkan HTTP status, response_code, response_message, latency, dan target_endpoint tanpa token palsu', async () => {
+  const tester = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayDoku/comp/DokuTokenTester.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Memastikan bagian kegagalan (failure-section) ada dan menampilkan semua 5 field yang diminta
+  assert.match(tester, /failure-section/)
+  assert.match(tester, /store\.testResult\.http_status/)
+  assert.match(tester, /store\.testResult\.response_code/)
+  assert.match(tester, /store\.testResult\.response_message/)
+  assert.match(tester, /store\.testResult\.latency_ms/)
+  assert.match(tester, /store\.testResult\.target_endpoint/)
+
+  // Memastikan Masked Access Token box hanya dirender jika status === 'success'
+  assert.match(
+    tester,
+    /store\.testResult\.status === 'success'[\s\S]*Masked Access Token/
+  )
+
+  // Memastikan store paymentgatewaydoku menangani kegagalan dengan memetakan kelima field tersebut
+  const store = await readFile(
+    new URL('../src/stores/paymentgatewaydoku/index.js', import.meta.url),
+    'utf8'
+  )
+  assert.match(store, /http_status/)
+  assert.match(store, /response_code/)
+  assert.match(store, /response_message/)
+  assert.match(store, /latency_ms/)
+  assert.match(store, /target_endpoint/)
 })
 
 test('DokuAuditTable menyediakan audit log dan modal detail aman tanpa secret', async () => {
