@@ -485,3 +485,49 @@ export const dokuGatewayService = {
     }),
   audits: params => getList('/v1/admin/doku-gateway/audits', params)
 }
+
+export const midtransGatewayService = {
+  dashboardSummary: () =>
+    api.get('/v1/admin/midtrans-gateway/dashboard-summary'),
+  merchants: params =>
+    api.get('/v1/admin/midtrans-gateway/merchants', { params }),
+  createMerchant: payload =>
+    api.post('/v1/admin/midtrans-gateway/merchants', payload),
+  updateMerchant: (merchantCode, payload) =>
+    api.put(`/v1/admin/midtrans-gateway/merchants/${merchantCode}`, payload),
+  toggleMerchantStatus: (merchantCode, isActive) =>
+    api.patch(`/v1/admin/midtrans-gateway/merchants/${merchantCode}/status`, {
+      is_active: isActive
+    }),
+  deleteMerchant: merchantCode =>
+    api.delete(`/v1/admin/midtrans-gateway/merchants/${merchantCode}`),
+  configuration: merchantCode =>
+    api.get('/v1/admin/midtrans-gateway/configuration', {
+      params: { merchant_code: merchantCode }
+    }),
+  saveConfiguration: payload =>
+    api.put('/v1/admin/midtrans-gateway/configuration', payload),
+  deleteConfiguration: merchantCode =>
+    api.delete('/v1/admin/midtrans-gateway/configuration', {
+      params: { merchant_code: merchantCode }
+    }),
+  testConnection: merchantCode =>
+    api.post('/v1/admin/midtrans-gateway/test-connection', {
+      merchant_code: merchantCode
+    }),
+  createSandboxPayment: payload =>
+    api.post('/v1/admin/midtrans-gateway/sandbox-payment', payload),
+  querySandboxPayment: (orderId, merchantCode) =>
+    api.get(`/v1/admin/midtrans-gateway/sandbox-payment/${orderId}/status`, {
+      params: { merchant_code: merchantCode }
+    }),
+  sandboxTransactions: params =>
+    api.get('/v1/admin/midtrans-gateway/sandbox-transactions', { params }),
+  audits: params => getList('/v1/admin/midtrans-gateway/audits', params),
+  billingTransactions: params =>
+    api.get('/v1/admin/payment-gateway/billing-transactions', {
+      params: { ...params, provider: 'midtrans' }
+    }),
+  billingTransactionDetail: id =>
+    api.get(`/v1/admin/payment-gateway/billing-transactions/${id}`)
+}

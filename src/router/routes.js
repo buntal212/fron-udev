@@ -73,6 +73,14 @@ const routes = [
         path: 'payment-gateway/doku',
         redirect: '/payment-gateway-doku'
       },
+      {
+        path: 'payment-gateway-midtrans',
+        component: () => import('@/pages/PaymentGatewayMidtrans/IndexPage.vue')
+      },
+      {
+        path: 'payment-gateway/midtrans',
+        redirect: '/payment-gateway-midtrans'
+      },
       { path: 'merchant', redirect: '/aplikasi' }
     ]
   },

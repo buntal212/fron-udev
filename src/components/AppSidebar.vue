@@ -127,6 +127,11 @@ const sections = [
         icon: 'credit_card',
         to: '/payment-gateway-doku'
       },
+      {
+        label: 'Payment Gateway Midtrans',
+        icon: 'payments',
+        to: '/payment-gateway-midtrans'
+      },
       { label: 'Pengaturan Lainnya', icon: 'settings', comingSoon: true }
     ]
   }
