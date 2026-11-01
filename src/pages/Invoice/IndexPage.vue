@@ -25,7 +25,23 @@
       </div>
 
       <FilterPanel class="q-mb-md">
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
+          <q-input
+            v-model="store.search"
+            outlined
+            dense
+            clearable
+            label="Cari invoice / pelanggan"
+            bg-color="white"
+            debounce="350"
+            @update:model-value="store.fetchInvoices({ page: 1 })"
+          >
+            <template #prepend>
+              <q-icon name="search" />
+            </template>
+          </q-input>
+        </div>
+        <div class="col-12 col-md-3">
           <q-select
             v-model="store.applicationId"
             outlined
@@ -39,7 +55,7 @@
             @update:model-value="store.onListApplicationChanged"
           />
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
           <q-select
             v-model="store.customerId"
             outlined
@@ -54,7 +70,7 @@
             @update:model-value="store.fetchInvoices({ page: 1 })"
           />
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
           <q-select
             v-model="store.status"
             outlined

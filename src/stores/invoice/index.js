@@ -84,6 +84,7 @@ export const useInvoiceStore = defineStore('invoice', {
     applicationId: null,
     customerId: null,
     status: null,
+    search: '',
     pagination: {
       page: 1,
       rowsPerPage: 15,
@@ -304,6 +305,7 @@ export const useInvoiceStore = defineStore('invoice', {
           application_id: this.applicationId || undefined,
           application_customer_id: this.customerId || undefined,
           status: this.status || undefined,
+          search: this.search || undefined,
           sort: this.pagination.sortBy || 'created_at',
           direction: this.pagination.descending ? 'desc' : 'asc'
         })
