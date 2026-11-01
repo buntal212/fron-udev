@@ -34,7 +34,7 @@
             label="Cari invoice / pelanggan"
             bg-color="white"
             debounce="350"
-            @update:model-value="store.fetchInvoices({ page: 1 })"
+            @update:model-value="onFilterChanged"
           >
             <template #prepend>
               <q-icon name="search" />
@@ -52,7 +52,7 @@
             label="Aplikasi"
             :options="applicationOptions"
             bg-color="white"
-            @update:model-value="store.onListApplicationChanged"
+            @update:model-value="onApplicationChanged"
           />
         </div>
         <div class="col-12 col-md-3">
@@ -67,7 +67,7 @@
             :options="customerOptions"
             :disable="!store.listCustomers.length"
             bg-color="white"
-            @update:model-value="store.fetchInvoices({ page: 1 })"
+            @update:model-value="onFilterChanged"
           />
         </div>
         <div class="col-12 col-md-3">
@@ -81,23 +81,22 @@
             label="Status pembayaran"
             :options="statusOptions"
             bg-color="white"
-            @update:model-value="store.fetchInvoices({ page: 1 })"
+            @update:model-value="onFilterChanged"
           />
         </div>
       </FilterPanel>
 
       <ErrorState
-        v-if="store.error"
+        v-if="store.error && store.items.length === 0"
         :message="store.error"
-        @retry="store.fetchInvoices"
+        @retry="store.resetAndFetchInvoices"
       />
       <InvoiceTable
         v-else
+        ref="invoiceTableRef"
         :rows="store.items"
         :applications="store.applications"
         :loading="store.loading"
-        :pagination="store.pagination"
-        @request="store.fetchInvoices"
         @detail="store.openDetailDialog"
       />
       <InvoiceFormDialog />
@@ -107,7 +106,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import AppBreadcrumb from '@/components/AppBreadcrumb.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
@@ -117,6 +116,18 @@ import InvoiceFormDialog from './comp/InvoiceFormDialog.vue'
 import InvoiceTable from './comp/InvoiceTable.vue'
 
 const store = useInvoiceStore()
+const invoiceTableRef = ref(null)
+
+const onFilterChanged = () => {
+  invoiceTableRef.value?.resetScroll()
+  store.resetAndFetchInvoices()
+}
+
+const onApplicationChanged = async () => {
+  invoiceTableRef.value?.resetScroll()
+  await store.onListApplicationChanged()
+}
+
 const applicationOptions = computed(() =>
   store.applications.map(application => ({
     label: application.name,
@@ -139,7 +150,7 @@ const statusOptions = [
 onMounted(async () => {
   await store.fetchApplications()
   await store.fetchListCustomers()
-  await store.fetchInvoices()
+  await store.resetAndFetchInvoices()
 })
 </script>
 

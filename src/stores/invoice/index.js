@@ -80,6 +80,14 @@ export const useInvoiceStore = defineStore('invoice', {
     subscriptionsError: '',
     formLookupVersion: 0,
     loading: false,
+    loadingMore: false,
+    hasMore: true,
+    page: 1,
+    perPage: 15,
+    totalRows: 0,
+    fetchVersion: 0,
+    sortBy: 'created_at',
+    descending: true,
     error: null,
     applicationId: null,
     customerId: null,
@@ -293,43 +301,134 @@ export const useInvoiceStore = defineStore('invoice', {
       }
     },
 
-    async fetchInvoices(nextPagination = {}) {
+    async resetAndFetchInvoices() {
+      this.fetchVersion += 1
+      const version = this.fetchVersion
       this.loading = true
+      this.loadingMore = false
       this.error = null
-      this.pagination = { ...this.pagination, ...nextPagination }
+      this.page = 1
+      this.hasMore = true
+      this.items = []
 
       try {
         const response = await invoiceService.list({
-          page: this.pagination.page,
-          per_page: this.pagination.rowsPerPage,
+          page: 1,
+          per_page: this.perPage,
           application_id: this.applicationId || undefined,
           application_customer_id: this.customerId || undefined,
           status: this.status || undefined,
           search: this.search || undefined,
-          sort: this.pagination.sortBy || 'created_at',
-          direction: this.pagination.descending ? 'desc' : 'asc'
+          sort: this.sortBy || 'created_at',
+          direction: this.descending ? 'desc' : 'asc'
         })
-        const { data, meta } = response.data
 
-        this.items = data
+        if (version !== this.fetchVersion) return
+
+        const { data, meta } = response.data
+        this.items = Array.isArray(data) ? data : []
+        this.page = meta?.current_page || 1
+        this.totalRows = meta?.total || this.items.length
+        this.hasMore = (meta?.current_page || 1) < (meta?.last_page || 1)
         this.pagination = {
           ...this.pagination,
-          page: meta.current_page,
-          rowsPerPage: meta.per_page,
-          rowsNumber: meta.total
+          page: this.page,
+          rowsPerPage: this.perPage,
+          rowsNumber: this.totalRows,
+          sortBy: this.sortBy,
+          descending: this.descending
         }
       } catch (error) {
-        this.items = []
-        this.error = getApiErrorMessage(error)
+        if (version === this.fetchVersion) {
+          this.items = []
+          this.error = getApiErrorMessage(error)
+        }
       } finally {
-        this.loading = false
+        if (version === this.fetchVersion) {
+          this.loading = false
+        }
       }
+    },
+
+    async loadMoreInvoices(done) {
+      if (this.loading || this.loadingMore || !this.hasMore) {
+        if (typeof done === 'function') done(!this.hasMore)
+        return
+      }
+
+      this.loadingMore = true
+      const targetPage = this.page + 1
+      const version = this.fetchVersion
+
+      try {
+        const response = await invoiceService.list({
+          page: targetPage,
+          per_page: this.perPage,
+          application_id: this.applicationId || undefined,
+          application_customer_id: this.customerId || undefined,
+          status: this.status || undefined,
+          search: this.search || undefined,
+          sort: this.sortBy || 'created_at',
+          direction: this.descending ? 'desc' : 'asc'
+        })
+
+        if (version !== this.fetchVersion) {
+          if (typeof done === 'function') done(!this.hasMore)
+          return
+        }
+
+        const { data, meta } = response.data
+        if (Array.isArray(data) && data.length > 0) {
+          const existingIds = new Set(this.items.map(item => item.id))
+          const freshItems = data.filter(item => !existingIds.has(item.id))
+          this.items.push(...freshItems)
+        }
+
+        this.page = meta?.current_page || targetPage
+        this.totalRows = meta?.total || this.items.length
+        this.hasMore =
+          (meta?.current_page || targetPage) < (meta?.last_page || 1)
+        this.pagination = {
+          ...this.pagination,
+          page: this.page,
+          rowsPerPage: this.perPage,
+          rowsNumber: this.totalRows
+        }
+
+        if (typeof done === 'function') {
+          done(!this.hasMore)
+        }
+      } catch (error) {
+        if (version === this.fetchVersion) {
+          this.error = getApiErrorMessage(error)
+        }
+        if (typeof done === 'function') {
+          done(true)
+        }
+      } finally {
+        this.loadingMore = false
+      }
+    },
+
+    async fetchInvoices(options = {}) {
+      if (options.sortBy) {
+        this.sortBy = options.sortBy
+        this.pagination.sortBy = options.sortBy
+      }
+      if (options.descending !== undefined) {
+        this.descending = options.descending
+        this.pagination.descending = options.descending
+      }
+      if (options.page && options.page > 1) {
+        return this.loadMoreInvoices()
+      }
+      return this.resetAndFetchInvoices()
     },
 
     async onListApplicationChanged() {
       this.customerId = null
       await this.fetchListCustomers()
-      await this.fetchInvoices({ page: 1 })
+      await this.resetAndFetchInvoices()
     },
 
     async openCreateDialog() {

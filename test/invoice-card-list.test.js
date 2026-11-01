@@ -2,18 +2,21 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-test('Daftar Invoice UDEV direfaktor menjadi card list responsif dengan QVirtualScroll dan QPagination', async () => {
+test('Daftar Invoice UDEV direfaktor menjadi card list responsif dengan QInfiniteScroll tanpa QPagination manual', async () => {
   const table = await readFile(
     new URL('../src/pages/Invoice/comp/InvoiceTable.vue', import.meta.url),
     'utf8'
   )
 
-  // Menggunakan QVirtualScroll dan QPagination
-  assert.match(table, /q-virtual-scroll/)
-  assert.match(table, /class="invoice-virtual-scroll"/)
-  assert.match(table, /q-pagination/)
-  assert.match(table, /v-model="pageModel"/)
-  assert.match(table, /v-model="rowsPerPageModel"/)
+  // Menggunakan QInfiniteScroll, bukan QVirtualScroll atau QPagination
+  assert.match(table, /<q-infinite-scroll/)
+  assert.match(table, /class="invoice-infinite-scroll"/)
+  assert.match(table, /onInfiniteLoad/)
+  assert.match(table, /#loading/)
+  assert.match(table, /end-indicator/)
+  assert.doesNotMatch(table, /<q-virtual-scroll/)
+  assert.doesNotMatch(table, /<q-pagination/)
+  assert.doesNotMatch(table, /rowsPerPageModel/)
 
   // Elemen-elemen card: Aplikasi, Pelanggan, Paket, Periode, Nominal, Diskon, Referral, Tanggal, Status
   assert.match(table, /applicationName\(invoice\)/)
@@ -47,7 +50,7 @@ test('Daftar Invoice UDEV direfaktor menjadi card list responsif dengan QVirtual
   assert.match(table, /\$emit\('detail', invoice\)/)
 })
 
-test('Halaman Invoice dan Store mendukung pencarian, filter, dan sorting', async () => {
+test('Halaman Invoice dan Store mendukung pencarian, filter, sorting, dan infinite scroll', async () => {
   const indexPage = await readFile(
     new URL('../src/pages/Invoice/IndexPage.vue', import.meta.url),
     'utf8'
@@ -75,7 +78,13 @@ test('Halaman Invoice dan Store mendukung pencarian, filter, dan sorting', async
   assert.match(table, /currentSortOption/)
   assert.match(table, /onSortChange/)
 
-  // Store meneruskan search dan sort
+  // Store mendukung infinite scroll: reset, append data, deduplikasi, race condition guard
+  assert.match(store, /resetAndFetchInvoices/)
+  assert.match(store, /loadMoreInvoices/)
+  assert.match(store, /existingIds/)
+  assert.match(store, /fetchVersion/)
+  assert.match(store, /loadingMore/)
+  assert.match(store, /hasMore/)
   assert.match(store, /search:\s*''/)
   assert.match(store, /search:\s*this\.search \|\| undefined/)
 })

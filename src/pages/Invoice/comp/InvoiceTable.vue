@@ -18,7 +18,8 @@
               text-color="dark"
               class="q-ml-sm text-bold"
             >
-              {{ pagination.rowsNumber || 0 }} total
+              {{ store.items.length }} dimuat /
+              {{ store.totalRows || store.items.length }} total
             </q-badge>
           </div>
           <p class="text-caption text-grey-4 q-mb-none q-mt-xs">
@@ -49,17 +50,17 @@
 
     <q-separator color="amber-9" />
 
-    <!-- Loading State -->
-    <div v-if="loading" class="q-pa-xl text-center">
+    <!-- Initial Loading State -->
+    <div v-if="store.loading" class="q-pa-xl text-center">
       <q-spinner-dots color="warning" size="48px" />
-      <div class="text-caption text-grey-7 q-mt-sm"
-        >Memuat daftar invoice...</div
-      >
+      <div class="text-caption text-grey-7 q-mt-sm">
+        Memuat daftar invoice...
+      </div>
     </div>
 
     <!-- Empty State -->
     <div
-      v-else-if="!rows || rows.length === 0"
+      v-else-if="!store.items || store.items.length === 0"
       class="full-width row flex-center q-pa-xl"
     >
       <EmptyState
@@ -69,15 +70,17 @@
       />
     </div>
 
-    <!-- Card List Item Responsif dengan QVirtualScroll -->
+    <!-- Card List Item Responsif dengan QInfiniteScroll -->
     <div v-else class="q-pa-md">
-      <q-virtual-scroll
-        :items="rows"
-        style="max-height: 820px"
-        class="invoice-virtual-scroll"
-        v-slot="{ item: invoice, index }"
+      <q-infinite-scroll
+        ref="infiniteScrollRef"
+        :offset="250"
+        :disable="!store.hasMore || store.loading"
+        class="invoice-infinite-scroll"
+        @load="onInfiniteLoad"
       >
         <q-card
+          v-for="invoice in store.items"
           :key="invoice.id"
           flat
           bordered
@@ -382,60 +385,59 @@
             </q-list>
           </q-expansion-item>
         </q-card>
-      </q-virtual-scroll>
-    </div>
 
-    <!-- Server-Side QPagination Sederhana -->
-    <q-separator color="e0d7c6" />
-    <div
-      class="row items-center justify-between q-pa-md bg-dark-toolbar text-white rounded-borders-bottom"
-    >
-      <div class="text-caption text-grey-4">
-        Menampilkan <strong>{{ rangeStart }} - {{ rangeEnd }}</strong> dari
-        <strong>{{ pagination.rowsNumber || 0 }}</strong> invoice (Halaman
-        <strong>{{ pagination.page }}</strong> dari
-        <strong>{{ maxPages }}</strong
-        >)
+        <!-- Loading Slot saat Infinite Scroll Mengambil Halaman Berikutnya -->
+        <template #loading>
+          <div class="row justify-center items-center q-py-md">
+            <q-spinner-dots color="warning" size="36px" />
+            <span class="text-caption text-grey-7 q-ml-sm">
+              Memuat invoice selanjutnya...
+            </span>
+          </div>
+        </template>
+      </q-infinite-scroll>
+
+      <!-- Indikator Semua Data Telah Dimuat -->
+      <div
+        v-if="!store.hasMore && store.items.length > 0"
+        class="end-indicator text-center q-py-md text-caption text-grey-7"
+      >
+        <q-icon
+          name="check_circle"
+          color="warning"
+          size="18px"
+          class="q-mr-xs"
+        />
+        Semua data invoice telah ditampilkan ({{ store.items.length }} dari
+        {{ store.totalRows || store.items.length }} invoice).
       </div>
 
-      <div class="row items-center q-gutter-sm">
-        <div class="row items-center text-caption text-grey-4 q-mr-sm">
-          <span class="q-mr-xs">Baris per halaman:</span>
-          <q-select
-            v-model="rowsPerPageModel"
-            :options="[10, 15, 25, 50]"
-            dense
-            options-dense
-            outlined
-            dark
-            color="warning"
-            bg-color="dark"
-            style="min-width: 80px"
-            @update:model-value="onRowsPerPageChange"
-          />
-        </div>
-
-        <q-pagination
-          v-model="pageModel"
-          :max="maxPages"
-          :max-pages="6"
-          direction-links
-          boundary-links
-          color="warning"
-          active-color="warning"
-          active-text-color="dark"
-          text-color="grey-4"
-          dense
-          @update:model-value="onPageChange"
-        />
+      <!-- Banner Retry jika terjadi error saat load more -->
+      <div
+        v-if="store.error && store.items.length > 0"
+        class="row justify-center q-my-md"
+      >
+        <q-banner rounded dense class="bg-negative text-white">
+          {{ store.error }}
+          <template #action>
+            <q-btn
+              flat
+              dense
+              no-caps
+              label="Coba Lagi (Retry)"
+              @click="store.loadMoreInvoices()"
+            />
+          </template>
+        </q-banner>
       </div>
     </div>
   </q-card>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { useInvoiceStore } from '@/stores/invoice'
 import {
   formatSubscriptionDate,
   formatSubscriptionPrice,
@@ -444,13 +446,14 @@ import {
 } from '@/utils/subscription'
 
 const props = defineProps({
-  rows: { type: Array, default: () => [] },
   applications: { type: Array, default: () => [] },
-  loading: { type: Boolean, default: false },
-  pagination: { type: Object, required: true }
+  rows: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['request', 'detail'])
+defineEmits(['detail'])
+
+const store = useInvoiceStore()
+const infiniteScrollRef = ref(null)
 
 const sortOptions = [
   {
@@ -499,19 +502,17 @@ const sortOptions = [
 
 const currentSortOption = computed({
   get() {
-    const key = `${props.pagination.sortBy || 'created_at'}_${props.pagination.descending ? 'desc' : 'asc'}`
+    const key = `${store.sortBy || 'created_at'}_${store.descending ? 'desc' : 'asc'}`
     const match = sortOptions.find(o => o.value === key)
     return match ? match.value : 'created_at_desc'
   },
   set(val) {
     const opt = sortOptions.find(o => o.value === val)
     if (opt) {
-      emit('request', {
-        ...props.pagination,
-        sortBy: opt.sortBy,
-        descending: opt.descending,
-        page: 1
-      })
+      store.sortBy = opt.sortBy
+      store.descending = opt.descending
+      resetScroll()
+      store.resetAndFetchInvoices()
     }
   }
 })
@@ -519,71 +520,27 @@ const currentSortOption = computed({
 const onSortChange = val => {
   const opt = sortOptions.find(o => o.value === val)
   if (opt) {
-    emit('request', {
-      ...props.pagination,
-      sortBy: opt.sortBy,
-      descending: opt.descending,
-      page: 1
-    })
+    store.sortBy = opt.sortBy
+    store.descending = opt.descending
+    resetScroll()
+    store.resetAndFetchInvoices()
   }
 }
 
-const maxPages = computed(() => {
-  const total = props.pagination.rowsNumber || 0
-  const perPage = props.pagination.rowsPerPage || 15
-  return Math.max(1, Math.ceil(total / perPage))
-})
-
-const rangeStart = computed(() => {
-  const total = props.pagination.rowsNumber || 0
-  if (total === 0) return 0
-  const page = props.pagination.page || 1
-  const perPage = props.pagination.rowsPerPage || 15
-  return (page - 1) * perPage + 1
-})
-
-const rangeEnd = computed(() => {
-  const total = props.pagination.rowsNumber || 0
-  const page = props.pagination.page || 1
-  const perPage = props.pagination.rowsPerPage || 15
-  return Math.min(total, page * perPage)
-})
-
-const pageModel = computed({
-  get: () => props.pagination.page || 1,
-  set: val => {
-    emit('request', {
-      ...props.pagination,
-      page: val
-    })
-  }
-})
-
-const rowsPerPageModel = computed({
-  get: () => props.pagination.rowsPerPage || 15,
-  set: val => {
-    emit('request', {
-      ...props.pagination,
-      rowsPerPage: val,
-      page: 1
-    })
-  }
-})
-
-const onPageChange = newPage => {
-  emit('request', {
-    ...props.pagination,
-    page: newPage
-  })
+const onInfiniteLoad = (index, done) => {
+  store.loadMoreInvoices(done)
 }
 
-const onRowsPerPageChange = newRowsPerPage => {
-  emit('request', {
-    ...props.pagination,
-    rowsPerPage: newRowsPerPage,
-    page: 1
-  })
+const resetScroll = () => {
+  if (infiniteScrollRef.value) {
+    infiniteScrollRef.value.reset()
+    infiniteScrollRef.value.resume()
+  }
 }
+
+defineExpose({
+  resetScroll
+})
 
 const applicationName = invoice => {
   const applicationId =
@@ -642,7 +599,7 @@ const formatPaymentMethod = attempt => {
 .bg-dark-toolbar {
   background: linear-gradient(135deg, #1b1610 0%, #282015 100%);
 }
-.invoice-virtual-scroll {
+.invoice-infinite-scroll {
   border-radius: 8px;
 }
 .invoice-item-card {
@@ -684,8 +641,8 @@ const formatPaymentMethod = attempt => {
 .sort-select {
   min-width: 190px;
 }
-.rounded-borders-bottom {
-  border-bottom-left-radius: 13px;
-  border-bottom-right-radius: 13px;
+.end-indicator {
+  border-top: 1px dashed #ebd9b5;
+  margin-top: 8px;
 }
 </style>
