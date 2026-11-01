@@ -112,7 +112,7 @@
                       store.dashboardSummary?.successful_billing_transactions ??
                       0
                     }}
-                    sukses)
+                    berhasil)
                   </span>
                 </div>
               </div>

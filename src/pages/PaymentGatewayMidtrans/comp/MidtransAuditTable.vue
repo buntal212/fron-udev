@@ -96,10 +96,10 @@
       <template #body-cell-status="props">
         <q-td :props="props" class="text-center">
           <q-badge
-            :color="props.row.status === 'success' ? 'positive' : 'negative'"
+            :color="getMidtransStatusColor(props.row.status)"
             class="text-weight-bold"
           >
-            {{ props.row.status?.toUpperCase() }}
+            {{ getMidtransStatusLabel(props.row.status) }}
           </q-badge>
         </q-td>
       </template>
@@ -186,13 +186,10 @@
           <div class="row justify-between">
             <span class="text-caption text-grey-7">Status:</span>
             <q-badge
-              :color="
-                store.selectedAudit?.status === 'success'
-                  ? 'positive'
-                  : 'negative'
-              "
+              :color="getMidtransStatusColor(store.selectedAudit?.status)"
+              class="text-weight-bold"
             >
-              {{ store.selectedAudit?.status?.toUpperCase() }}
+              {{ getMidtransStatusLabel(store.selectedAudit?.status) }}
             </q-badge>
           </div>
           <div class="row justify-between">
@@ -236,12 +233,16 @@
 <script setup>
 import FilterPanel from '@/components/FilterPanel.vue'
 import { usePaymentGatewayMidtransStore } from '@/stores/paymentgatewaymidtrans'
+import {
+  getMidtransStatusColor,
+  getMidtransStatusLabel
+} from '@/utils/midtrans-status'
 
 const store = usePaymentGatewayMidtransStore()
 
 const statusOptions = [
   { label: 'Semua Status', value: null },
-  { label: 'Sukses (Success)', value: 'success' },
+  { label: 'Berhasil (Success)', value: 'success' },
   { label: 'Gagal (Failed)', value: 'failed' }
 ]
 

@@ -258,11 +258,16 @@
                   >
                   <q-badge
                     :color="
-                      statusColor(store.testPaymentResult.transaction_status)
+                      getMidtransStatusColor(
+                        store.testPaymentResult.transaction_status
+                      )
                     "
+                    class="text-weight-bold"
                   >
                     {{
-                      store.testPaymentResult.transaction_status?.toUpperCase()
+                      getMidtransStatusLabel(
+                        store.testPaymentResult.transaction_status
+                      )
                     }}
                   </q-badge>
                 </div>
@@ -272,20 +277,123 @@
                   class="q-mt-sm"
                 >
                   <span class="text-caption text-grey-7"
-                    >Nomor Virtual Account:</span
+                    >Nomor Virtual Account / Kode Pembayaran:</span
                   >
                   <div
                     v-for="va in store.testPaymentResult.va_numbers"
                     :key="va.va_number"
+                    class="bg-white q-pa-xs rounded-borders q-mt-xs border-grey q-gutter-y-xs"
+                  >
+                    <div
+                      v-if="va.biller_code"
+                      class="row items-center justify-between q-px-xs"
+                    >
+                      <span class="text-caption text-weight-bold text-grey-8"
+                        >Kode Perusahaan (Biller Code):</span
+                      >
+                      <span
+                        class="font-mono text-subtitle2 text-weight-bolder text-primary"
+                        >{{ va.biller_code }}</span
+                      >
+                    </div>
+                    <div class="row items-center justify-between q-px-xs">
+                      <span class="text-weight-bold text-uppercase"
+                        >{{ va.bank }}:</span
+                      >
+                      <span
+                        class="font-mono text-subtitle2 text-weight-bolder text-primary"
+                        >{{ va.va_number }}</span
+                      >
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Mandiri Bill Payment Code (if bill_key returned) -->
+                <div
+                  v-if="
+                    (store.testPaymentResult.bill_key ||
+                      store.testPaymentResult.biller_code) &&
+                    !hasVaNumber(store.testPaymentResult.bill_key)
+                  "
+                  class="q-mt-sm"
+                >
+                  <span class="text-caption text-grey-7"
+                    >Kode Pembayaran Mandiri Bill:</span
+                  >
+                  <div
+                    class="bg-white q-pa-sm rounded-borders q-mt-xs border-grey q-gutter-y-xs"
+                  >
+                    <div class="row items-center justify-between">
+                      <span class="text-caption text-weight-bold text-grey-8"
+                        >Kode Perusahaan (Biller Code):</span
+                      >
+                      <span
+                        class="font-mono text-subtitle2 text-weight-bolder text-primary"
+                      >
+                        {{ store.testPaymentResult.biller_code || '70012' }}
+                      </span>
+                    </div>
+                    <div class="row items-center justify-between">
+                      <span class="text-caption text-weight-bold text-grey-8"
+                        >Kode Pembayaran (Bill Key):</span
+                      >
+                      <span
+                        class="font-mono text-subtitle2 text-weight-bolder text-primary"
+                      >
+                        {{ store.testPaymentResult.bill_key }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Permata VA Number (if returned as permata_va_number) -->
+                <div
+                  v-if="
+                    store.testPaymentResult.permata_va_number &&
+                    !hasVaNumber(store.testPaymentResult.permata_va_number)
+                  "
+                  class="q-mt-sm"
+                >
+                  <span class="text-caption text-grey-7"
+                    >Nomor Virtual Account Permata:</span
+                  >
+                  <div
                     class="row items-center justify-between bg-white q-pa-xs rounded-borders q-mt-xs border-grey"
                   >
                     <span class="text-weight-bold text-uppercase"
-                      >{{ va.bank }}:</span
+                      >PERMATA:</span
                     >
                     <span
                       class="font-mono text-subtitle2 text-weight-bolder text-primary"
-                      >{{ va.va_number }}</span
                     >
+                      {{ store.testPaymentResult.permata_va_number }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- GoPay Deeplink / Simulator Link -->
+                <div
+                  v-if="
+                    store.testPaymentResult.checkout_url &&
+                    store.testPaymentResult.payment_type === 'gopay'
+                  "
+                  class="q-mt-sm"
+                >
+                  <span class="text-caption text-grey-7"
+                    >Link Simulasi GoPay:</span
+                  >
+                  <div class="q-mt-xs">
+                    <q-btn
+                      outline
+                      dense
+                      color="primary"
+                      icon="open_in_new"
+                      label="Buka Simulator Pembayaran GoPay"
+                      type="a"
+                      :href="store.testPaymentResult.checkout_url"
+                      target="_blank"
+                      no-caps
+                    />
                   </div>
                 </div>
               </div>
@@ -396,10 +504,17 @@
             <q-td :props="props" class="text-center">
               <q-badge
                 :color="
-                  props.row.status === 'success' ? 'positive' : 'negative'
+                  getMidtransStatusColor(
+                    props.row.metadata?.transaction_status || props.row.status
+                  )
                 "
+                class="text-weight-bold"
               >
-                {{ props.row.status?.toUpperCase() }}
+                {{
+                  getMidtransStatusLabel(
+                    props.row.metadata?.transaction_status || props.row.status
+                  )
+                }}
               </q-badge>
             </q-td>
           </template>
@@ -428,6 +543,10 @@
 import { nextTick, ref, watch } from 'vue'
 import QRCode from 'qrcode'
 import { usePaymentGatewayMidtransStore } from '@/stores/paymentgatewaymidtrans'
+import {
+  getMidtransStatusColor,
+  getMidtransStatusLabel
+} from '@/utils/midtrans-status'
 
 const store = usePaymentGatewayMidtransStore()
 const qrCanvasRef = ref(null)
@@ -442,7 +561,8 @@ const bankOptions = [
   { label: 'BCA Virtual Account', value: 'bca' },
   { label: 'BNI Virtual Account', value: 'bni' },
   { label: 'BRI Virtual Account', value: 'bri' },
-  { label: 'Permata Virtual Account', value: 'permata' }
+  { label: 'Permata Virtual Account', value: 'permata' },
+  { label: 'Mandiri Bill Payment', value: 'mandiri' }
 ]
 
 const historyColumns = [
@@ -465,7 +585,7 @@ const historyColumns = [
     align: 'center',
     field: row => row.metadata?.payment_type
   },
-  { name: 'status', label: 'HASIL', align: 'center', field: 'status' },
+  { name: 'status', label: 'STATUS', align: 'center', field: 'status' },
   { name: 'actions', label: 'AKSI', align: 'right' }
 ]
 
@@ -501,20 +621,9 @@ function formatDate(val) {
   })
 }
 
-function statusColor(status) {
-  switch (status) {
-    case 'settlement':
-    case 'capture':
-      return 'positive'
-    case 'pending':
-      return 'warning'
-    case 'deny':
-    case 'cancel':
-    case 'expire':
-      return 'negative'
-    default:
-      return 'grey-7'
-  }
+function hasVaNumber(num) {
+  if (!store.testPaymentResult?.va_numbers?.length || !num) return false
+  return store.testPaymentResult.va_numbers.some(v => v.va_number === num)
 }
 </script>
 

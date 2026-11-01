@@ -134,10 +134,10 @@
       <template #body-cell-status="props">
         <q-td :props="props" class="text-center">
           <q-badge
-            :color="statusColor(props.row.payment_attempt?.status)"
+            :color="getMidtransStatusColor(props.row.payment_attempt?.status)"
             class="text-weight-bold"
           >
-            {{ (props.row.payment_attempt?.status || 'UNKNOWN').toUpperCase() }}
+            {{ getMidtransStatusLabel(props.row.payment_attempt?.status) }}
           </q-badge>
         </q-td>
       </template>
@@ -223,13 +223,16 @@
               <div>
                 <q-badge
                   :color="
-                    statusColor(
+                    getMidtransStatusColor(
                       store.selectedBillingTransaction.payment_attempt?.status
                     )
                   "
+                  class="text-weight-bold"
                 >
                   {{
-                    store.selectedBillingTransaction.payment_attempt?.status?.toUpperCase()
+                    getMidtransStatusLabel(
+                      store.selectedBillingTransaction.payment_attempt?.status
+                    )
                   }}
                 </q-badge>
               </div>
@@ -265,16 +268,15 @@
 import { computed } from 'vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import { usePaymentGatewayMidtransStore } from '@/stores/paymentgatewaymidtrans'
+import {
+  getMidtransStatusColor,
+  getMidtransStatusLabel,
+  MIDTRANS_FILTER_STATUS_OPTIONS
+} from '@/utils/midtrans-status'
 
 const store = usePaymentGatewayMidtransStore()
 
-const statusOptions = [
-  { label: 'Pending', value: 'pending' },
-  { label: 'Succeeded / Paid', value: 'succeeded' },
-  { label: 'Failed', value: 'failed' },
-  { label: 'Expired', value: 'expired' },
-  { label: 'Cancelled', value: 'cancelled' }
-]
+const statusOptions = MIDTRANS_FILTER_STATUS_OPTIONS
 
 const applicationOptions = computed(() =>
   store.applications.map(app => ({
@@ -332,24 +334,6 @@ function formatDate(val) {
     dateStyle: 'medium',
     timeStyle: 'short'
   })
-}
-
-function statusColor(status) {
-  switch (status) {
-    case 'succeeded':
-    case 'paid':
-      return 'positive'
-    case 'pending':
-    case 'initiated':
-      return 'warning'
-    case 'failed':
-      return 'negative'
-    case 'expired':
-    case 'cancelled':
-      return 'grey-7'
-    default:
-      return 'grey-6'
-  }
 }
 </script>
 

@@ -6,6 +6,7 @@ import {
   paymentGatewayService
 } from '@/services/udev-billing'
 import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
+import { getMidtransStatusLabel } from '@/utils/midtrans-status'
 
 const emptyMerchantForm = () => ({
   merchant_code: '',
@@ -739,8 +740,10 @@ export const usePaymentGatewayMidtransStore = defineStore(
           const payload = {
             merchant_code: this.selectedMerchant,
             amount: Number(this.testPaymentForm.amount) || 10000,
-            payment_type: this.testPaymentForm.payment_type || 'qris',
-            bank: this.testPaymentForm.bank || 'bca'
+            payment_type: this.testPaymentForm.payment_type || 'qris'
+          }
+          if (this.testPaymentForm.payment_type === 'bank_transfer') {
+            payload.bank = this.testPaymentForm.bank || 'bca'
           }
           if (this.testPaymentForm.order_id) {
             payload.order_id = this.testPaymentForm.order_id
@@ -788,9 +791,12 @@ export const usePaymentGatewayMidtransStore = defineStore(
               this.statusQueryResult.transaction_status
           }
 
+          const statusLabel = getMidtransStatusLabel(
+            this.statusQueryResult.transaction_status
+          )
           Notify.create({
             type: 'info',
-            message: `Status transaksi: ${this.statusQueryResult.transaction_status}`,
+            message: `Status transaksi: ${statusLabel}`,
             position: 'top'
           })
         } catch (err) {
