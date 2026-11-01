@@ -140,12 +140,31 @@
                   class="q-mr-xs text-warning"
                   size="20px"
                 />
-                Pilih Metode Pembayaran (DANA Sandbox)
+                Pilih Metode Pembayaran ({{ isMidtrans ? 'Midtrans' : 'DANA' }}
+                Sandbox)
               </div>
               <div class="text-caption text-grey-8 q-mt-xs">
-                Pilih QRIS, DANA Wallet, atau Virtual Account bank yang tersedia
-                di DANA Sandbox.
+                {{
+                  isMidtrans
+                    ? 'Pilih QRIS, Virtual Account bank (BCA, BNI, BRI, Permata, Mandiri Bill), atau GoPay di Midtrans Sandbox.'
+                    : 'Pilih QRIS, DANA Wallet, atau Virtual Account bank yang tersedia di DANA Sandbox.'
+                }}
               </div>
+            </div>
+            <div v-if="availableGateways.length > 1" class="col-12 col-sm-auto">
+              <q-btn-toggle
+                v-model="store.checkoutProvider"
+                push
+                glossy
+                dense
+                toggle-color="primary"
+                toggle-text-color="white"
+                text-color="brown-9"
+                :options="[
+                  { label: 'DANA Sandbox', value: 'dana' },
+                  { label: 'Midtrans Sandbox', value: 'midtrans' }
+                ]"
+              />
             </div>
             <div class="col-12 col-sm-auto">
               <q-btn-toggle
@@ -156,30 +175,7 @@
                 toggle-color="warning"
                 toggle-text-color="dark"
                 text-color="brown-9"
-                :options="[
-                  { label: 'QRIS DANA', value: 'qris', icon: 'qr_code_2' },
-                  {
-                    label: 'DANA Wallet',
-                    value: 'dana_wallet',
-                    icon: 'account_balance_wallet'
-                  },
-                  { label: 'VA BRI', value: 'va_bri', icon: 'account_balance' },
-                  {
-                    label: 'VA PANI',
-                    value: 'va_pani',
-                    icon: 'account_balance'
-                  },
-                  {
-                    label: 'VA CIMB',
-                    value: 'va_cimb',
-                    icon: 'account_balance'
-                  },
-                  {
-                    label: 'VA BTPN',
-                    value: 'va_btpn',
-                    icon: 'account_balance'
-                  }
-                ]"
+                :options="paymentMethodOptions"
               />
             </div>
           </div>
@@ -197,15 +193,15 @@
               "
               :label="
                 store.checkoutPaymentMethod === 'qris'
-                  ? 'Bayar dengan QRIS'
+                  ? `Bayar dengan QRIS ${isMidtrans ? 'Midtrans' : 'DANA'}`
                   : isVirtualAccountMethod(store.checkoutPaymentMethod)
                     ? `Buat ${paymentMethodLabel(store.checkoutPaymentMethod)}`
-                    : 'Bayar melalui DANA Sandbox'
+                    : `Bayar melalui ${paymentMethodLabel(store.checkoutPaymentMethod)} Sandbox`
               "
               no-caps
               :loading="store.checkoutLoading"
               :disable="store.checkoutLoading"
-              @click="store.startCheckout()"
+              @click="onStartCheckout()"
             />
           </div>
         </q-card>
@@ -223,7 +219,8 @@
                 class="q-mr-xs text-warning"
                 size="22px"
               />
-              {{ paymentMethodLabel(currentAttemptMethod) }} DANA Sandbox
+              {{ paymentMethodLabel(currentAttemptMethod) }}
+              {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox
             </div>
             <q-badge
               rounded
@@ -263,7 +260,21 @@
             memperoleh instruksi baru dari gateway.
           </q-banner>
           <div class="va-code q-pa-md text-center">
-            <div class="text-caption text-grey-8">Nomor Virtual Account</div>
+            <div v-if="currentPaymentInstruction?.biller_code" class="q-mb-sm">
+              <div class="text-caption text-grey-8"
+                >Kode Perusahaan (Biller Code)</div
+              >
+              <div class="text-h6 text-weight-bold text-brown-9">{{
+                currentPaymentInstruction.biller_code
+              }}</div>
+            </div>
+            <div class="text-caption text-grey-8">
+              {{
+                currentPaymentInstruction?.biller_code
+                  ? 'Nomor Pembayaran (Bill Key)'
+                  : 'Nomor Virtual Account'
+              }}
+            </div>
             <div class="text-h6 text-weight-bold text-brown-9 q-mt-xs">{{
               currentPaymentCode
             }}</div>
@@ -276,14 +287,107 @@
           </div>
           <div class="row justify-center q-gutter-sm q-mt-sm">
             <q-btn
+              v-if="currentPaymentInstruction?.biller_code"
               outline
               dense
               no-caps
               color="brown-9"
               icon="content_copy"
-              label="Salin Nomor VA"
+              label="Salin Biller Code"
+              @click="copyPayload(currentPaymentInstruction.biller_code)"
+            />
+            <q-btn
+              outline
+              dense
+              no-caps
+              color="brown-9"
+              icon="content_copy"
+              :label="
+                currentPaymentInstruction?.biller_code
+                  ? 'Salin Bill Key'
+                  : 'Salin Nomor VA'
+              "
               @click="copyPayload(currentPaymentCode)"
             />
+            <q-btn
+              v-if="isCheckoutExpired || isLatestAttemptFailed"
+              color="negative"
+              unelevated
+              dense
+              no-caps
+              icon="replay"
+              label="Ulangi Pembayaran (Retry)"
+              :loading="store.checkoutLoading"
+              @click="store.retryCheckout()"
+            />
+          </div>
+        </q-card>
+
+        <!-- Tampilan GoPay Midtrans Sandbox -->
+        <q-card
+          v-if="isCurrentAttemptGopay"
+          flat
+          bordered
+          class="q-pa-md va-panel rounded-borders"
+        >
+          <div class="row items-center justify-between q-mb-sm">
+            <div class="text-weight-bold text-brown-9 row items-center">
+              <q-icon
+                name="account_balance_wallet"
+                class="q-mr-xs text-warning"
+                size="22px"
+              />
+              GoPay Midtrans Sandbox
+            </div>
+            <q-badge
+              rounded
+              :color="
+                isCheckoutExpired
+                  ? 'negative'
+                  : invoice.status === 'paid'
+                    ? 'positive'
+                    : 'warning'
+              "
+              :label="
+                isCheckoutExpired
+                  ? 'Kedaluwarsa'
+                  : invoice.status === 'paid'
+                    ? 'Lunas'
+                    : 'Menunggu Pembayaran'
+              "
+            />
+          </div>
+          <div
+            v-if="!isCheckoutExpired && invoice.status === 'pending'"
+            class="text-caption text-grey-8 q-mb-sm row items-center"
+          >
+            <q-icon name="schedule" size="16px" class="q-mr-xs text-warning" />
+            <span
+              >Sisa waktu berlaku:
+              <strong>{{ formattedCountdown }}</strong></span
+            >
+          </div>
+          <div class="va-code q-pa-md text-center">
+            <div class="text-caption text-grey-8">Pembayaran via GoPay</div>
+            <div class="text-caption text-grey-7 q-mt-sm">
+              {{
+                currentPaymentInstruction?.message ||
+                'Lanjutkan pembayaran di aplikasi GoPay.'
+              }}
+            </div>
+            <q-btn
+              v-if="store.checkoutUrl || latestAttempt?.checkout_url"
+              color="warning"
+              text-color="dark"
+              icon="open_in_new"
+              label="Buka Aplikasi GoPay"
+              no-caps
+              class="q-mt-md"
+              :href="store.checkoutUrl || latestAttempt?.checkout_url"
+              target="_blank"
+            />
+          </div>
+          <div class="row justify-center q-gutter-sm q-mt-sm">
             <q-btn
               v-if="isCheckoutExpired || isLatestAttemptFailed"
               color="negative"
@@ -318,7 +422,7 @@
                 class="q-mr-xs text-warning"
                 size="22px"
               />
-              Kode QRIS DANA Sandbox
+              Kode QRIS {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox
             </div>
             <div class="row items-center q-gutter-xs">
               <q-badge
@@ -374,11 +478,12 @@
             >
               <img
                 :src="store.checkoutQrDataUrl"
-                alt="QRIS DANA Sandbox"
+                :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
                 class="qris-img"
               />
               <div class="text-caption text-grey-7 q-mt-xs">
-                Scan kode QRIS melalui aplikasi DANA atau e-wallet sandbox Anda.
+                Scan kode QRIS melalui simulator atau aplikasi e-wallet sandbox
+                Anda.
               </div>
             </div>
             <div
@@ -386,13 +491,13 @@
               class="column items-center q-pa-md"
             >
               <div class="text-caption text-grey-8 q-mb-xs">
-                Kode Pembayaran DANA Sandbox:
+                Kode Pembayaran {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox:
               </div>
               <div class="text-h6 text-weight-bold text-brown-9 q-mb-xs">
                 {{ store.checkoutPaymentCode }}
               </div>
               <div class="text-caption text-grey-7">
-                Gunakan kode bayar ini pada aplikasi atau simulator DANA
+                Gunakan kode bayar ini pada aplikasi atau simulator gateway
                 Sandbox.
               </div>
             </div>
@@ -460,14 +565,19 @@
           <div class="row items-center justify-between q-mb-xs">
             <div class="text-weight-bold text-brown-9 row items-center">
               <q-icon name="science" class="q-mr-xs text-warning" size="20px" />
-              Kontrol Pengujian Admin UDEV (DANA Sandbox)
+              Kontrol Pengujian Admin UDEV ({{
+                isMidtrans ? 'Midtrans' : 'DANA'
+              }}
+              Sandbox)
             </div>
             <q-badge color="dark" text-color="warning" label="Sandbox UAT" />
           </div>
           <p class="section-description q-mb-sm">
             Kontrol pengujian end-to-end: Lakukan checkout dan bayar melalui
-            DANA Sandbox, lalu sinkronkan status untuk verifikasi gateway resmi.
-            Settlement operasional hanya diproses dari konfirmasi gateway DANA
+            {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox, lalu sinkronkan
+            status untuk verifikasi gateway resmi. Settlement operasional hanya
+            diproses dari konfirmasi gateway
+            {{ isMidtrans ? 'Midtrans' : 'DANA' }}
             yang valid.
           </p>
           <div class="row q-gutter-sm items-center">
@@ -485,7 +595,7 @@
               @click="store.reconcileInvoice()"
             />
             <q-btn
-              v-if="invoice.status === 'pending'"
+              v-if="invoice.status === 'pending' && !isMidtrans"
               color="negative"
               outline
               icon="cancel"
@@ -502,7 +612,7 @@
               outline
               color="warning"
               icon="open_in_new"
-              label="Buka Checkout DANA Sandbox"
+              :label="`Buka Checkout ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
               no-caps
               dense
               class="q-px-sm"
@@ -658,7 +768,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount } from 'vue'
+import { computed, watch, onBeforeUnmount } from 'vue'
 import { useInvoiceStore } from '@/stores/invoice'
 import {
   formatSubscriptionDate,
@@ -678,20 +788,144 @@ const referralName = computed(() => {
   return partnerName || referralCode || '—'
 })
 const reconciliationLabel = status => getReconciliationStatus(status)
-const virtualAccountMethods = ['va_bri', 'va_pani', 'va_cimb', 'va_btpn']
+
+const virtualAccountMethods = [
+  'bank_transfer',
+  'va_bca',
+  'va_bni',
+  'va_bri',
+  'va_permata',
+  'va_mandiri',
+  'echannel',
+  'va_pani',
+  'va_cimb',
+  'va_btpn'
+]
+
 const paymentMethodLabels = {
   dana_wallet: 'DANA Wallet',
-  qris: 'QRIS DANA',
+  qris: 'QRIS',
+  va_bca: 'Virtual Account BCA',
+  va_bni: 'Virtual Account BNI',
   va_bri: 'Virtual Account BRI',
+  va_permata: 'Virtual Account Permata',
+  va_mandiri: 'Mandiri Bill Payment',
+  echannel: 'Mandiri Bill Payment',
+  bank_transfer: 'Virtual Account',
   va_pani: 'Virtual Account PANI',
   va_cimb: 'Virtual Account CIMB',
-  va_btpn: 'Virtual Account BTPN'
+  va_btpn: 'Virtual Account BTPN',
+  gopay: 'GoPay'
 }
+
 const isVirtualAccountMethod = method => virtualAccountMethods.includes(method)
-const paymentMethodLabel = method =>
-  paymentMethodLabels[method] || 'Pembayaran DANA'
+
 const attemptPaymentMethod = attempt =>
   attempt?.metadata?.payment_method || attempt?.payment_method || null
+
+const latestAttempt = computed(() => {
+  const attempts = invoice.value.payment_attempts
+  if (!Array.isArray(attempts) || attempts.length === 0) return null
+  return [...attempts].sort((a, b) => b.attempt_number - a.attempt_number)[0]
+})
+
+const isMidtrans = computed(() => {
+  if (store.checkoutProvider) {
+    return store.checkoutProvider === 'midtrans'
+  }
+  const attemptProvider = latestAttempt.value?.provider
+  if (attemptProvider) {
+    return attemptProvider === 'midtrans'
+  }
+  const gateways = invoice.value.application_payment_gateways || []
+  const hasMidtrans = gateways.some(
+    g => g.provider === 'midtrans' && g.is_active
+  )
+  const hasDana = gateways.some(g => g.provider === 'dana' && g.is_active)
+  return hasMidtrans && !hasDana
+})
+
+const availableGateways = computed(() => {
+  const gateways = invoice.value.application_payment_gateways || []
+  const active = gateways.filter(g => g.is_active)
+  if (active.length > 0) {
+    return active.map(g => g.provider)
+  }
+  return ['dana', 'midtrans']
+})
+
+const paymentMethodOptions = computed(() => {
+  if (isMidtrans.value) {
+    return [
+      { label: 'QRIS', value: 'qris' },
+      { label: 'VA BCA', value: 'va_bca' },
+      { label: 'VA BNI', value: 'va_bni' },
+      { label: 'VA BRI', value: 'va_bri' },
+      { label: 'VA Permata', value: 'va_permata' },
+      { label: 'Mandiri Bill', value: 'va_mandiri' },
+      { label: 'GoPay', value: 'gopay' }
+    ]
+  }
+  return [
+    { label: 'DANA Wallet', value: 'dana_wallet' },
+    { label: 'QRIS DANA', value: 'qris' },
+    { label: 'VA BRI', value: 'va_bri' },
+    { label: 'VA PANI', value: 'va_pani' },
+    { label: 'VA CIMB', value: 'va_cimb' },
+    { label: 'VA BTPN', value: 'va_btpn' }
+  ]
+})
+
+watch(
+  () => store.checkoutProvider,
+  newProvider => {
+    if (newProvider === 'midtrans') {
+      const midtransAllowed = [
+        'qris',
+        'va_bca',
+        'va_bni',
+        'va_bri',
+        'va_permata',
+        'va_mandiri',
+        'gopay'
+      ]
+      if (!midtransAllowed.includes(store.checkoutPaymentMethod)) {
+        store.checkoutPaymentMethod = 'qris'
+      }
+    } else if (newProvider === 'dana') {
+      const danaAllowed = [
+        'dana_wallet',
+        'qris',
+        'va_bri',
+        'va_pani',
+        'va_cimb',
+        'va_btpn'
+      ]
+      if (!danaAllowed.includes(store.checkoutPaymentMethod)) {
+        store.checkoutPaymentMethod = 'dana_wallet'
+      }
+    }
+  }
+)
+
+const onStartCheckout = () => {
+  const method = store.checkoutPaymentMethod
+  const provider = isMidtrans.value ? 'midtrans' : 'dana'
+  let bank = null
+  if (provider === 'midtrans') {
+    if (method === 'va_bca') bank = 'bca'
+    else if (method === 'va_bni') bank = 'bni'
+    else if (method === 'va_bri') bank = 'bri'
+    else if (method === 'va_permata') bank = 'permata'
+    else if (method === 'va_mandiri' || method === 'echannel') bank = 'echannel'
+  }
+  store.startCheckout(method, provider, bank)
+}
+
+const paymentMethodLabel = method =>
+  paymentMethodLabels[method] ||
+  (isMidtrans.value ? 'Pembayaran Midtrans' : 'Pembayaran DANA')
+
 const canStartCheckout = computed(
   () =>
     invoice.value.status === 'pending' &&
@@ -700,49 +934,58 @@ const canStartCheckout = computed(
     )
 )
 
-const latestAttempt = computed(() => {
-  const attempts = invoice.value.payment_attempts
-  if (!Array.isArray(attempts) || attempts.length === 0) return null
-  return [...attempts].sort((a, b) => b.attempt_number - a.attempt_number)[0]
-})
-
-const isCurrentAttemptQris = computed(() => {
-  const method = attemptPaymentMethod(latestAttempt.value)
-  return (
-    method === 'qris' &&
-    (store.checkoutQrPayload ||
-      store.checkoutPaymentCode ||
-      latestAttempt.value?.qr_content ||
-      latestAttempt.value?.metadata?.qr_content ||
-      latestAttempt.value?.metadata?.payment_code)
-  )
-})
-
 const currentAttemptMethod = computed(
   () => attemptPaymentMethod(latestAttempt.value) || store.checkoutPaymentMethod
 )
+
 const currentPaymentInstruction = computed(
   () =>
     latestAttempt.value?.metadata?.payment_instruction ||
     store.checkoutAttempt?.payment_instruction ||
     null
 )
+
 const currentPaymentCode = computed(
   () =>
     store.checkoutPaymentCode ||
     latestAttempt.value?.metadata?.payment_code ||
     latestAttempt.value?.metadata?.qr_content ||
     currentPaymentInstruction.value?.payment_code ||
+    currentPaymentInstruction.value?.bill_key ||
     ''
 )
+
 const isCurrentAttemptVirtualAccount = computed(
   () =>
     isVirtualAccountMethod(currentAttemptMethod.value) &&
     Boolean(currentPaymentCode.value)
 )
 
-const isQrisExpired = computed(() => {
-  return isCheckoutExpired.value
+const isCurrentAttemptGopay = computed(() => {
+  const method = currentAttemptMethod.value
+  return (
+    method === 'gopay' &&
+    Boolean(
+      store.checkoutUrl ||
+      latestAttempt.value?.checkout_url ||
+      currentPaymentInstruction.value?.checkout_url ||
+      store.checkoutAttempt?.checkout_url
+    )
+  )
+})
+
+const isCurrentAttemptQris = computed(() => {
+  const method = currentAttemptMethod.value
+  return (
+    method === 'qris' &&
+    Boolean(
+      store.checkoutQrPayload ||
+      store.checkoutPaymentCode ||
+      latestAttempt.value?.qr_content ||
+      latestAttempt.value?.metadata?.qr_content ||
+      latestAttempt.value?.metadata?.payment_code
+    )
+  )
 })
 
 const isCheckoutExpired = computed(() => {
@@ -754,6 +997,10 @@ const isCheckoutExpired = computed(() => {
     return true
   }
   return false
+})
+
+const isQrisExpired = computed(() => {
+  return isCheckoutExpired.value
 })
 
 const isLatestAttemptFailed = computed(() => {
@@ -775,7 +1022,7 @@ const downloadQrisPng = () => {
   if (!store.checkoutQrDataUrl) return
   const a = document.createElement('a')
   a.href = store.checkoutQrDataUrl
-  a.download = `qris-${invoice.value.invoice_number || 'dana-sandbox'}.png`
+  a.download = `qris-${invoice.value.invoice_number || (isMidtrans.value ? 'midtrans-sandbox' : 'dana-sandbox')}.png`
   a.click()
 }
 

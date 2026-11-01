@@ -106,6 +106,8 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutUrl: null,
     checkoutIdempotencyKey: null,
     checkoutPaymentMethod: 'qris',
+    checkoutProvider: null,
+    checkoutBank: 'bca',
     checkoutQrDataUrl: null,
     checkoutQrPayload: null,
     checkoutPaymentCode: null,
@@ -594,6 +596,8 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutAttempt = null
       this.checkoutUrl = null
       this.checkoutPaymentMethod = 'qris'
+      this.checkoutProvider = null
+      this.checkoutBank = 'bca'
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
       this.checkoutPaymentCode = null
@@ -627,6 +631,8 @@ export const useInvoiceStore = defineStore('invoice', {
             latestAttempt.payment_method ||
             'qris'
           this.checkoutPaymentMethod = method
+          this.checkoutProvider = latestAttempt.provider || null
+          this.checkoutBank = latestAttempt.metadata?.bank || 'bca'
           this.checkoutAttempt = latestAttempt
           this.checkoutUrl = latestAttempt.checkout_url || null
           this.checkoutExpiresAt = latestAttempt.checkout_expires_at || null
@@ -644,7 +650,10 @@ export const useInvoiceStore = defineStore('invoice', {
               latestAttempt.checkout_url
 
           if (
-            (method === 'qris' || method.startsWith('va_')) &&
+            (method === 'qris' ||
+              method.startsWith('va_') ||
+              method === 'bank_transfer' ||
+              method === 'echannel') &&
             rawPayload &&
             latestAttempt.status === 'pending'
           ) {
@@ -663,6 +672,23 @@ export const useInvoiceStore = defineStore('invoice', {
               this.startPolling()
             }
           }
+        } else if (this.selectedInvoice) {
+          const gateways = Array.isArray(
+            this.selectedInvoice.application_payment_gateways
+          )
+            ? this.selectedInvoice.application_payment_gateways
+            : []
+          const hasMidtrans = gateways.some(
+            g => g.provider === 'midtrans' && g.is_active
+          )
+          const hasDana = gateways.some(
+            g => g.provider === 'dana' && g.is_active
+          )
+          if (hasMidtrans && !hasDana) {
+            this.checkoutProvider = 'midtrans'
+          } else if (hasDana) {
+            this.checkoutProvider = 'dana'
+          }
         }
       } catch (error) {
         this.error = getApiErrorMessage(error)
@@ -672,7 +698,11 @@ export const useInvoiceStore = defineStore('invoice', {
       }
     },
 
-    async startCheckout(method = this.checkoutPaymentMethod) {
+    async startCheckout(
+      method = this.checkoutPaymentMethod,
+      provider = this.checkoutProvider,
+      bank = this.checkoutBank
+    ) {
       if (
         this.checkoutLoading ||
         !this.selectedInvoice?.id ||
@@ -691,12 +721,18 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutPaymentInstruction = null
       this.checkoutQrError = null
       this.checkoutPaymentMethod = method
+      this.checkoutProvider = provider
+      this.checkoutBank = bank
 
       try {
+        const payload = { payment_method: method }
+        if (provider) payload.provider = provider
+        if (bank) payload.bank = bank
+
         const response = await invoiceService.checkout(
           this.selectedInvoice.id,
           this.checkoutIdempotencyKey || createIdempotencyKey(),
-          { payment_method: method }
+          payload
         )
         const checkout = response.data?.data || {}
         this.checkoutAttempt = checkout
@@ -722,6 +758,17 @@ export const useInvoiceStore = defineStore('invoice', {
               : checkout.checkout_status === 'processing'
                 ? 'Checkout sedang disiapkan. Muat detail beberapa saat lagi.'
                 : 'Tautan checkout belum tersedia. Silakan coba lagi nanti.'
+        } else if (method === 'gopay') {
+          if (
+            isSecureCheckoutUrl(this.checkoutUrl) &&
+            typeof window !== 'undefined'
+          ) {
+            window.open(this.checkoutUrl, '_blank')
+          }
+          if (this.checkoutExpiresAt) {
+            this.startCountdown(this.checkoutExpiresAt)
+            this.startPolling()
+          }
         } else {
           const rawPayload = isQrisMpmInstruction(
             this.checkoutPaymentInstruction
@@ -768,7 +815,11 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutQrPayload = null
       this.checkoutPaymentCode = null
       this.checkoutError = ''
-      await this.startCheckout(this.checkoutPaymentMethod)
+      await this.startCheckout(
+        this.checkoutPaymentMethod,
+        this.checkoutProvider,
+        this.checkoutBank
+      )
     },
 
     async reconcileInvoice(invoiceId = this.selectedInvoice?.id) {
