@@ -117,6 +117,7 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutPaymentMethod: 'qris',
     checkoutProvider: null,
     checkoutBank: 'bca',
+    checkoutQrUrl: null,
     checkoutQrDataUrl: null,
     checkoutQrPayload: null,
     checkoutPaymentCode: null,
@@ -699,6 +700,7 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutPaymentMethod = 'qris'
       this.checkoutProvider = null
       this.checkoutBank = 'bca'
+      this.checkoutQrUrl = null
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
       this.checkoutPaymentCode = null
@@ -740,6 +742,16 @@ export const useInvoiceStore = defineStore('invoice', {
           this.checkoutPaymentInstruction =
             latestAttempt.metadata?.payment_instruction || null
 
+          const qrUrl =
+            latestAttempt.qr_url ||
+            latestAttempt.metadata?.qr_url ||
+            this.checkoutPaymentInstruction?.qr_url ||
+            (typeof latestAttempt.checkout_url === 'string' &&
+            latestAttempt.checkout_url.includes('qr')
+              ? latestAttempt.checkout_url
+              : null)
+          this.checkoutQrUrl = qrUrl
+
           const rawPayload = isQrisMpmInstruction(
             this.checkoutPaymentInstruction
           )
@@ -748,20 +760,27 @@ export const useInvoiceStore = defineStore('invoice', {
               latestAttempt.metadata?.payment_code ||
               latestAttempt.qr_content ||
               latestAttempt.metadata?.qr_content ||
-              latestAttempt.checkout_url
+              (latestAttempt.checkout_url &&
+              !latestAttempt.checkout_url.startsWith('http')
+                ? latestAttempt.checkout_url
+                : null)
 
           if (
             (method === 'qris' ||
               method.startsWith('va_') ||
               method === 'bank_transfer' ||
               method === 'echannel') &&
-            rawPayload &&
             latestAttempt.status === 'pending'
           ) {
-            if (isQrisMpmInstruction(this.checkoutPaymentInstruction)) {
-              this.checkoutQrPayload = rawPayload
-              this.checkoutPaymentCode = null
-              await this.renderQr(rawPayload)
+            if (method === 'qris') {
+              if (rawPayload) {
+                this.checkoutQrPayload = rawPayload
+                this.checkoutPaymentCode = null
+                await this.renderQr(rawPayload)
+              } else if (qrUrl) {
+                this.checkoutQrPayload = null
+                this.checkoutPaymentCode = null
+              }
             } else {
               this.checkoutQrPayload = null
               this.checkoutQrDataUrl = null
@@ -840,9 +859,34 @@ export const useInvoiceStore = defineStore('invoice', {
         this.checkoutUrl = checkout.checkout_url || null
         this.checkoutExpiresAt = checkout.expires_at || null
         this.checkoutPaymentInstruction = checkout.payment_instruction || null
+        this.checkoutQrUrl =
+          checkout.qr_url ||
+          checkout.payment_instruction?.qr_url ||
+          (typeof checkout.checkout_url === 'string' &&
+          checkout.checkout_url.includes('qr')
+            ? checkout.checkout_url
+            : null)
 
         const detailResponse = await invoiceService.get(this.selectedInvoice.id)
         this.selectedInvoice = detailResponse.data.data
+
+        const latestAttempt = Array.isArray(
+          this.selectedInvoice?.payment_attempts
+        )
+          ? [...this.selectedInvoice.payment_attempts].sort(
+              (a, b) => b.attempt_number - a.attempt_number
+            )[0]
+          : null
+
+        if (latestAttempt) {
+          const recoveredQrUrl =
+            latestAttempt.qr_url ||
+            latestAttempt.metadata?.qr_url ||
+            this.checkoutQrUrl
+          if (recoveredQrUrl) {
+            this.checkoutQrUrl = recoveredQrUrl
+          }
+        }
 
         if (method === 'dana_wallet') {
           if (
@@ -870,25 +914,23 @@ export const useInvoiceStore = defineStore('invoice', {
             this.startCountdown(this.checkoutExpiresAt)
             this.startPolling()
           }
-        } else {
+        } else if (method === 'qris') {
           const rawPayload = isQrisMpmInstruction(
             this.checkoutPaymentInstruction
           )
             ? this.checkoutPaymentInstruction.qr_content
-            : checkout.payment_code ||
-              checkout.qr_content ||
-              checkout.checkout_url
+            : checkout.qr_content ||
+              latestAttempt?.metadata?.qr_content ||
+              checkout.payment_code
           if (rawPayload) {
-            if (isQrisMpmInstruction(this.checkoutPaymentInstruction)) {
-              this.checkoutQrPayload = rawPayload
-              this.checkoutPaymentCode = null
-              await this.renderQr(rawPayload)
-            } else {
-              this.checkoutQrPayload = null
-              this.checkoutQrDataUrl = null
-              this.checkoutPaymentCode =
-                typeof rawPayload === 'string' ? rawPayload : null
-            }
+            this.checkoutQrPayload = rawPayload
+            this.checkoutPaymentCode = null
+            await this.renderQr(rawPayload)
+          } else if (this.checkoutQrUrl) {
+            this.checkoutQrPayload = null
+            this.checkoutPaymentCode = null
+          }
+          if (rawPayload || this.checkoutQrUrl) {
             if (this.checkoutExpiresAt) {
               this.startCountdown(this.checkoutExpiresAt)
               this.startPolling()
@@ -899,11 +941,47 @@ export const useInvoiceStore = defineStore('invoice', {
                 ? 'Kode QRIS sedang disiapkan oleh gateway. Muat beberapa saat lagi.'
                 : 'Kode QRIS belum tersedia dari gateway. Coba beberapa saat lagi.'
           }
+        } else {
+          const rawPayload =
+            checkout.payment_code ||
+            latestAttempt?.metadata?.payment_code ||
+            checkout.checkout_url
+          if (rawPayload) {
+            this.checkoutQrPayload = null
+            this.checkoutQrDataUrl = null
+            this.checkoutPaymentCode =
+              typeof rawPayload === 'string' ? rawPayload : null
+            if (this.checkoutExpiresAt) {
+              this.startCountdown(this.checkoutExpiresAt)
+              this.startPolling()
+            }
+          } else {
+            this.checkoutError =
+              checkout.checkout_status === 'processing'
+                ? 'Instruksi pembayaran sedang disiapkan oleh gateway. Muat beberapa saat lagi.'
+                : 'Instruksi pembayaran belum tersedia dari gateway. Coba beberapa saat lagi.'
+          }
         }
       } catch (error) {
-        const validationErrors = getApiValidationErrors(error)
-        this.checkoutError =
-          validationErrors.invoice?.[0] || getApiErrorMessage(error)
+        const status = error?.response?.status
+        if (
+          error?.code === 'ECONNABORTED' ||
+          error?.message?.includes('timeout') ||
+          error?.message?.includes('Network Error')
+        ) {
+          this.checkoutError =
+            'Koneksi ke gateway pembayaran mengalami timeout jaringan. Periksa koneksi dan coba lagi.'
+        } else if (status === 502 || status === 504) {
+          this.checkoutError =
+            'Gateway pembayaran sedang mengalami gangguan atau tidak dapat dijangkau. Coba beberapa saat lagi.'
+        } else if (status === 202) {
+          this.checkoutError =
+            'Instruksi pembayaran sedang disiapkan oleh gateway. Silakan muat status beberapa saat lagi.'
+        } else {
+          const validationErrors = getApiValidationErrors(error)
+          this.checkoutError =
+            validationErrors.invoice?.[0] || getApiErrorMessage(error)
+        }
       } finally {
         this.checkoutLoading = false
       }
@@ -934,6 +1012,34 @@ export const useInvoiceStore = defineStore('invoice', {
         const index = this.items.findIndex(item => item.id === invoiceId)
         if (index !== -1) {
           this.items[index] = response.data.data
+        }
+
+        const latest = Array.isArray(this.selectedInvoice?.payment_attempts)
+          ? [...this.selectedInvoice.payment_attempts].sort(
+              (a, b) => b.attempt_number - a.attempt_number
+            )[0]
+          : null
+
+        if (latest) {
+          const recoveredQrUrl =
+            latest.qr_url ||
+            latest.metadata?.qr_url ||
+            latest.metadata?.payment_instruction?.qr_url ||
+            (typeof latest.checkout_url === 'string' &&
+            latest.checkout_url.includes('qr')
+              ? latest.checkout_url
+              : null)
+          if (recoveredQrUrl) {
+            this.checkoutQrUrl = recoveredQrUrl
+          }
+          const recoveredPayload =
+            latest.qr_content ||
+            latest.metadata?.qr_content ||
+            latest.metadata?.payment_instruction?.qr_content
+          if (recoveredPayload && !this.checkoutQrDataUrl) {
+            this.checkoutQrPayload = recoveredPayload
+            await this.renderQr(recoveredPayload)
+          }
         }
       } catch (error) {
         this.reconcileError = getApiErrorMessage(error)

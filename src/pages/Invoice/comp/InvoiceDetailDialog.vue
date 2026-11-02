@@ -1,766 +1,987 @@
 <template>
   <q-dialog
     v-model="store.detailDialogOpen"
+    persistent
+    transition-show="scale"
+    transition-hide="scale"
     @before-hide="store.closeDetailDialog"
   >
-    <q-card class="detail-dialog">
-      <q-card-section class="row items-center justify-between">
-        <div>
-          <p class="eyebrow">DETAIL INVOICE</p>
-          <h2>{{ invoice.invoice_number || 'Invoice' }}</h2>
-        </div>
-        <q-btn flat round dense icon="close" aria-label="Tutup" v-close-popup />
-      </q-card-section>
-      <q-separator />
-      <q-card-section v-if="store.detailLoading" class="q-pa-xl text-center">
-        <q-spinner color="warning" size="32px" />
-      </q-card-section>
-      <q-card-section v-else-if="store.selectedInvoice" class="q-gutter-y-md">
-        <div class="row q-col-gutter-md">
-          <div class="col-12 col-sm-6"
-            ><p class="label">Aplikasi</p
-            ><p class="value">{{ store.applicationName(invoice) }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Pelanggan</p
-            ><p class="value">{{ invoice.customer?.name || '—' }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Paket</p
-            ><p class="value">{{ invoice.plan?.name || '—' }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Jumlah periode</p
-            ><p class="value"
-              >{{ invoice.period_count || 1 }} periode ({{
-                invoice.duration_days
-              }}
-              hari)</p
-            ></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Durasi snapshot</p
-            ><p class="value">{{ invoice.duration_days }} hari</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Harga sebelum potongan</p
-            ><p class="value">{{
-              formatSubscriptionPrice(
-                invoice.pricing?.normal_price ?? invoice.amount,
-                invoice.currency
-              )
-            }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Potongan</p
-            ><p class="value">{{
-              formatSubscriptionPrice(
-                invoice.pricing?.discount_amount ?? '0.00',
-                invoice.currency
-              )
-            }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Harga setelah potongan</p
-            ><p class="value">{{
-              formatSubscriptionPrice(
-                invoice.pricing?.final_price ?? invoice.amount,
-                invoice.currency
-              )
-            }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Referral</p
-            ><p class="value">{{ referralName }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Tanggal terbit</p
-            ><p class="value">{{
-              formatSubscriptionDate(invoice.issued_at)
-            }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Jatuh tempo</p
-            ><p class="value">{{
-              formatSubscriptionDate(invoice.due_at)
-            }}</p></div
-          >
-          <div class="col-12 col-sm-6"
-            ><p class="label">Tanggal pembayaran</p
-            ><p class="value">{{
-              formatSubscriptionDate(invoice.paid_at)
-            }}</p></div
-          >
-          <div v-if="invoice.subscription" class="col-12 col-sm-6">
-            <p class="label">Masa aktif langganan</p>
-            <p class="value">
-              Berakhir
-              {{ formatSubscriptionDate(invoice.subscription.expires_at) }}
+    <q-card class="invoice-dialog-card column no-wrap">
+      <!-- Sticky Header -->
+      <q-card-section
+        class="dialog-sticky-header row items-center justify-between q-py-sm q-px-md"
+      >
+        <div class="row items-center q-gutter-sm no-wrap">
+          <q-avatar
+            size="36px"
+            color="amber-10"
+            text-color="dark"
+            icon="receipt_long"
+            class="gold-avatar"
+          />
+          <div class="column">
+            <div class="row items-center q-gutter-xs">
+              <span class="eyebrow text-gold">DETAIL INVOICE</span>
               <q-badge
+                v-if="store.selectedInvoice"
                 rounded
-                class="q-ml-xs"
-                :color="
-                  invoice.subscription.status === 'active'
-                    ? 'positive'
-                    : 'grey-7'
-                "
-                :label="invoice.subscription.status"
+                outline
+                color="warning"
+                :label="store.applicationName(invoice)"
+                class="app-badge"
               />
-            </p>
-          </div>
-          <div class="col-12 col-sm-6">
-            <p class="label">Status</p>
-            <q-badge
-              rounded
-              :color="getInvoiceStatus(invoice.status).color"
-              :label="getInvoiceStatus(invoice.status).label"
-            />
+            </div>
+            <h2 class="dialog-title text-sand text-weight-bolder">
+              {{ invoice.invoice_number || 'Memuat Invoice...' }}
+            </h2>
           </div>
         </div>
+
+        <div class="row items-center q-gutter-xs no-wrap">
+          <q-badge
+            v-if="store.selectedInvoice"
+            rounded
+            :color="getInvoiceStatus(invoice.status).color"
+            :label="getInvoiceStatus(invoice.status).label"
+            class="q-px-sm q-py-xs status-header-badge"
+          />
+          <q-btn
+            v-if="store.selectedInvoice && invoice.payment_attempts?.length"
+            flat
+            dense
+            round
+            color="warning"
+            icon="sync"
+            :loading="store.reconcileLoading"
+            :disable="store.reconcileLoading"
+            @click="store.reconcileInvoice()"
+          >
+            <q-tooltip class="bg-dark text-warning"
+              >Sinkronkan status transaksi terbaru dari gateway</q-tooltip
+            >
+          </q-btn>
+          <q-btn
+            flat
+            round
+            dense
+            icon="close"
+            text-color="grey-4"
+            aria-label="Tutup"
+            v-close-popup
+          />
+        </div>
+      </q-card-section>
+
+      <q-separator class="gold-separator" />
+
+      <!-- Dialog Body -->
+      <q-card-section
+        v-if="store.detailLoading"
+        class="q-pa-xl text-center flex flex-center col"
+      >
+        <div class="column items-center q-gutter-md">
+          <q-spinner-orbit color="warning" size="48px" />
+          <div class="text-sand text-weight-medium">Memuat data invoice...</div>
+        </div>
+      </q-card-section>
+
+      <q-card-section
+        v-else-if="store.selectedInvoice"
+        class="dialog-scroll-body col q-pa-md q-pa-sm-lg"
+      >
+        <!-- Error Banner Top -->
         <q-banner
           v-if="store.checkoutError"
           rounded
-          class="checkout-banner checkout-banner--error"
+          dense
+          class="gold-error-banner q-mb-md"
         >
-          <template #avatar><q-icon name="error_outline" /></template>
-          {{ store.checkoutError }}
-        </q-banner>
-        <!-- Pilihan Metode Pembayaran & Tombol Bayar -->
-        <q-card
-          v-if="canStartCheckout"
-          flat
-          bordered
-          class="q-pa-md checkout-method-card rounded-borders"
-        >
-          <div class="row items-center justify-between q-col-gutter-md">
-            <div class="col-12 col-sm">
-              <div class="text-weight-bold text-brown-9 row items-center">
-                <q-icon
-                  name="payment"
-                  class="q-mr-xs text-warning"
-                  size="20px"
-                />
-                Pilih Metode Pembayaran ({{ isMidtrans ? 'Midtrans' : 'DANA' }}
-                Sandbox)
-              </div>
-              <div class="text-caption text-grey-8 q-mt-xs">
-                {{
-                  isMidtrans
-                    ? 'Pilih QRIS, Virtual Account bank (BCA, BNI, BRI, Permata, Mandiri Bill), atau GoPay di Midtrans Sandbox.'
-                    : 'Pilih QRIS, DANA Wallet, atau Virtual Account bank yang tersedia di DANA Sandbox.'
-                }}
-              </div>
-            </div>
-            <div v-if="availableGateways.length > 1" class="col-12 col-sm-auto">
-              <q-btn-toggle
-                v-model="store.checkoutProvider"
-                push
-                glossy
-                dense
-                toggle-color="primary"
-                toggle-text-color="white"
-                text-color="brown-9"
-                :options="[
-                  { label: 'DANA Sandbox', value: 'dana' },
-                  { label: 'Midtrans Sandbox', value: 'midtrans' }
-                ]"
-              />
-            </div>
-            <div class="col-12 col-sm-auto">
-              <q-btn-toggle
-                v-model="store.checkoutPaymentMethod"
-                push
-                glossy
-                dense
-                toggle-color="warning"
-                toggle-text-color="dark"
-                text-color="brown-9"
-                :options="paymentMethodOptions"
-              />
-            </div>
-          </div>
-
-          <div class="row items-center justify-end q-mt-md">
+          <template #avatar>
+            <q-icon name="error_outline" color="negative" size="24px" />
+          </template>
+          <div class="text-body2 text-weight-medium">{{
+            store.checkoutError
+          }}</div>
+          <template #action>
             <q-btn
+              flat
+              dense
+              no-caps
               color="warning"
-              text-color="dark"
-              :icon="
-                store.checkoutPaymentMethod === 'qris'
-                  ? 'qr_code_2'
-                  : isVirtualAccountMethod(store.checkoutPaymentMethod)
-                    ? 'account_balance'
-                    : 'payments'
-              "
-              :label="
-                store.checkoutPaymentMethod === 'qris'
-                  ? `Bayar dengan QRIS ${isMidtrans ? 'Midtrans' : 'DANA'}`
-                  : isVirtualAccountMethod(store.checkoutPaymentMethod)
-                    ? `Buat ${paymentMethodLabel(store.checkoutPaymentMethod)}`
-                    : `Bayar melalui ${paymentMethodLabel(store.checkoutPaymentMethod)} Sandbox`
-              "
-              no-caps
-              :loading="store.checkoutLoading"
-              :disable="store.checkoutLoading"
-              @click="onStartCheckout()"
-            />
-          </div>
-        </q-card>
-
-        <q-card
-          v-if="isCurrentAttemptVirtualAccount"
-          flat
-          bordered
-          class="q-pa-md va-panel rounded-borders"
-        >
-          <div class="row items-center justify-between q-mb-sm">
-            <div class="text-weight-bold text-brown-9 row items-center">
-              <q-icon
-                name="account_balance"
-                class="q-mr-xs text-warning"
-                size="22px"
-              />
-              {{ paymentMethodLabel(currentAttemptMethod) }}
-              {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox
-            </div>
-            <q-badge
-              rounded
-              :color="
-                isCheckoutExpired
-                  ? 'negative'
-                  : invoice.status === 'paid'
-                    ? 'positive'
-                    : 'warning'
-              "
-              :label="
-                isCheckoutExpired
-                  ? 'Kedaluwarsa'
-                  : invoice.status === 'paid'
-                    ? 'Lunas'
-                    : 'Menunggu Pembayaran'
-              "
-            />
-          </div>
-          <div
-            v-if="!isCheckoutExpired && invoice.status === 'pending'"
-            class="text-caption text-grey-8 q-mb-sm row items-center"
-          >
-            <q-icon name="schedule" size="16px" class="q-mr-xs text-warning" />
-            <span
-              >Sisa waktu berlaku:
-              <strong>{{ formattedCountdown }}</strong></span
-            >
-          </div>
-          <q-banner
-            v-else-if="isCheckoutExpired"
-            rounded
-            dense
-            class="bg-negative text-white q-mb-sm"
-          >
-            Nomor Virtual Account telah kedaluwarsa. Buat ulang checkout untuk
-            memperoleh instruksi baru dari gateway.
-          </q-banner>
-          <div class="va-code q-pa-md text-center">
-            <div v-if="currentPaymentInstruction?.biller_code" class="q-mb-sm">
-              <div class="text-caption text-grey-8"
-                >Kode Perusahaan (Biller Code)</div
-              >
-              <div class="text-h6 text-weight-bold text-brown-9">{{
-                currentPaymentInstruction.biller_code
-              }}</div>
-            </div>
-            <div class="text-caption text-grey-8">
-              {{
-                currentPaymentInstruction?.biller_code
-                  ? 'Nomor Pembayaran (Bill Key)'
-                  : 'Nomor Virtual Account'
-              }}
-            </div>
-            <div class="text-h6 text-weight-bold text-brown-9 q-mt-xs">{{
-              currentPaymentCode
-            }}</div>
-            <div class="text-caption text-grey-7 q-mt-sm">
-              {{
-                currentPaymentInstruction?.message ||
-                'Bayar sesuai instruksi bank sebelum masa berlaku berakhir.'
-              }}
-            </div>
-          </div>
-          <div class="row justify-center q-gutter-sm q-mt-sm">
-            <q-btn
-              v-if="currentPaymentInstruction?.biller_code"
-              outline
-              dense
-              no-caps
-              color="brown-9"
-              icon="content_copy"
-              label="Salin Biller Code"
-              @click="copyPayload(currentPaymentInstruction.biller_code)"
-            />
-            <q-btn
-              outline
-              dense
-              no-caps
-              color="brown-9"
-              icon="content_copy"
-              :label="
-                currentPaymentInstruction?.biller_code
-                  ? 'Salin Bill Key'
-                  : 'Salin Nomor VA'
-              "
-              @click="copyPayload(currentPaymentCode)"
-            />
-            <q-btn
-              v-if="isCheckoutExpired || isLatestAttemptFailed"
-              color="negative"
-              unelevated
-              dense
-              no-caps
-              icon="replay"
-              label="Ulangi Pembayaran (Retry)"
-              :loading="store.checkoutLoading"
-              @click="store.retryCheckout()"
-            />
-          </div>
-        </q-card>
-
-        <!-- Tampilan GoPay Midtrans Sandbox -->
-        <q-card
-          v-if="isCurrentAttemptGopay"
-          flat
-          bordered
-          class="q-pa-md va-panel rounded-borders"
-        >
-          <div class="row items-center justify-between q-mb-sm">
-            <div class="text-weight-bold text-brown-9 row items-center">
-              <q-icon
-                name="account_balance_wallet"
-                class="q-mr-xs text-warning"
-                size="22px"
-              />
-              GoPay Midtrans Sandbox
-            </div>
-            <q-badge
-              rounded
-              :color="
-                isCheckoutExpired
-                  ? 'negative'
-                  : invoice.status === 'paid'
-                    ? 'positive'
-                    : 'warning'
-              "
-              :label="
-                isCheckoutExpired
-                  ? 'Kedaluwarsa'
-                  : invoice.status === 'paid'
-                    ? 'Lunas'
-                    : 'Menunggu Pembayaran'
-              "
-            />
-          </div>
-          <div
-            v-if="!isCheckoutExpired && invoice.status === 'pending'"
-            class="text-caption text-grey-8 q-mb-sm row items-center"
-          >
-            <q-icon name="schedule" size="16px" class="q-mr-xs text-warning" />
-            <span
-              >Sisa waktu berlaku:
-              <strong>{{ formattedCountdown }}</strong></span
-            >
-          </div>
-          <div class="va-code q-pa-md text-center">
-            <div class="text-caption text-grey-8">Pembayaran via GoPay</div>
-            <div class="text-caption text-grey-7 q-mt-sm">
-              {{
-                currentPaymentInstruction?.message ||
-                'Lanjutkan pembayaran di aplikasi GoPay.'
-              }}
-            </div>
-            <q-btn
-              v-if="store.checkoutUrl || latestAttempt?.checkout_url"
-              color="warning"
-              text-color="dark"
-              icon="open_in_new"
-              label="Buka Aplikasi GoPay"
-              no-caps
-              class="q-mt-md"
-              :href="store.checkoutUrl || latestAttempt?.checkout_url"
-              target="_blank"
-            />
-          </div>
-          <div class="row justify-center q-gutter-sm q-mt-sm">
-            <q-btn
-              v-if="isCheckoutExpired || isLatestAttemptFailed"
-              color="negative"
-              unelevated
-              dense
-              no-caps
-              icon="replay"
-              label="Ulangi Pembayaran (Retry)"
-              :loading="store.checkoutLoading"
-              @click="store.retryCheckout()"
-            />
-          </div>
-        </q-card>
-
-        <!-- Tampilan QRIS & Status Pembayaran QR -->
-        <q-card
-          v-if="
-            isCurrentAttemptQris ||
-            (store.checkoutPaymentMethod === 'qris' &&
-              (store.checkoutQrPayload ||
-                store.checkoutQrDataUrl ||
-                store.checkoutPaymentCode))
-          "
-          flat
-          bordered
-          class="q-pa-md qris-panel rounded-borders"
-        >
-          <div class="row items-center justify-between q-mb-sm">
-            <div class="text-weight-bold text-brown-9 row items-center">
-              <q-icon
-                name="qr_code_scanner"
-                class="q-mr-xs text-warning"
-                size="22px"
-              />
-              Kode QRIS {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox
-            </div>
-            <div class="row items-center q-gutter-xs">
-              <q-badge
-                rounded
-                :color="
-                  isQrisExpired
-                    ? 'negative'
-                    : invoice.status === 'paid'
-                      ? 'positive'
-                      : 'warning'
-                "
-                :label="
-                  isQrisExpired
-                    ? 'Kedaluwarsa'
-                    : invoice.status === 'paid'
-                      ? 'Lunas'
-                      : 'Menunggu Pembayaran'
-                "
-              />
-            </div>
-          </div>
-
-          <div
-            v-if="!isCheckoutExpired && invoice.status === 'pending'"
-            class="text-caption text-grey-8 q-mb-sm row items-center"
-          >
-            <q-icon name="schedule" size="16px" class="q-mr-xs text-warning" />
-            <span
-              >Sisa waktu berlaku:
-              <strong>{{ formattedCountdown }}</strong></span
-            >
-            <q-spinner-dots color="warning" size="18px" class="q-ml-sm" />
-          </div>
-          <div
-            v-else-if="isCheckoutExpired"
-            class="text-caption text-negative q-mb-sm row items-center"
-          >
-            <q-icon name="warning" size="16px" class="q-mr-xs" />
-            <span
-              >Kode QRIS telah kedaluwarsa. Silakan lakukan retry untuk membuat
-              kode baru.</span
-            >
-          </div>
-
-          <div class="qris-container q-pa-sm text-center">
-            <div v-if="store.checkoutQrLoading" class="q-pa-lg">
-              <q-spinner color="warning" size="36px" />
-              <div class="text-caption q-mt-xs">Membuat gambar QRIS...</div>
-            </div>
-            <div
-              v-else-if="store.checkoutQrDataUrl"
-              class="column items-center"
-            >
-              <img
-                :src="store.checkoutQrDataUrl"
-                :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
-                class="qris-img"
-              />
-              <div class="text-caption text-grey-7 q-mt-xs">
-                Scan kode QRIS melalui simulator atau aplikasi e-wallet sandbox
-                Anda.
-              </div>
-            </div>
-            <div
-              v-else-if="store.checkoutPaymentCode"
-              class="column items-center q-pa-md"
-            >
-              <div class="text-caption text-grey-8 q-mb-xs">
-                Kode Pembayaran {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox:
-              </div>
-              <div class="text-h6 text-weight-bold text-brown-9 q-mb-xs">
-                {{ store.checkoutPaymentCode }}
-              </div>
-              <div class="text-caption text-grey-7">
-                Gunakan kode bayar ini pada aplikasi atau simulator gateway
-                Sandbox.
-              </div>
-            </div>
-            <q-banner
-              v-if="store.checkoutQrError"
-              rounded
-              dense
-              class="bg-negative text-white q-mt-xs"
-            >
-              {{ store.checkoutQrError }}
-            </q-banner>
-          </div>
-
-          <div class="row q-gutter-sm items-center justify-center q-mt-sm">
-            <q-btn
-              v-if="store.checkoutQrDataUrl"
-              outline
-              dense
-              no-caps
-              color="brown-9"
-              icon="download"
-              label="Unduh QRIS"
-              @click="downloadQrisPng"
-            />
-            <q-btn
-              v-if="store.checkoutQrPayload"
-              outline
-              dense
-              no-caps
-              color="brown-9"
-              icon="content_copy"
-              label="Salin Payload QRIS"
-              @click="copyPayload(store.checkoutQrPayload)"
-            />
-            <q-btn
-              v-if="store.checkoutPaymentCode && !store.checkoutQrPayload"
-              outline
-              dense
-              no-caps
-              color="brown-9"
-              icon="content_copy"
-              label="Salin Kode Pembayaran"
-              @click="copyPayload(store.checkoutPaymentCode)"
-            />
-            <q-btn
-              v-if="isCheckoutExpired || isLatestAttemptFailed"
-              color="negative"
-              unelevated
-              dense
-              no-caps
-              icon="replay"
-              label="Ulangi Pembayaran (Retry)"
-              :loading="store.checkoutLoading"
-              @click="store.retryCheckout()"
-            />
-          </div>
-        </q-card>
-
-        <!-- Admin Sandbox Testing & Controls Panel -->
-        <q-card
-          flat
-          bordered
-          class="q-pa-md test-panel rounded-borders q-mt-sm"
-        >
-          <div class="row items-center justify-between q-mb-xs">
-            <div class="text-weight-bold text-brown-9 row items-center">
-              <q-icon name="science" class="q-mr-xs text-warning" size="20px" />
-              Kontrol Pengujian Admin UDEV ({{
-                isMidtrans ? 'Midtrans' : 'DANA'
-              }}
-              Sandbox)
-            </div>
-            <q-badge color="dark" text-color="warning" label="Sandbox UAT" />
-          </div>
-          <p class="section-description q-mb-sm">
-            Kontrol pengujian end-to-end: Lakukan checkout dan bayar melalui
-            {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox, lalu sinkronkan
-            status untuk verifikasi gateway resmi. Settlement operasional hanya
-            diproses dari konfirmasi gateway
-            {{ isMidtrans ? 'Midtrans' : 'DANA' }}
-            yang valid.
-          </p>
-          <div class="row q-gutter-sm items-center">
-            <q-btn
-              v-if="invoice.payment_attempts?.length"
-              color="primary"
-              unelevated
-              icon="sync"
-              label="Sinkronkan Status Gateway"
-              no-caps
-              dense
-              class="q-px-sm"
+              label="Sinkronkan Status"
               :loading="store.reconcileLoading"
-              :disable="store.reconcileLoading"
               @click="store.reconcileInvoice()"
             />
             <q-btn
-              v-if="invoice.status === 'pending' && !isMidtrans"
+              flat
+              dense
+              no-caps
               color="negative"
-              outline
-              icon="cancel"
-              label="Simulasi Gagal (Sandbox)"
-              no-caps
-              dense
-              class="q-px-sm"
-              :loading="store.simulateLoading"
-              :disable="store.simulateLoading"
-              @click="store.simulateSandboxPayment('failed')"
+              label="Coba Lagi"
+              :loading="store.checkoutLoading"
+              @click="store.retryCheckout()"
             />
-            <q-btn
-              v-if="store.checkoutUrl"
-              outline
-              color="warning"
-              icon="open_in_new"
-              :label="`Buka Checkout ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
-              no-caps
-              dense
-              class="q-px-sm"
-              :href="store.checkoutUrl"
-              target="_blank"
-            />
-          </div>
-          <q-banner
-            v-if="store.simulateMessage"
-            rounded
-            dense
-            class="bg-positive text-white q-mt-sm"
-          >
-            {{ store.simulateMessage }}
-          </q-banner>
-          <q-banner
-            v-if="store.simulateError || store.reconcileError"
-            rounded
-            dense
-            class="bg-negative text-white q-mt-sm"
-          >
-            {{ store.simulateError || store.reconcileError }}
-          </q-banner>
-        </q-card>
-        <q-separator />
-        <div>
-          <p class="section-title">Riwayat percobaan pembayaran</p>
-          <q-list
-            v-if="invoice.payment_attempts?.length"
-            bordered
-            separator
-            class="attempt-list"
-          >
-            <q-item
-              v-for="attempt in invoice.payment_attempts"
-              :key="attempt.id"
-            >
-              <q-item-section>
-                <q-item-label
-                  >{{ attempt.provider }} · Percobaan #{{
-                    attempt.attempt_number
-                  }}</q-item-label
-                >
-                <q-item-label caption>{{
-                  formatSubscriptionDate(attempt.requested_at)
-                }}</q-item-label>
-                <q-item-label caption>
-                  {{
-                    formatSubscriptionPrice(attempt.amount, attempt.currency)
-                  }}
-                  <span v-if="attemptPaymentMethod(attempt)">
-                    Â· {{ paymentMethodLabel(attemptPaymentMethod(attempt)) }}
-                  </span>
-                  <span v-if="attempt.checkout_expires_at">
-                    Â· Berlaku s.d.
-                    {{ formatSubscriptionDate(attempt.checkout_expires_at) }}
-                  </span>
-                  <span v-if="attempt.reconciliation">
-                    ·
+          </template>
+        </q-banner>
+
+        <!-- Two Column Desktop Layout -->
+        <div class="row q-col-gutter-md">
+          <!-- Left Column: Ringkasan & Rincian Tagihan -->
+          <div class="col-12 col-md-6 column q-gutter-y-md">
+            <!-- Card 1: Ringkasan Invoice & Info Tanggal -->
+            <div class="gold-card q-pa-md">
+              <div class="row items-center q-gutter-xs q-mb-sm">
+                <q-icon name="info" color="warning" size="18px" />
+                <span class="gold-card-title">Ringkasan Invoice</span>
+              </div>
+
+              <div class="row q-col-gutter-sm">
+                <div class="col-12 col-sm-6">
+                  <p class="field-label">Pelanggan</p>
+                  <p class="field-value">{{ invoice.customer?.name || '—' }}</p>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <p class="field-label">Aplikasi</p>
+                  <p class="field-value">{{
+                    store.applicationName(invoice)
+                  }}</p>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <p class="field-label">Paket Langganan</p>
+                  <p class="field-value">{{ invoice.plan?.name || '—' }}</p>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <p class="field-label">Durasi / Periode</p>
+                  <p class="field-value">
+                    {{ invoice.period_count || 1 }} Periode ({{
+                      invoice.duration_days
+                    }}
+                    hari)
+                  </p>
+                </div>
+              </div>
+
+              <q-separator class="gold-separator-subtle q-my-sm" />
+
+              <div class="row q-col-gutter-sm">
+                <div class="col-12 col-sm-6">
+                  <p class="field-label">Tanggal Terbit</p>
+                  <p class="field-value">{{
+                    formatSubscriptionDate(invoice.issued_at)
+                  }}</p>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <p class="field-label">Jatuh Tempo</p>
+                  <p class="field-value">{{
+                    formatSubscriptionDate(invoice.due_at)
+                  }}</p>
+                </div>
+                <div class="col-12 col-sm-6">
+                  <p class="field-label">Tanggal Pembayaran</p>
+                  <p class="field-value">{{
+                    formatSubscriptionDate(invoice.paid_at) || 'Belum dibayar'
+                  }}</p>
+                </div>
+                <div v-if="invoice.subscription" class="col-12 col-sm-6">
+                  <p class="field-label">Masa Aktif Langganan</p>
+                  <div class="row items-center q-gutter-xs">
+                    <span class="field-value">{{
+                      formatSubscriptionDate(invoice.subscription.expires_at)
+                    }}</span>
+                    <q-badge
+                      rounded
+                      dense
+                      :color="
+                        invoice.subscription.status === 'active'
+                          ? 'positive'
+                          : 'grey-7'
+                      "
+                      :label="invoice.subscription.status"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: Rincian Tagihan & Total Pembayaran -->
+            <div class="gold-card q-pa-md">
+              <div class="row items-center q-gutter-xs q-mb-sm">
+                <q-icon name="receipt" color="warning" size="18px" />
+                <span class="gold-card-title">Rincian Tagihan</span>
+              </div>
+
+              <div class="column q-gutter-y-xs q-mb-md">
+                <div class="row justify-between text-body2">
+                  <span class="text-muted">Harga Normal</span>
+                  <span class="text-sand">
                     {{
-                      reconciliationLabel(attempt.reconciliation.status).label
+                      formatSubscriptionPrice(
+                        invoice.pricing?.normal_price ?? invoice.amount,
+                        invoice.currency
+                      )
                     }}
                   </span>
-                </q-item-label>
-                <q-item-label v-if="attempt.settlement" caption>
-                  Settlement
-                  {{ formatSubscriptionDate(attempt.settlement.allocated_at) }}
-                </q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <div class="column items-end q-gutter-y-xs">
-                  <q-badge
-                    rounded
-                    :color="getPaymentAttemptStatus(attempt.status).color"
-                    :label="getPaymentAttemptStatus(attempt.status).label"
-                  />
-                  <q-badge
-                    v-if="attempt.reconciliation"
-                    rounded
-                    outline
-                    :color="
-                      reconciliationLabel(attempt.reconciliation.status).color
+                </div>
+                <div
+                  v-if="
+                    invoice.pricing?.discount_amount &&
+                    Number(invoice.pricing.discount_amount) > 0
+                  "
+                  class="row justify-between text-body2"
+                >
+                  <span class="text-muted">Potongan Diskon</span>
+                  <span class="text-negative">
+                    -{{
+                      formatSubscriptionPrice(
+                        invoice.pricing.discount_amount,
+                        invoice.currency
+                      )
+                    }}
+                  </span>
+                </div>
+                <div
+                  v-if="referralName !== '—'"
+                  class="row justify-between text-body2"
+                >
+                  <span class="text-muted">Referral Mitra</span>
+                  <span class="text-gold">{{ referralName }}</span>
+                </div>
+              </div>
+
+              <!-- Total Bayar Highlight Box -->
+              <div
+                class="total-bayar-box q-pa-md row items-center justify-between"
+              >
+                <div>
+                  <div class="total-label text-gold text-weight-bold"
+                    >TOTAL PEMBAYARAN</div
+                  >
+                  <div class="total-amount text-gold-glow">
+                    {{
+                      formatSubscriptionPrice(
+                        invoice.pricing?.final_price ?? invoice.amount,
+                        invoice.currency
+                      )
+                    }}
+                  </div>
+                </div>
+                <q-badge
+                  rounded
+                  :color="getInvoiceStatus(invoice.status).color"
+                  :label="getInvoiceStatus(invoice.status).label"
+                  class="q-px-sm q-py-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Pembayaran, QRIS/VA Display & Sandbox Controls -->
+          <div class="col-12 col-md-6 column q-gutter-y-md">
+            <!-- Payment Action / Instructions Panel -->
+            <div class="gold-card q-pa-md">
+              <!-- Header Section -->
+              <div class="row items-center justify-between q-mb-sm">
+                <div class="row items-center q-gutter-xs">
+                  <q-icon name="payment" color="warning" size="18px" />
+                  <span class="gold-card-title"
+                    >Metode & Instruksi Pembayaran</span
+                  >
+                </div>
+                <q-badge
+                  v-if="isCheckoutExpired"
+                  color="negative"
+                  label="Kedaluwarsa"
+                  rounded
+                />
+                <q-badge
+                  v-else-if="invoice.status === 'paid'"
+                  color="positive"
+                  label="Lunas"
+                  rounded
+                />
+                <q-badge
+                  v-else-if="isCurrentAttemptActive"
+                  color="warning"
+                  label="Menunggu Pembayaran"
+                  rounded
+                />
+              </div>
+
+              <!-- Gateway Selector Toggle (Midtrans Sandbox / DANA Sandbox) -->
+              <div v-if="canStartCheckout" class="q-mb-md">
+                <div class="text-caption text-muted q-mb-xs"
+                  >Pilih Gateway Pembayaran:</div
+                >
+                <div class="row q-gutter-xs">
+                  <q-btn
+                    v-for="gw in availableGateways"
+                    :key="gw"
+                    dense
+                    unelevated
+                    no-caps
+                    :class="[
+                      'gateway-toggle-btn',
+                      store.checkoutProvider === gw
+                        ? 'gateway-btn-active'
+                        : 'gateway-btn-inactive'
+                    ]"
+                    :icon="
+                      gw === 'midtrans' ? 'bolt' : 'account_balance_wallet'
                     "
                     :label="
-                      reconciliationLabel(attempt.reconciliation.status).label
+                      gw === 'midtrans' ? 'Midtrans Sandbox' : 'DANA Sandbox'
                     "
+                    @click="setProvider(gw)"
                   />
                 </div>
-              </q-item-section>
-            </q-item>
-          </q-list>
-          <p v-else class="empty-history">Belum ada percobaan pembayaran.</p>
-        </div>
-        <q-separator v-if="invoice.subscription?.period_events?.length" />
-        <div v-if="invoice.subscription?.period_events?.length">
-          <p class="section-title"
-            >Riwayat aktivasi dan perpanjangan langganan</p
-          >
-          <q-list bordered separator class="attempt-list">
-            <q-item
-              v-for="evt in invoice.subscription.period_events"
-              :key="evt.id"
-            >
-              <q-item-section>
-                <q-item-label class="text-weight-bold">
+              </div>
+
+              <!-- Payment Method Selector (QRIS / VA / GoPay / etc.) -->
+              <div v-if="canStartCheckout" class="q-mb-md">
+                <div class="text-caption text-muted q-mb-xs"
+                  >Pilih Metode Transaksi:</div
+                >
+                <div class="row q-gutter-xs">
+                  <q-btn
+                    v-for="opt in paymentMethodOptions"
+                    :key="opt.value"
+                    dense
+                    unelevated
+                    no-caps
+                    :class="[
+                      'method-toggle-btn',
+                      store.checkoutPaymentMethod === opt.value
+                        ? 'method-btn-active'
+                        : 'method-btn-inactive'
+                    ]"
+                    :label="opt.label"
+                    @click="store.checkoutPaymentMethod = opt.value"
+                  />
+                </div>
+              </div>
+
+              <!-- Start Checkout Button (with double-click prevention) -->
+              <div
+                v-if="canStartCheckout && !isCurrentAttemptActive"
+                class="q-mb-sm"
+              >
+                <q-btn
+                  class="full-width gold-action-btn"
+                  unelevated
+                  no-caps
+                  :loading="store.checkoutLoading"
+                  :disable="store.checkoutLoading"
+                  :icon="
+                    store.checkoutPaymentMethod === 'qris'
+                      ? 'qr_code_2'
+                      : isVirtualAccountMethod(store.checkoutPaymentMethod)
+                        ? 'account_balance'
+                        : 'payments'
+                  "
+                  :label="
+                    store.checkoutPaymentMethod === 'qris'
+                      ? `Bayar dengan QRIS ${isMidtrans ? 'Midtrans' : 'DANA'}`
+                      : isVirtualAccountMethod(store.checkoutPaymentMethod)
+                        ? `Dapatkan ${paymentMethodLabel(store.checkoutPaymentMethod)}`
+                        : `Lanjut ke ${paymentMethodLabel(store.checkoutPaymentMethod)}`
+                  "
+                  @click="onStartCheckout()"
+                />
+              </div>
+
+              <!-- Countdown Banner when active -->
+              <div
+                v-if="
+                  !isCheckoutExpired &&
+                  invoice.status === 'pending' &&
+                  store.checkoutRemainingSeconds > 0
+                "
+                class="countdown-box q-pa-sm row items-center justify-between q-mb-sm"
+              >
+                <div
+                  class="row items-center q-gutter-xs text-sand text-caption"
+                >
+                  <q-icon name="schedule" color="warning" size="16px" />
+                  <span>Sisa Waktu Pembayaran:</span>
+                  <strong class="text-gold">{{ formattedCountdown }}</strong>
+                </div>
+                <q-spinner-dots color="warning" size="16px" />
+              </div>
+
+              <!-- QRIS Display Box -->
+              <div
+                v-if="showQrisSection"
+                class="qris-presentation-box q-pa-md text-center q-mb-sm"
+              >
+                <div class="text-caption text-weight-bold text-dark q-mb-xs">
+                  QRIS {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox
+                </div>
+
+                <!-- Loading QR Spinner -->
+                <div
+                  v-if="store.checkoutLoading || store.checkoutQrLoading"
+                  class="q-py-lg"
+                >
+                  <q-spinner-tail color="primary" size="42px" />
+                  <div class="text-caption text-grey-8 q-mt-xs">
+                    Menghubungi Midtrans Sandbox untuk QRIS resmi...
+                  </div>
+                </div>
+
+                <!-- Real Official QR Image (Midtrans QR URL) or Rendered Canvas fallback -->
+                <div
+                  v-else-if="activeQrUrl || store.checkoutQrDataUrl"
+                  class="column items-center"
+                >
+                  <div class="qris-image-frame q-pa-xs bg-white shadow-3">
+                    <img
+                      v-if="activeQrUrl && !qrImageLoadFailed"
+                      :src="activeQrUrl"
+                      :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
+                      class="qris-render-img"
+                      @error="onQrImageError"
+                    />
+                    <img
+                      v-else-if="store.checkoutQrDataUrl"
+                      :src="store.checkoutQrDataUrl"
+                      :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
+                      class="qris-render-img"
+                    />
+                  </div>
+                  <div
+                    class="text-caption text-grey-9 text-weight-medium q-mt-xs"
+                  >
+                    Scan kode QRIS melalui simulator atau aplikasi sandbox.
+                  </div>
+                  <div
+                    class="row items-center justify-center q-gutter-xs q-mt-sm"
+                  >
+                    <q-btn
+                      v-if="store.checkoutQrDataUrl"
+                      dense
+                      outline
+                      no-caps
+                      size="sm"
+                      color="dark"
+                      icon="download"
+                      label="Unduh QRIS"
+                      @click="downloadQrisPng"
+                    />
+                    <q-btn
+                      v-if="store.checkoutQrPayload"
+                      dense
+                      outline
+                      no-caps
+                      size="sm"
+                      color="dark"
+                      icon="content_copy"
+                      label="Salin Payload"
+                      @click="
+                        copyPayload(
+                          store.checkoutQrPayload,
+                          'Payload QRIS disalin!'
+                        )
+                      "
+                    />
+                    <q-btn
+                      v-if="activeQrUrl"
+                      dense
+                      outline
+                      no-caps
+                      size="sm"
+                      color="primary"
+                      icon="open_in_new"
+                      label="Buka QR Resmi"
+                      :href="activeQrUrl"
+                      target="_blank"
+                    />
+                  </div>
+                </div>
+
+                <!-- Missing instructions fallback card -->
+                <div
+                  v-else-if="invoice.status === 'pending'"
+                  class="q-py-md text-center"
+                >
+                  <q-icon name="hourglass_empty" color="warning" size="32px" />
+                  <div class="text-caption text-grey-8 q-mt-xs">
+                    Instruksi QRIS belum dimuat dari gateway.
+                  </div>
+                  <q-btn
+                    dense
+                    unelevated
+                    no-caps
+                    size="sm"
+                    color="warning"
+                    text-color="dark"
+                    icon="sync"
+                    label="Ambil Ulang Instruksi"
+                    class="q-mt-sm"
+                    :loading="store.reconcileLoading"
+                    @click="store.reconcileInvoice()"
+                  />
+                </div>
+              </div>
+
+              <!-- Virtual Account Display Box -->
+              <div
+                v-if="isCurrentAttemptVirtualAccount"
+                class="va-presentation-box q-pa-md text-center q-mb-sm"
+              >
+                <div class="text-caption text-grey-4">
                   {{
-                    evt.event_type === 'activation'
-                      ? 'Aktivasi Awal Langganan'
-                      : 'Perpanjangan Masa Aktif'
+                    currentPaymentInstruction?.biller_code
+                      ? 'Mandiri Bill Payment'
+                      : paymentMethodLabel(currentAttemptMethod)
                   }}
-                </q-item-label>
-                <q-item-label caption>
-                  <span v-if="evt.previous_expires_at">
-                    {{ formatSubscriptionDate(evt.previous_expires_at) }} &rarr;
-                    {{ formatSubscriptionDate(evt.new_expires_at) }}
-                  </span>
-                  <span v-else>
-                    Masa aktif berakhir:
-                    {{ formatSubscriptionDate(evt.new_expires_at) }}
-                  </span>
-                </q-item-label>
-                <q-item-label v-if="evt.notes" caption class="text-grey-7">
-                  {{ evt.notes }}
-                </q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <div class="column items-end q-gutter-y-xs">
-                  <q-badge
-                    rounded
-                    :color="
-                      evt.event_type === 'activation' ? 'positive' : 'warning'
-                    "
-                    :text-color="
-                      evt.event_type === 'activation' ? 'white' : 'dark'
-                    "
-                    :label="
-                      evt.event_type === 'activation'
-                        ? 'Aktivasi'
-                        : 'Perpanjangan'
+                </div>
+                <div
+                  v-if="currentPaymentInstruction?.biller_code"
+                  class="q-my-xs"
+                >
+                  <div class="text-caption text-gold"
+                    >Kode Perusahaan (Biller Code)</div
+                  >
+                  <div class="text-h6 text-weight-bolder text-sand">{{
+                    currentPaymentInstruction.biller_code
+                  }}</div>
+                </div>
+                <div class="q-my-xs">
+                  <div class="text-caption text-gold">
+                    {{
+                      currentPaymentInstruction?.biller_code
+                        ? 'Nomor Pembayaran (Bill Key)'
+                        : 'Nomor Virtual Account'
+                    }}
+                  </div>
+                  <div
+                    class="text-h5 text-weight-bolder text-gold-glow letter-spaced"
+                    >{{ currentPaymentCode }}</div
+                  >
+                </div>
+                <div class="row justify-center q-gutter-xs q-mt-sm">
+                  <q-btn
+                    v-if="currentPaymentInstruction?.biller_code"
+                    outline
+                    dense
+                    no-caps
+                    size="sm"
+                    color="warning"
+                    icon="content_copy"
+                    label="Salin Biller Code"
+                    @click="
+                      copyPayload(
+                        currentPaymentInstruction.biller_code,
+                        'Biller Code disalin!'
+                      )
                     "
                   />
-                  <span class="text-caption text-grey-7">
-                    {{ formatSubscriptionDate(evt.created_at) }}
-                  </span>
+                  <q-btn
+                    outline
+                    dense
+                    no-caps
+                    size="sm"
+                    color="warning"
+                    icon="content_copy"
+                    :label="
+                      currentPaymentInstruction?.biller_code
+                        ? 'Salin Bill Key'
+                        : 'Salin Nomor VA'
+                    "
+                    @click="
+                      copyPayload(currentPaymentCode, 'Nomor VA disalin!')
+                    "
+                  />
                 </div>
-              </q-item-section>
-            </q-item>
-          </q-list>
+              </div>
+
+              <!-- GoPay Display Box -->
+              <div
+                v-if="isCurrentAttemptGopay"
+                class="va-presentation-box q-pa-md text-center q-mb-sm"
+              >
+                <div class="text-caption text-grey-4"
+                  >GoPay Midtrans Sandbox</div
+                >
+                <div class="text-body2 text-sand q-mt-xs"
+                  >Lanjutkan transaksi langsung di aplikasi GoPay Sandbox.</div
+                >
+                <q-btn
+                  v-if="store.checkoutUrl || latestAttempt?.checkout_url"
+                  unelevated
+                  no-caps
+                  color="warning"
+                  text-color="dark"
+                  icon="open_in_new"
+                  label="Buka Aplikasi GoPay"
+                  class="q-mt-sm font-weight-bold"
+                  :href="store.checkoutUrl || latestAttempt?.checkout_url"
+                  target="_blank"
+                />
+              </div>
+
+              <!-- Retry Checkout action when expired / failed -->
+              <div
+                v-if="
+                  (isCheckoutExpired || isLatestAttemptFailed) &&
+                  invoice.status === 'pending'
+                "
+                class="q-mt-xs"
+              >
+                <q-btn
+                  class="full-width"
+                  unelevated
+                  dense
+                  no-caps
+                  color="negative"
+                  icon="replay"
+                  label="Ulangi Checkout (Buat Instruksi Baru)"
+                  :loading="store.checkoutLoading"
+                  @click="store.retryCheckout()"
+                />
+              </div>
+            </div>
+
+            <!-- Card: Admin UAT Sandbox Controls -->
+            <div class="gold-card q-pa-md">
+              <div class="row items-center justify-between q-mb-xs">
+                <div class="row items-center q-gutter-xs">
+                  <q-icon name="science" color="warning" size="18px" />
+                  <span class="gold-card-title"
+                    >Kontrol Pengujian Admin (Sandbox)</span
+                  >
+                </div>
+                <q-badge
+                  color="dark"
+                  outline
+                  text-color="warning"
+                  label="Sandbox UAT"
+                />
+              </div>
+              <p class="text-caption text-muted q-mb-sm">
+                Sinkronkan status transaksi resmi dari gateway Midtrans / DANA.
+              </p>
+              <div class="row q-gutter-xs items-center">
+                <q-btn
+                  v-if="invoice.payment_attempts?.length"
+                  dense
+                  unelevated
+                  no-caps
+                  color="warning"
+                  text-color="dark"
+                  icon="sync"
+                  label="Sinkronkan Status Gateway"
+                  class="q-px-sm"
+                  :loading="store.reconcileLoading"
+                  :disable="store.reconcileLoading"
+                  @click="store.reconcileInvoice()"
+                />
+                <q-btn
+                  v-if="invoice.status === 'pending' && !isMidtrans"
+                  dense
+                  outline
+                  no-caps
+                  color="negative"
+                  icon="cancel"
+                  label="Simulasi Gagal (DANA)"
+                  class="q-px-sm"
+                  :loading="store.simulateLoading"
+                  :disable="store.simulateLoading"
+                  @click="store.simulateSandboxPayment('failed')"
+                />
+                <q-btn
+                  v-if="store.checkoutUrl"
+                  dense
+                  outline
+                  no-caps
+                  color="warning"
+                  icon="open_in_new"
+                  :label="`Buka Halaman Checkout`"
+                  class="q-px-sm"
+                  :href="store.checkoutUrl"
+                  target="_blank"
+                />
+              </div>
+              <q-banner
+                v-if="store.simulateMessage"
+                rounded
+                dense
+                class="bg-positive text-white q-mt-xs text-caption"
+              >
+                {{ store.simulateMessage }}
+              </q-banner>
+              <q-banner
+                v-if="store.simulateError || store.reconcileError"
+                rounded
+                dense
+                class="bg-negative text-white q-mt-xs text-caption"
+              >
+                {{ store.simulateError || store.reconcileError }}
+              </q-banner>
+            </div>
+          </div>
+        </div>
+
+        <!-- Full-Width Bottom Tabs: Riwayat Pembayaran & Riwayat Subscription -->
+        <div class="gold-card q-mt-md">
+          <q-tabs
+            v-model="activeTab"
+            dense
+            no-caps
+            class="gold-tabs"
+            active-color="warning"
+            indicator-color="warning"
+            align="left"
+          >
+            <q-tab
+              name="attempts"
+              icon="history"
+              :label="`Riwayat Pembayaran (${invoice.payment_attempts?.length || 0})`"
+            />
+            <q-tab
+              v-if="invoice.subscription?.period_events?.length"
+              name="subscriptions"
+              icon="card_membership"
+              :label="`Riwayat Langganan (${invoice.subscription.period_events.length})`"
+            />
+          </q-tabs>
+
+          <q-separator class="gold-separator" />
+
+          <q-tab-panels v-model="activeTab" animated class="bg-transparent">
+            <!-- Attempts Tab -->
+            <q-tab-panel name="attempts" class="q-pa-none">
+              <q-list
+                v-if="invoice.payment_attempts?.length"
+                separator
+                class="gold-history-list"
+              >
+                <q-expansion-item
+                  v-for="attempt in invoice.payment_attempts"
+                  :key="attempt.id"
+                  expand-separator
+                  header-class="gold-history-header"
+                >
+                  <template #header>
+                    <q-item-section avatar>
+                      <q-avatar
+                        size="30px"
+                        :color="
+                          attempt.provider === 'midtrans'
+                            ? 'amber-10'
+                            : 'blue-9'
+                        "
+                        text-color="dark"
+                        :icon="
+                          attempt.provider === 'midtrans'
+                            ? 'bolt'
+                            : 'account_balance_wallet'
+                        "
+                      />
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label class="text-sand text-weight-bold">
+                        {{
+                          attempt.provider === 'midtrans' ? 'Midtrans' : 'DANA'
+                        }}
+                        · Percobaan #{{ attempt.attempt_number }}
+                      </q-item-label>
+                      <q-item-label caption class="text-muted">
+                        {{ formatSubscriptionDate(attempt.requested_at) }} ·
+                        {{
+                          formatSubscriptionPrice(
+                            attempt.amount,
+                            attempt.currency
+                          )
+                        }}
+                        <span v-if="attemptPaymentMethod(attempt)">
+                          ·
+                          {{
+                            paymentMethodLabel(attemptPaymentMethod(attempt))
+                          }}
+                        </span>
+                      </q-item-label>
+                    </q-item-section>
+                    <q-item-section side>
+                      <div class="row items-center q-gutter-xs">
+                        <q-badge
+                          rounded
+                          :color="getPaymentAttemptStatus(attempt.status).color"
+                          :label="getPaymentAttemptStatus(attempt.status).label"
+                        />
+                        <q-badge
+                          v-if="attempt.reconciliation"
+                          rounded
+                          outline
+                          :color="
+                            reconciliationLabel(attempt.reconciliation.status)
+                              .color
+                          "
+                          :label="
+                            reconciliationLabel(attempt.reconciliation.status)
+                              .label
+                          "
+                        />
+                      </div>
+                    </q-item-section>
+                  </template>
+
+                  <!-- Expanded Details -->
+                  <div class="q-pa-md bg-dark-surface gold-border-top">
+                    <div class="row q-col-gutter-sm text-caption">
+                      <div class="col-12 col-sm-6">
+                        <span class="text-muted">Order ID:</span>
+                        <div class="row items-center q-gutter-xs">
+                          <code class="text-gold">{{
+                            attempt.order_id || '—'
+                          }}</code>
+                          <q-btn
+                            v-if="attempt.order_id"
+                            flat
+                            round
+                            dense
+                            size="xs"
+                            icon="content_copy"
+                            color="warning"
+                            @click="
+                              copyPayload(attempt.order_id, 'Order ID disalin!')
+                            "
+                          />
+                        </div>
+                      </div>
+                      <div class="col-12 col-sm-6">
+                        <span class="text-muted"
+                          >Provider Reference / Tx ID:</span
+                        >
+                        <div class="row items-center q-gutter-xs">
+                          <code class="text-gold">{{
+                            attempt.provider_reference ||
+                            attempt.gateway_payment_id ||
+                            '—'
+                          }}</code>
+                          <q-btn
+                            v-if="
+                              attempt.provider_reference ||
+                              attempt.gateway_payment_id
+                            "
+                            flat
+                            round
+                            dense
+                            size="xs"
+                            icon="content_copy"
+                            color="warning"
+                            @click="
+                              copyPayload(
+                                attempt.provider_reference ||
+                                  attempt.gateway_payment_id,
+                                'Referensi disalin!'
+                              )
+                            "
+                          />
+                        </div>
+                      </div>
+                      <div
+                        v-if="attempt.checkout_expires_at"
+                        class="col-12 col-sm-6"
+                      >
+                        <span class="text-muted">Batas Kedaluwarsa:</span>
+                        <div class="text-sand">{{
+                          formatSubscriptionDate(attempt.checkout_expires_at)
+                        }}</div>
+                      </div>
+                      <div
+                        v-if="attempt.reconciliation"
+                        class="col-12 col-sm-6"
+                      >
+                        <span class="text-muted">Reconciliation Status:</span>
+                        <div class="text-sand">
+                          {{ attempt.reconciliation.status }}
+                          <span v-if="attempt.reconciliation.retry_count">
+                            (Percobaan query:
+                            {{ attempt.reconciliation.retry_count }})
+                          </span>
+                        </div>
+                      </div>
+                      <div v-if="attempt.settlement" class="col-12">
+                        <span class="text-muted">Settlement:</span>
+                        <div class="text-positive">
+                          Dialokasikan pada
+                          {{
+                            formatSubscriptionDate(
+                              attempt.settlement.allocated_at
+                            )
+                          }}
+                          (Ref:
+                          {{ attempt.settlement.settlement_reference || '—' }})
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </q-expansion-item>
+              </q-list>
+              <div v-else class="q-pa-md text-center text-muted">
+                Belum ada percobaan pembayaran tercatat.
+              </div>
+            </q-tab-panel>
+
+            <!-- Subscriptions Tab -->
+            <q-tab-panel
+              v-if="invoice.subscription?.period_events?.length"
+              name="subscriptions"
+              class="q-pa-none"
+            >
+              <q-list separator class="gold-history-list">
+                <q-item
+                  v-for="evt in invoice.subscription.period_events"
+                  :key="evt.id"
+                  class="gold-history-header"
+                >
+                  <q-item-section avatar>
+                    <q-avatar
+                      size="30px"
+                      :color="
+                        evt.event_type === 'activation' ? 'positive' : 'warning'
+                      "
+                      text-color="dark"
+                      :icon="
+                        evt.event_type === 'activation'
+                          ? 'check_circle'
+                          : 'update'
+                      "
+                    />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-sand text-weight-bold">
+                      {{
+                        evt.event_type === 'activation'
+                          ? 'Aktivasi Awal Langganan'
+                          : 'Perpanjangan Masa Aktif'
+                      }}
+                    </q-item-label>
+                    <q-item-label caption class="text-muted">
+                      <span v-if="evt.previous_expires_at">
+                        {{ formatSubscriptionDate(evt.previous_expires_at) }}
+                        &rarr;
+                        {{ formatSubscriptionDate(evt.new_expires_at) }}
+                      </span>
+                      <span v-else>
+                        Masa aktif berakhir:
+                        {{ formatSubscriptionDate(evt.new_expires_at) }}
+                      </span>
+                    </q-item-label>
+                    <q-item-label v-if="evt.notes" caption class="text-grey-5">
+                      {{ evt.notes }}
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <span class="text-caption text-muted">
+                      {{ formatSubscriptionDate(evt.created_at) }}
+                    </span>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-tab-panel>
+          </q-tab-panels>
         </div>
       </q-card-section>
     </q-card>
@@ -768,7 +989,8 @@
 </template>
 
 <script setup>
-import { computed, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { useQuasar } from 'quasar'
 import { useInvoiceStore } from '@/stores/invoice'
 import {
   formatSubscriptionDate,
@@ -778,8 +1000,13 @@ import {
   getReconciliationStatus
 } from '@/utils/subscription'
 
+const $q = useQuasar()
 const store = useInvoiceStore()
+const activeTab = ref('attempts')
+const qrImageLoadFailed = ref(false)
+
 const invoice = computed(() => store.selectedInvoice || {})
+
 const referralName = computed(() => {
   const { referral_partner_name: partnerName, referral_code: referralCode } =
     invoice.value.pricing || {}
@@ -787,6 +1014,7 @@ const referralName = computed(() => {
   if (partnerName && referralCode) return `${partnerName} (${referralCode})`
   return partnerName || referralCode || '—'
 })
+
 const reconciliationLabel = status => getReconciliationStatus(status)
 
 const virtualAccountMethods = [
@@ -854,6 +1082,10 @@ const availableGateways = computed(() => {
   return ['dana', 'midtrans']
 })
 
+const setProvider = provider => {
+  store.checkoutProvider = provider
+}
+
 const paymentMethodOptions = computed(() => {
   if (isMidtrans.value) {
     return [
@@ -909,6 +1141,7 @@ watch(
 )
 
 const onStartCheckout = () => {
+  qrImageLoadFailed.value = false
   const method = store.checkoutPaymentMethod
   const provider = isMidtrans.value ? 'midtrans' : 'dana'
   let bank = null
@@ -955,6 +1188,16 @@ const currentPaymentCode = computed(
     ''
 )
 
+const isCurrentAttemptActive = computed(() => {
+  return (
+    latestAttempt.value?.status === 'pending' ||
+    Boolean(store.checkoutQrPayload) ||
+    Boolean(store.checkoutQrDataUrl) ||
+    Boolean(store.checkoutQrUrl) ||
+    Boolean(store.checkoutPaymentCode)
+  )
+})
+
 const isCurrentAttemptVirtualAccount = computed(
   () =>
     isVirtualAccountMethod(currentAttemptMethod.value) &&
@@ -974,17 +1217,31 @@ const isCurrentAttemptGopay = computed(() => {
   )
 })
 
-const isCurrentAttemptQris = computed(() => {
+const activeQrUrl = computed(() => {
+  if (qrImageLoadFailed.value) return null
+  return (
+    store.checkoutQrUrl ||
+    latestAttempt.value?.qr_url ||
+    latestAttempt.value?.metadata?.qr_url ||
+    latestAttempt.value?.metadata?.payment_instruction?.qr_url ||
+    null
+  )
+})
+
+const onQrImageError = () => {
+  qrImageLoadFailed.value = true
+}
+
+const showQrisSection = computed(() => {
   const method = currentAttemptMethod.value
   return (
     method === 'qris' &&
-    Boolean(
-      store.checkoutQrPayload ||
-      store.checkoutPaymentCode ||
-      latestAttempt.value?.qr_content ||
-      latestAttempt.value?.metadata?.qr_content ||
-      latestAttempt.value?.metadata?.payment_code
-    )
+    (Boolean(activeQrUrl.value) ||
+      Boolean(store.checkoutQrPayload) ||
+      Boolean(store.checkoutQrDataUrl) ||
+      store.checkoutLoading ||
+      store.checkoutQrLoading ||
+      isCurrentAttemptActive.value)
   )
 })
 
@@ -997,10 +1254,6 @@ const isCheckoutExpired = computed(() => {
     return true
   }
   return false
-})
-
-const isQrisExpired = computed(() => {
-  return isCheckoutExpired.value
 })
 
 const isLatestAttemptFailed = computed(() => {
@@ -1019,116 +1272,313 @@ const formattedCountdown = computed(() => {
 })
 
 const downloadQrisPng = () => {
-  if (!store.checkoutQrDataUrl) return
+  const targetUrl = store.checkoutQrDataUrl || activeQrUrl.value
+  if (!targetUrl) return
   const a = document.createElement('a')
-  a.href = store.checkoutQrDataUrl
+  a.href = targetUrl
   a.download = `qris-${invoice.value.invoice_number || (isMidtrans.value ? 'midtrans-sandbox' : 'dana-sandbox')}.png`
   a.click()
 }
 
-const copyPayload = async text => {
+const copyPayload = async (text, message = 'Berhasil disalin!') => {
   if (!text) return
   try {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       await navigator.clipboard.writeText(text)
+      $q.notify({
+        type: 'positive',
+        message,
+        position: 'top',
+        timeout: 1800
+      })
     }
   } catch {
     // ignore
   }
 }
 
+watch(
+  () => store.checkoutQrUrl,
+  () => {
+    qrImageLoadFailed.value = false
+  }
+)
+
 onBeforeUnmount(() => {
   store.stopCheckoutSession()
 })
 </script>
 
-<style scoped>
-.checkout-method-card {
-  border-color: #ecd29b;
-  background: #fffdf5;
+<style scoped lang="scss">
+/* Premium Black & Gold Design System */
+.invoice-dialog-card {
+  width: min(960px, 96vw);
+  max-width: 960px;
+  max-height: 90vh;
+  background-color: #0c0c0d;
+  color: #f7f4ee;
+  border: 1px solid #2e281b;
+  border-radius: 16px;
+  box-shadow:
+    0 20px 45px rgba(0, 0, 0, 0.8),
+    0 0 30px rgba(214, 173, 77, 0.1);
+  overflow: hidden;
+
+  @media (max-width: 600px) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+  }
 }
-.qris-panel {
-  border-color: #e0c37c;
-  background: #fffbf0;
+
+.dialog-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #111115;
+  border-bottom: 1px solid #242019;
 }
-.va-panel {
-  border-color: #e0c37c;
-  background: #fffbf0;
+
+.dialog-scroll-body {
+  overflow-y: auto;
 }
-.va-code {
-  border: 1px solid #ebd9b5;
-  border-radius: 8px;
-  background: #ffffff;
-  letter-spacing: 0.04em;
+
+.gold-avatar {
+  background: linear-gradient(135deg, #d6ad4d 0%, #a47d25 100%) !important;
 }
-.qris-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid #ebd9b5;
-}
-.qris-img {
-  max-width: 260px;
-  width: 100%;
-  height: auto;
-  border-radius: 4px;
-}
-.detail-dialog {
-  width: min(720px, 96vw);
-  border-radius: 14px;
-}
+
 .eyebrow {
-  margin: 0 0 4px;
-  color: #b88924;
   font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
 }
-h2 {
-  margin: 0;
-  color: #20180b;
-  font-size: 1.15rem;
+
+.app-badge {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
 }
-.label,
-.section-title {
-  margin: 0 0 4px;
-  color: #746b5c;
-  font-size: 0.75rem;
+
+.dialog-title {
+  margin: 2px 0 0;
+  font-size: 1.18rem;
+  line-height: 1.25;
+}
+
+.gold-separator {
+  background-color: #242019;
+}
+
+.gold-separator-subtle {
+  background-color: #1e1b15;
+}
+
+.gold-card {
+  background: #151519;
+  border: 1px solid #28241c;
+  border-radius: 12px;
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: #3d3522;
+  }
+}
+
+.gold-card-title {
+  color: #d6ad4d;
+  font-size: 0.88rem;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
-.value {
+
+.field-label {
+  margin: 0 0 2px;
+  color: #8c8577;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field-value {
   margin: 0;
-  color: #20180b;
-  font-size: 0.92rem;
+  color: #f7f4ee;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
-.attempt-list {
-  border-color: #e0d7c6;
+
+.text-sand {
+  color: #f7f4ee;
+}
+
+.text-gold {
+  color: #d6ad4d;
+}
+
+.text-gold-glow {
+  color: #f5cf6d;
+  text-shadow: 0 0 12px rgba(245, 207, 109, 0.35);
+}
+
+.text-muted {
+  color: #948e81;
+}
+
+/* Highlight Box: Total Bayar */
+.total-bayar-box {
+  background: linear-gradient(135deg, #221c11 0%, #17140e 100%);
+  border: 1px solid #d6ad4d;
+  border-radius: 10px;
+  box-shadow: 0 0 18px rgba(214, 173, 77, 0.12);
+}
+
+.total-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+}
+
+.total-amount {
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* Gateway & Method Toggles */
+.gateway-toggle-btn {
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  transition: all 0.2s ease;
+}
+
+.gateway-btn-active {
+  background: #d6ad4d !important;
+  color: #0c0c0d !important;
+  box-shadow: 0 0 10px rgba(214, 173, 77, 0.4);
+}
+
+.gateway-btn-inactive {
+  background: #1e1e24 !important;
+  color: #a8a090 !important;
+  border: 1px solid #2e281b;
+
+  &:hover {
+    color: #f7f4ee !important;
+    border-color: #d6ad4d;
+  }
+}
+
+.method-toggle-btn {
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  transition: all 0.2s ease;
+}
+
+.method-btn-active {
+  background: #f5cf6d !important;
+  color: #12100b !important;
+  box-shadow: 0 0 8px rgba(245, 207, 109, 0.35);
+}
+
+.method-btn-inactive {
+  background: #19191e !important;
+  color: #9c9484 !important;
+  border: 1px solid #28241c;
+
+  &:hover {
+    color: #f7f4ee !important;
+    border-color: #5c4e2e;
+  }
+}
+
+.gold-action-btn {
+  background: linear-gradient(135deg, #d6ad4d 0%, #bf9230 100%) !important;
+  color: #0c0c0d !important;
+  font-weight: 700;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(214, 173, 77, 0.3);
+  padding: 8px 16px;
+
+  &:hover {
+    filter: brightness(1.08);
+  }
+}
+
+.countdown-box {
+  background: #1f1b13;
+  border: 1px solid #4a3e23;
+  border-radius: 8px;
+}
+
+/* QRIS Presentation Box */
+.qris-presentation-box {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 2px solid #d6ad4d;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.qris-image-frame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid #e0d7c6;
+}
+
+.qris-render-img {
+  width: 220px;
+  height: 220px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* VA Box */
+.va-presentation-box {
+  background: #121216;
+  border: 1px solid #3d3420;
   border-radius: 10px;
 }
-.empty-history {
-  margin: 0;
-  color: #746b5c;
-  font-size: 0.85rem;
+
+.letter-spaced {
+  letter-spacing: 0.08em;
 }
-.checkout-banner {
-  border: 1px solid #e0c37c;
-  background: #fff8e4;
-  color: #4b3813;
+
+.gold-error-banner {
+  background: #2b1414;
+  color: #ffb8b8;
+  border: 1px solid #6b2626;
 }
-.checkout-banner--error {
-  border-color: #e8b4ad;
-  background: #fff1f1;
-  color: #7b2222;
+
+/* Tabs & History Lists */
+.gold-tabs {
+  background: #111115;
+  border-bottom: 1px solid #242019;
 }
-.test-panel {
-  border-color: #ecd29b;
-  background: #fffdf5;
+
+.gold-history-list {
+  background: #151519;
 }
-.section-description {
-  margin: 0;
-  color: #746b5c;
-  font-size: 0.8rem;
+
+.gold-history-header {
+  background: #151519;
+
+  &:hover {
+    background: #1c1c22;
+  }
+}
+
+.bg-dark-surface {
+  background: #111114;
+}
+
+.gold-border-top {
+  border-top: 1px solid #242019;
 }
 </style>
