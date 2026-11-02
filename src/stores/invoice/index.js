@@ -43,6 +43,14 @@ const isSecureCheckoutUrl = value => {
   }
 }
 
+const isProxyQrUrl = value => {
+  if (typeof value !== 'string' || !value) return false
+  return (
+    value.includes('/api/v1/admin/payment-attempts/') ||
+    value.includes('/qr-image')
+  )
+}
+
 async function fetchAllPages(request) {
   const records = []
   let page = 1
@@ -123,6 +131,8 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutBank: 'bca',
     checkoutTransactionId: null,
     checkoutQrUrl: null,
+    checkoutQrImageUrl: null,
+    checkoutQrString: null,
     checkoutQrDataUrl: null,
     checkoutQrPayload: null,
     checkoutQrBlobUrl: null,
@@ -728,6 +738,8 @@ export const useInvoiceStore = defineStore('invoice', {
 
     closeDetailDialog() {
       this.stopCheckoutSession()
+      this.checkoutQrImageUrl = null
+      this.checkoutQrString = null
       this.detailDialogOpen = false
     },
 
@@ -744,6 +756,8 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutBank = 'bca'
       this.checkoutTransactionId = null
       this.checkoutQrUrl = null
+      this.checkoutQrImageUrl = null
+      this.checkoutQrString = null
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
       this.checkoutQrBlobUrl = null
@@ -805,7 +819,7 @@ export const useInvoiceStore = defineStore('invoice', {
               new Date(this.checkoutExpiresAt).getTime() <= Date.now())
           this.checkoutIsExpired = Boolean(isExpired)
 
-          const qrUrl =
+          const rawQrUrl =
             latestAttempt.qr_url ||
             latestAttempt.metadata?.qr_url ||
             this.checkoutPaymentInstruction?.qr_url ||
@@ -813,7 +827,16 @@ export const useInvoiceStore = defineStore('invoice', {
             latestAttempt.checkout_url.includes('qr')
               ? latestAttempt.checkout_url
               : null)
-          this.checkoutQrUrl = qrUrl
+          this.checkoutQrUrl = isProxyQrUrl(rawQrUrl) ? null : rawQrUrl
+          this.checkoutQrImageUrl =
+            latestAttempt.qr_image_url ||
+            (isProxyQrUrl(rawQrUrl) ? rawQrUrl : null) ||
+            null
+          this.checkoutQrString =
+            latestAttempt.qr_string ||
+            latestAttempt.qr_content ||
+            latestAttempt.metadata?.qr_content ||
+            null
 
           const rawPayload = isQrisMpmInstruction(
             this.checkoutPaymentInstruction
@@ -943,13 +966,22 @@ export const useInvoiceStore = defineStore('invoice', {
           (this.checkoutExpiresAt &&
             new Date(this.checkoutExpiresAt).getTime() <= Date.now())
         this.checkoutPaymentInstruction = checkout.payment_instruction || null
-        this.checkoutQrUrl =
+        const rawCheckoutQrUrl =
           checkout.qr_url ||
           checkout.payment_instruction?.qr_url ||
           (typeof checkout.checkout_url === 'string' &&
           checkout.checkout_url.includes('qr')
             ? checkout.checkout_url
             : null)
+        this.checkoutQrUrl = isProxyQrUrl(rawCheckoutQrUrl)
+          ? null
+          : rawCheckoutQrUrl
+        this.checkoutQrImageUrl =
+          checkout.qr_image_url ||
+          (isProxyQrUrl(rawCheckoutQrUrl) ? rawCheckoutQrUrl : null) ||
+          null
+        this.checkoutQrString =
+          checkout.qr_string || checkout.qr_content || null
 
         const detailResponse = await invoiceService.get(this.selectedInvoice.id)
         this.selectedInvoice = detailResponse.data.data
@@ -967,8 +999,16 @@ export const useInvoiceStore = defineStore('invoice', {
             latestAttempt.qr_url ||
             latestAttempt.metadata?.qr_url ||
             this.checkoutQrUrl
-          if (recoveredQrUrl) {
+          if (recoveredQrUrl && !isProxyQrUrl(recoveredQrUrl)) {
             this.checkoutQrUrl = recoveredQrUrl
+          }
+          if (latestAttempt.qr_image_url || isProxyQrUrl(recoveredQrUrl)) {
+            this.checkoutQrImageUrl =
+              latestAttempt.qr_image_url || recoveredQrUrl
+          }
+          if (latestAttempt.qr_string || latestAttempt.metadata?.qr_content) {
+            this.checkoutQrString =
+              latestAttempt.qr_string || latestAttempt.metadata?.qr_content
           }
           if (
             latestAttempt.transaction_id ||

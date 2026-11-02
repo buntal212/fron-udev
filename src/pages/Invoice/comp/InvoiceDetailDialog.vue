@@ -4,7 +4,7 @@
     persistent
     transition-show="scale"
     transition-hide="scale"
-    @before-hide="store.closeDetailDialog"
+    @before-hide="onDialogClose"
   >
     <q-card class="invoice-dialog-card column no-wrap">
       <!-- Sticky Header -->
@@ -513,7 +513,7 @@
                       @click="downloadQrisPng"
                     />
                     <q-btn
-                      v-if="store.checkoutQrPayload"
+                      v-if="store.checkoutQrPayload || emvcoPayload"
                       dense
                       outline
                       no-caps
@@ -523,7 +523,7 @@
                       label="Salin Payload"
                       @click="
                         copyPayload(
-                          store.checkoutQrPayload,
+                          emvcoPayload || store.checkoutQrPayload,
                           'Payload QRIS disalin!'
                         )
                       "
@@ -1271,45 +1271,126 @@ const isCurrentAttemptGopay = computed(() => {
   )
 })
 
-const rawMidtransQrUrl = computed(() => {
+const isProxyUrl = url => {
+  if (!url || typeof url !== 'string') return false
   return (
+    url.includes('/api/v1/admin/payment-attempts/') || url.includes('/qr-image')
+  )
+}
+
+const proxyQrUrl = computed(() => {
+  return (
+    store.checkoutQrImageUrl ||
+    latestAttempt.value?.qr_image_url ||
+    (isProxyUrl(store.checkoutQrUrl) ? store.checkoutQrUrl : null) ||
+    (isProxyUrl(latestAttempt.value?.qr_url)
+      ? latestAttempt.value?.qr_url
+      : null) ||
+    null
+  )
+})
+
+const rawMidtransQrUrl = computed(() => {
+  const url =
     store.checkoutQrUrl ||
     latestAttempt.value?.qr_url ||
     latestAttempt.value?.metadata?.qr_url ||
     latestAttempt.value?.metadata?.payment_instruction?.qr_url ||
     null
+  return url && !isProxyUrl(url) ? url : null
+})
+
+const emvcoPayload = computed(() => {
+  return (
+    store.checkoutQrPayload ||
+    store.checkoutQrString ||
+    latestAttempt.value?.qr_string ||
+    latestAttempt.value?.qr_content ||
+    latestAttempt.value?.metadata?.qr_content ||
+    currentPaymentInstruction.value?.qr_content ||
+    null
   )
 })
 
+const cleanupProxyBlobUrl = () => {
+  if (
+    proxyBlobUrl.value &&
+    typeof window !== 'undefined' &&
+    window.URL?.revokeObjectURL
+  ) {
+    try {
+      window.URL.revokeObjectURL(proxyBlobUrl.value)
+    } catch {
+      // ignore
+    }
+    proxyBlobUrl.value = null
+  }
+}
+
+const loadProxyQrBlob = async () => {
+  if (isCheckoutExpired.value) {
+    cleanupProxyBlobUrl()
+    return null
+  }
+  const attemptId = latestAttempt.value?.id || store.checkoutAttempt?.id
+  const target = proxyQrUrl.value || attemptId
+  if (!target || proxyBlobUrl.value) return proxyBlobUrl.value
+
+  qrImageLoading.value = true
+  try {
+    const blobUrl = await store.fetchProxyQrBlob(target)
+    if (blobUrl) {
+      cleanupProxyBlobUrl()
+      proxyBlobUrl.value = blobUrl
+      return blobUrl
+    }
+  } catch (err) {
+    if (err?.response?.status === 410) {
+      cleanupProxyBlobUrl()
+    }
+  } finally {
+    qrImageLoading.value = false
+  }
+  return null
+}
+
 const displayQrSource = computed(() => {
   if (isCheckoutExpired.value) return null
-  if (rawMidtransQrUrl.value && !qrImageLoadFailed.value) {
-    return rawMidtransQrUrl.value
-  }
+
+  // 1. Gambar dari proxy terautentikasi (Axios responseType blob -> URL.createObjectURL)
   if (proxyBlobUrl.value) {
     return proxyBlobUrl.value
   }
+
+  // 2. URL QR resmi gateway jika valid (bukan proxy internal tanpa token)
+  if (
+    rawMidtransQrUrl.value &&
+    !qrImageLoadFailed.value &&
+    !isProxyUrl(rawMidtransQrUrl.value)
+  ) {
+    return rawMidtransQrUrl.value
+  }
+
+  // 3. Fallback render canvas dari payload EMVCo lokal
   if (store.checkoutQrDataUrl) {
     return store.checkoutQrDataUrl
   }
+
   return null
 })
 
 const handleQrImageError = async () => {
   qrImageLoadFailed.value = true
-  const attemptId = latestAttempt.value?.id || store.checkoutAttempt?.id
-  if (attemptId && !proxyBlobUrl.value && !isCheckoutExpired.value) {
-    qrImageLoading.value = true
-    try {
-      const blobUrl = await store.fetchProxyQrBlob(attemptId)
-      if (blobUrl) {
-        proxyBlobUrl.value = blobUrl
-      }
-    } catch {
-      // proxy fallback failed, will let displayQrSource show checkoutQrDataUrl if present
-    } finally {
-      qrImageLoading.value = false
-    }
+
+  // Ambil gambar melalui proxy Axios terautentikasi jika belum tersedia
+  if (!proxyBlobUrl.value && !isCheckoutExpired.value) {
+    const blobUrl = await loadProxyQrBlob()
+    if (blobUrl) return
+  }
+
+  // Jika proxy juga gagal, render ulang payload EMVCo ke canvas lokal
+  if (emvcoPayload.value && !store.checkoutQrDataUrl) {
+    await store.renderQr(emvcoPayload.value)
   }
 }
 
@@ -1319,6 +1400,7 @@ const showQrisSection = computed(() => {
     method === 'qris' &&
     (Boolean(rawMidtransQrUrl.value) ||
       Boolean(store.checkoutQrPayload) ||
+      Boolean(emvcoPayload.value) ||
       Boolean(store.checkoutQrDataUrl) ||
       Boolean(displayQrSource.value) ||
       store.checkoutLoading ||
@@ -1364,13 +1446,15 @@ const formattedCountdown = computed(() => {
 const canDownloadQr = computed(() => {
   return (
     !isCheckoutExpired.value &&
-    Boolean(displayQrSource.value || rawMidtransQrUrl.value)
+    Boolean(
+      displayQrSource.value || rawMidtransQrUrl.value || emvcoPayload.value
+    )
   )
 })
 
 const downloadQrisPng = async () => {
   const target = displayQrSource.value || rawMidtransQrUrl.value
-  if (!target) return
+  if (!target || isCheckoutExpired.value) return
 
   const filename = `qris-${invoice.value?.invoice_number || (isMidtrans.value ? 'midtrans-sandbox' : 'dana-sandbox')}.png`
 
@@ -1383,10 +1467,11 @@ const downloadQrisPng = async () => {
   }
 
   const attemptId = latestAttempt.value?.id || store.checkoutAttempt?.id
-  if (attemptId) {
+  const proxyTarget = proxyQrUrl.value || attemptId
+  if (proxyTarget) {
     try {
       const blobUrl =
-        proxyBlobUrl.value || (await store.fetchProxyQrBlob(attemptId))
+        proxyBlobUrl.value || (await store.fetchProxyQrBlob(proxyTarget))
       if (blobUrl) {
         const a = document.createElement('a')
         a.href = blobUrl
@@ -1399,7 +1484,9 @@ const downloadQrisPng = async () => {
     }
   }
 
-  window.open(target, '_blank')
+  if (target && !isProxyUrl(target)) {
+    window.open(target, '_blank')
+  }
 }
 
 const copyPayload = async (text, message = 'Berhasil disalin!') => {
@@ -1419,15 +1506,47 @@ const copyPayload = async (text, message = 'Berhasil disalin!') => {
   }
 }
 
+const onDialogClose = () => {
+  cleanupProxyBlobUrl()
+  store.closeDetailDialog()
+}
+
 watch(
-  () => [store.checkoutQrUrl, latestAttempt.value?.id],
-  () => {
+  () => [
+    store.checkoutQrUrl,
+    store.checkoutQrImageUrl,
+    latestAttempt.value?.id,
+    latestAttempt.value?.qr_url,
+    latestAttempt.value?.qr_image_url
+  ],
+  async () => {
     qrImageLoadFailed.value = false
-    proxyBlobUrl.value = null
+    cleanupProxyBlobUrl()
+
+    if (
+      currentAttemptMethod.value === 'qris' &&
+      !rawMidtransQrUrl.value &&
+      (proxyQrUrl.value || latestAttempt.value?.id) &&
+      !isCheckoutExpired.value
+    ) {
+      await loadProxyQrBlob()
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => isCheckoutExpired.value,
+  expired => {
+    if (expired) {
+      cleanupProxyBlobUrl()
+      store.stopCheckoutSession()
+    }
   }
 )
 
 onBeforeUnmount(() => {
+  cleanupProxyBlobUrl()
   store.stopCheckoutSession()
 })
 </script>

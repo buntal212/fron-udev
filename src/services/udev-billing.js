@@ -164,11 +164,19 @@ export const invoiceService = {
 export const paymentAttemptService = {
   list: params => getList('/v1/admin/payment-attempts', params),
   get: id => api.get(`/v1/admin/payment-attempts/${id}`),
-  qrImageBlob: id =>
-    api.get(`/v1/admin/payment-attempts/${id}/qr-image`, {
+  qrImageBlob: idOrUrl => {
+    const endpoint =
+      typeof idOrUrl === 'string' &&
+      (idOrUrl.startsWith('http://') ||
+        idOrUrl.startsWith('https://') ||
+        idOrUrl.startsWith('/api/'))
+        ? idOrUrl
+        : `/v1/admin/payment-attempts/${idOrUrl}/qr-image`
+    return api.get(endpoint, {
       responseType: 'blob',
       headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
-    }),
+    })
+  },
   retryCheckout: id =>
     api.post(
       `/v1/admin/payment-attempts/${id}/checkout/retry`,
