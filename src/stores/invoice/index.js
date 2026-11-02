@@ -852,7 +852,7 @@ export const useInvoiceStore = defineStore('invoice', {
               this.checkoutPaymentCode =
                 typeof rawPayload === 'string' ? rawPayload : null
             }
-            if (this.checkoutExpiresAt) {
+            if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
               this.startCountdown(this.checkoutExpiresAt)
               this.startPolling()
             }
@@ -937,7 +937,11 @@ export const useInvoiceStore = defineStore('invoice', {
         this.checkoutExpiresAt = checkout.expires_at || null
         this.checkoutTransactionId =
           checkout.transaction_id || checkout.gateway_payment_id || null
-        this.checkoutIsExpired = Boolean(checkout.is_expired)
+        this.checkoutIsExpired =
+          checkout.status === 'expired' ||
+          Boolean(checkout.is_expired) ||
+          (this.checkoutExpiresAt &&
+            new Date(this.checkoutExpiresAt).getTime() <= Date.now())
         this.checkoutPaymentInstruction = checkout.payment_instruction || null
         this.checkoutQrUrl =
           checkout.qr_url ||
@@ -1041,7 +1045,7 @@ export const useInvoiceStore = defineStore('invoice', {
             this.checkoutQrDataUrl = null
             this.checkoutPaymentCode =
               typeof rawPayload === 'string' ? rawPayload : null
-            if (this.checkoutExpiresAt) {
+            if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
               this.startCountdown(this.checkoutExpiresAt)
               this.startPolling()
             }
@@ -1171,7 +1175,7 @@ export const useInvoiceStore = defineStore('invoice', {
       action = 'paid',
       invoiceId = this.selectedInvoice?.id
     ) {
-      if (!invoiceId || this.simulateLoading) return
+      if (!invoiceId || this.simulateLoading || this.checkoutIsExpired) return
 
       this.simulateLoading = true
       this.simulateError = ''

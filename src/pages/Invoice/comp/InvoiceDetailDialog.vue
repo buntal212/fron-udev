@@ -724,7 +724,11 @@
                   @click="store.reconcileInvoice()"
                 />
                 <q-btn
-                  v-if="invoice.status === 'pending' && !isMidtrans"
+                  v-if="
+                    invoice.status === 'pending' &&
+                    !isMidtrans &&
+                    !isCheckoutExpired
+                  "
                   dense
                   outline
                   no-caps
@@ -733,11 +737,11 @@
                   label="Simulasi Gagal (DANA)"
                   class="q-px-sm"
                   :loading="store.simulateLoading"
-                  :disable="store.simulateLoading"
+                  :disable="store.simulateLoading || isCheckoutExpired"
                   @click="store.simulateSandboxPayment('failed')"
                 />
                 <q-btn
-                  v-if="store.checkoutUrl"
+                  v-if="store.checkoutUrl && !isCheckoutExpired"
                   dense
                   outline
                   no-caps
