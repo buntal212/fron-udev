@@ -4,6 +4,7 @@ import {
   applicationCustomerService,
   applicationService,
   invoiceService,
+  paymentAttemptService,
   paymentResultService,
   subscriptionPlanService,
   subscriptionService
@@ -120,15 +121,18 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutPaymentMethod: 'qris',
     checkoutProvider: null,
     checkoutBank: 'bca',
+    checkoutTransactionId: null,
     checkoutQrUrl: null,
     checkoutQrDataUrl: null,
     checkoutQrPayload: null,
+    checkoutQrBlobUrl: null,
     checkoutPaymentCode: null,
     checkoutPaymentInstruction: null,
     checkoutQrLoading: false,
     checkoutQrError: null,
     checkoutExpiresAt: null,
     checkoutRemainingSeconds: 0,
+    checkoutIsExpired: false,
     checkoutTimerId: null,
     checkoutPollId: null,
     reconcileLoading: false,
@@ -573,6 +577,31 @@ export const useInvoiceStore = defineStore('invoice', {
         clearInterval(this.checkoutPollId)
         this.checkoutPollId = null
       }
+      if (this.checkoutQrBlobUrl && typeof window !== 'undefined') {
+        window.URL.revokeObjectURL(this.checkoutQrBlobUrl)
+        this.checkoutQrBlobUrl = null
+      }
+    },
+
+    async fetchProxyQrBlob(attemptId = this.checkoutAttempt?.id) {
+      if (!attemptId || this.checkoutIsExpired) return null
+      try {
+        const response = await paymentAttemptService.qrImageBlob(attemptId)
+        if (response?.data) {
+          if (this.checkoutQrBlobUrl && typeof window !== 'undefined') {
+            window.URL.revokeObjectURL(this.checkoutQrBlobUrl)
+          }
+          this.checkoutQrBlobUrl = window.URL.createObjectURL(response.data)
+          return this.checkoutQrBlobUrl
+        }
+      } catch (err) {
+        if (err?.response?.status === 410) {
+          this.checkoutIsExpired = true
+          this.checkoutRemainingSeconds = 0
+          this.stopCheckoutSession()
+        }
+      }
+      return null
     },
 
     startCountdown(expiresAt) {
@@ -583,14 +612,24 @@ export const useInvoiceStore = defineStore('invoice', {
       const calculate = () => {
         const ms = new Date(expiresAt).getTime() - Date.now()
         this.checkoutRemainingSeconds = Math.max(0, Math.floor(ms / 1000))
-        if (this.checkoutRemainingSeconds <= 0 && this.checkoutTimerId) {
-          clearInterval(this.checkoutTimerId)
-          this.checkoutTimerId = null
+        if (this.checkoutRemainingSeconds <= 0) {
+          this.checkoutIsExpired = true
+          if (this.checkoutTimerId) {
+            clearInterval(this.checkoutTimerId)
+            this.checkoutTimerId = null
+          }
+          if (this.checkoutPollId) {
+            clearInterval(this.checkoutPollId)
+            this.checkoutPollId = null
+          }
         }
       }
       calculate()
       if (this.checkoutRemainingSeconds > 0) {
+        this.checkoutIsExpired = false
         this.checkoutTimerId = setInterval(calculate, 1000)
+      } else {
+        this.checkoutIsExpired = true
       }
     },
 
@@ -703,15 +742,18 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutPaymentMethod = 'qris'
       this.checkoutProvider = null
       this.checkoutBank = 'bca'
+      this.checkoutTransactionId = null
       this.checkoutQrUrl = null
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
+      this.checkoutQrBlobUrl = null
       this.checkoutPaymentCode = null
       this.checkoutPaymentInstruction = null
       this.checkoutQrLoading = false
       this.checkoutQrError = null
       this.checkoutExpiresAt = null
       this.checkoutRemainingSeconds = 0
+      this.checkoutIsExpired = false
       this.checkoutIdempotencyKey = createIdempotencyKey()
       this.checkoutLastMethod = null
       this.checkoutLastProvider = null
@@ -744,9 +786,24 @@ export const useInvoiceStore = defineStore('invoice', {
           this.checkoutBank = latestAttempt.metadata?.bank || 'bca'
           this.checkoutAttempt = latestAttempt
           this.checkoutUrl = latestAttempt.checkout_url || null
-          this.checkoutExpiresAt = latestAttempt.checkout_expires_at || null
+          this.checkoutExpiresAt =
+            latestAttempt.checkout_expires_at ||
+            latestAttempt.expires_at ||
+            null
+          this.checkoutTransactionId =
+            latestAttempt.transaction_id ||
+            latestAttempt.metadata?.transaction_id ||
+            latestAttempt.gateway_payment_id ||
+            null
           this.checkoutPaymentInstruction =
             latestAttempt.metadata?.payment_instruction || null
+
+          const isExpired =
+            latestAttempt.status === 'expired' ||
+            Boolean(latestAttempt.is_expired) ||
+            (this.checkoutExpiresAt &&
+              new Date(this.checkoutExpiresAt).getTime() <= Date.now())
+          this.checkoutIsExpired = Boolean(isExpired)
 
           const qrUrl =
             latestAttempt.qr_url ||
@@ -762,10 +819,11 @@ export const useInvoiceStore = defineStore('invoice', {
             this.checkoutPaymentInstruction
           )
             ? this.checkoutPaymentInstruction.qr_content
-            : latestAttempt.payment_code ||
-              latestAttempt.metadata?.payment_code ||
+            : latestAttempt.qr_string ||
               latestAttempt.qr_content ||
               latestAttempt.metadata?.qr_content ||
+              latestAttempt.payment_code ||
+              latestAttempt.metadata?.payment_code ||
               (latestAttempt.checkout_url &&
               !latestAttempt.checkout_url.startsWith('http')
                 ? latestAttempt.checkout_url
@@ -776,7 +834,8 @@ export const useInvoiceStore = defineStore('invoice', {
               method.startsWith('va_') ||
               method === 'bank_transfer' ||
               method === 'echannel') &&
-            latestAttempt.status === 'pending'
+            latestAttempt.status === 'pending' &&
+            !this.checkoutIsExpired
           ) {
             if (method === 'qris') {
               if (rawPayload) {
@@ -876,6 +935,9 @@ export const useInvoiceStore = defineStore('invoice', {
         this.checkoutAttempt = checkout
         this.checkoutUrl = checkout.checkout_url || null
         this.checkoutExpiresAt = checkout.expires_at || null
+        this.checkoutTransactionId =
+          checkout.transaction_id || checkout.gateway_payment_id || null
+        this.checkoutIsExpired = Boolean(checkout.is_expired)
         this.checkoutPaymentInstruction = checkout.payment_instruction || null
         this.checkoutQrUrl =
           checkout.qr_url ||
@@ -904,6 +966,14 @@ export const useInvoiceStore = defineStore('invoice', {
           if (recoveredQrUrl) {
             this.checkoutQrUrl = recoveredQrUrl
           }
+          if (
+            latestAttempt.transaction_id ||
+            latestAttempt.metadata?.transaction_id
+          ) {
+            this.checkoutTransactionId =
+              latestAttempt.transaction_id ||
+              latestAttempt.metadata?.transaction_id
+          }
         }
 
         if (method === 'dana_wallet') {
@@ -928,7 +998,7 @@ export const useInvoiceStore = defineStore('invoice', {
           ) {
             window.open(this.checkoutUrl, '_blank')
           }
-          if (this.checkoutExpiresAt) {
+          if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
             this.startCountdown(this.checkoutExpiresAt)
             this.startPolling()
           }
@@ -937,7 +1007,9 @@ export const useInvoiceStore = defineStore('invoice', {
             this.checkoutPaymentInstruction
           )
             ? this.checkoutPaymentInstruction.qr_content
-            : checkout.qr_content ||
+            : checkout.qr_string ||
+              checkout.qr_content ||
+              latestAttempt?.qr_string ||
               latestAttempt?.metadata?.qr_content ||
               checkout.payment_code
           if (rawPayload) {
@@ -949,7 +1021,7 @@ export const useInvoiceStore = defineStore('invoice', {
             this.checkoutPaymentCode = null
           }
           if (rawPayload || this.checkoutQrUrl) {
-            if (this.checkoutExpiresAt) {
+            if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
               this.startCountdown(this.checkoutExpiresAt)
               this.startPolling()
             }
@@ -1019,6 +1091,9 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
       this.checkoutPaymentCode = null
+      this.checkoutTransactionId = null
+      this.checkoutQrBlobUrl = null
+      this.checkoutIsExpired = false
       this.checkoutError = ''
       await this.startCheckout(
         this.checkoutPaymentMethod,
@@ -1058,11 +1133,29 @@ export const useInvoiceStore = defineStore('invoice', {
           if (recoveredQrUrl) {
             this.checkoutQrUrl = recoveredQrUrl
           }
+          this.checkoutTransactionId =
+            latest.transaction_id ||
+            latest.metadata?.transaction_id ||
+            latest.gateway_payment_id ||
+            null
+          this.checkoutExpiresAt =
+            latest.checkout_expires_at || latest.expires_at || null
+          this.checkoutIsExpired =
+            latest.status === 'expired' ||
+            Boolean(latest.is_expired) ||
+            (this.checkoutExpiresAt &&
+              new Date(this.checkoutExpiresAt).getTime() <= Date.now())
+
           const recoveredPayload =
+            latest.qr_string ||
             latest.qr_content ||
             latest.metadata?.qr_content ||
             latest.metadata?.payment_instruction?.qr_content
-          if (recoveredPayload && !this.checkoutQrDataUrl) {
+          if (
+            recoveredPayload &&
+            !this.checkoutQrDataUrl &&
+            !this.checkoutIsExpired
+          ) {
             this.checkoutQrPayload = recoveredPayload
             await this.renderQr(recoveredPayload)
           }

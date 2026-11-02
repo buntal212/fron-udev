@@ -417,9 +417,40 @@
                   QRIS {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox
                 </div>
 
+                <!-- Expired QR Alert -->
+                <div v-if="isCheckoutExpired" class="q-py-md text-center">
+                  <q-icon name="error_outline" color="negative" size="36px" />
+                  <div
+                    class="text-subtitle2 text-weight-bold text-negative q-mt-xs"
+                  >
+                    Kode QRIS Telah Kedaluwarsa
+                  </div>
+                  <div class="text-caption text-grey-8 q-mt-xs">
+                    Batas waktu pembayaran transaksi ini telah habis. Silakan
+                    ulangi checkout untuk instruksi baru.
+                  </div>
+                  <q-btn
+                    v-if="canStartCheckout"
+                    dense
+                    unelevated
+                    no-caps
+                    size="sm"
+                    color="primary"
+                    icon="refresh"
+                    label="Ulangi Checkout QRIS"
+                    class="q-mt-sm"
+                    :loading="store.checkoutLoading"
+                    @click="store.retryCheckout()"
+                  />
+                </div>
+
                 <!-- Loading QR Spinner -->
                 <div
-                  v-if="store.checkoutLoading || store.checkoutQrLoading"
+                  v-else-if="
+                    store.checkoutLoading ||
+                    store.checkoutQrLoading ||
+                    qrImageLoading
+                  "
                   class="q-py-lg"
                 >
                   <q-spinner-tail color="primary" size="42px" />
@@ -428,24 +459,14 @@
                   </div>
                 </div>
 
-                <!-- Real Official QR Image (Midtrans QR URL) or Rendered Canvas fallback -->
-                <div
-                  v-else-if="activeQrUrl || store.checkoutQrDataUrl"
-                  class="column items-center"
-                >
+                <!-- Real Official QR Image (Midtrans QR URL), Proxy Blob, or Rendered Canvas fallback -->
+                <div v-else-if="displayQrSource" class="column items-center">
                   <div class="qris-image-frame q-pa-xs bg-white shadow-3">
                     <img
-                      v-if="activeQrUrl && !qrImageLoadFailed"
-                      :src="activeQrUrl"
+                      :src="displayQrSource"
                       :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
                       class="qris-render-img"
-                      @error="onQrImageError"
-                    />
-                    <img
-                      v-else-if="store.checkoutQrDataUrl"
-                      :src="store.checkoutQrDataUrl"
-                      :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
-                      class="qris-render-img"
+                      @error="handleQrImageError"
                     />
                   </div>
                   <div
@@ -457,7 +478,28 @@
                     class="row items-center justify-center q-gutter-xs q-mt-sm"
                   >
                     <q-btn
-                      v-if="store.checkoutQrDataUrl"
+                      v-if="rawMidtransQrUrl"
+                      dense
+                      outline
+                      no-caps
+                      size="sm"
+                      color="amber-9"
+                      icon="content_copy"
+                      label="Salin URL Gambar QRIS"
+                      @click="
+                        copyPayload(
+                          rawMidtransQrUrl,
+                          'URL Gambar QRIS disalin untuk Simulator!'
+                        )
+                      "
+                    >
+                      <q-tooltip
+                        >Salin URL gambar untuk simulator Midtrans
+                        Sandbox</q-tooltip
+                      >
+                    </q-btn>
+                    <q-btn
+                      v-if="canDownloadQr"
                       dense
                       outline
                       no-caps
@@ -474,7 +516,7 @@
                       no-caps
                       size="sm"
                       color="dark"
-                      icon="content_copy"
+                      icon="qr_code"
                       label="Salin Payload"
                       @click="
                         copyPayload(
@@ -482,9 +524,11 @@
                           'Payload QRIS disalin!'
                         )
                       "
-                    />
+                    >
+                      <q-tooltip>Salin string payload QRIS (EMVCo)</q-tooltip>
+                    </q-btn>
                     <q-btn
-                      v-if="activeQrUrl"
+                      v-if="rawMidtransQrUrl"
                       dense
                       outline
                       no-caps
@@ -492,7 +536,7 @@
                       color="primary"
                       icon="open_in_new"
                       label="Buka QR Resmi"
-                      :href="activeQrUrl"
+                      :href="rawMidtransQrUrl"
                       target="_blank"
                     />
                   </div>
@@ -1004,6 +1048,8 @@ const $q = useQuasar()
 const store = useInvoiceStore()
 const activeTab = ref('attempts')
 const qrImageLoadFailed = ref(false)
+const qrImageLoading = ref(false)
+const proxyBlobUrl = ref(null)
 
 const invoice = computed(() => store.selectedInvoice || {})
 
@@ -1142,6 +1188,7 @@ watch(
 
 const onStartCheckout = () => {
   qrImageLoadFailed.value = false
+  proxyBlobUrl.value = null
   const method = store.checkoutPaymentMethod
   const provider = isMidtrans.value ? 'midtrans' : 'dana'
   let bank = null
@@ -1217,8 +1264,7 @@ const isCurrentAttemptGopay = computed(() => {
   )
 })
 
-const activeQrUrl = computed(() => {
-  if (qrImageLoadFailed.value) return null
+const rawMidtransQrUrl = computed(() => {
   return (
     store.checkoutQrUrl ||
     latestAttempt.value?.qr_url ||
@@ -1228,24 +1274,57 @@ const activeQrUrl = computed(() => {
   )
 })
 
-const onQrImageError = () => {
+const displayQrSource = computed(() => {
+  if (isCheckoutExpired.value) return null
+  if (rawMidtransQrUrl.value && !qrImageLoadFailed.value) {
+    return rawMidtransQrUrl.value
+  }
+  if (proxyBlobUrl.value) {
+    return proxyBlobUrl.value
+  }
+  if (store.checkoutQrDataUrl) {
+    return store.checkoutQrDataUrl
+  }
+  return null
+})
+
+const handleQrImageError = async () => {
   qrImageLoadFailed.value = true
+  const attemptId = latestAttempt.value?.id || store.checkoutAttempt?.id
+  if (attemptId && !proxyBlobUrl.value && !isCheckoutExpired.value) {
+    qrImageLoading.value = true
+    try {
+      const blobUrl = await store.fetchProxyQrBlob(attemptId)
+      if (blobUrl) {
+        proxyBlobUrl.value = blobUrl
+      }
+    } catch {
+      // proxy fallback failed, will let displayQrSource show checkoutQrDataUrl if present
+    } finally {
+      qrImageLoading.value = false
+    }
+  }
 }
 
 const showQrisSection = computed(() => {
   const method = currentAttemptMethod.value
   return (
     method === 'qris' &&
-    (Boolean(activeQrUrl.value) ||
+    (Boolean(rawMidtransQrUrl.value) ||
       Boolean(store.checkoutQrPayload) ||
       Boolean(store.checkoutQrDataUrl) ||
+      Boolean(displayQrSource.value) ||
       store.checkoutLoading ||
       store.checkoutQrLoading ||
+      qrImageLoading.value ||
       isCurrentAttemptActive.value)
   )
 })
 
 const isCheckoutExpired = computed(() => {
+  if (store.checkoutIsExpired) return true
+  if (store.checkoutRemainingSeconds <= 0 && store.checkoutExpiresAt)
+    return true
   if (latestAttempt.value?.status === 'expired') return true
   if (
     store.checkoutExpiresAt &&
@@ -1271,13 +1350,45 @@ const formattedCountdown = computed(() => {
   return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`
 })
 
-const downloadQrisPng = () => {
-  const targetUrl = store.checkoutQrDataUrl || activeQrUrl.value
-  if (!targetUrl) return
-  const a = document.createElement('a')
-  a.href = targetUrl
-  a.download = `qris-${invoice.value.invoice_number || (isMidtrans.value ? 'midtrans-sandbox' : 'dana-sandbox')}.png`
-  a.click()
+const canDownloadQr = computed(() => {
+  return (
+    !isCheckoutExpired.value &&
+    Boolean(displayQrSource.value || rawMidtransQrUrl.value)
+  )
+})
+
+const downloadQrisPng = async () => {
+  const target = displayQrSource.value || rawMidtransQrUrl.value
+  if (!target) return
+
+  const filename = `qris-${invoice.value?.invoice_number || (isMidtrans.value ? 'midtrans-sandbox' : 'dana-sandbox')}.png`
+
+  if (target.startsWith('data:') || target.startsWith('blob:')) {
+    const a = document.createElement('a')
+    a.href = target
+    a.download = filename
+    a.click()
+    return
+  }
+
+  const attemptId = latestAttempt.value?.id || store.checkoutAttempt?.id
+  if (attemptId) {
+    try {
+      const blobUrl =
+        proxyBlobUrl.value || (await store.fetchProxyQrBlob(attemptId))
+      if (blobUrl) {
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = filename
+        a.click()
+        return
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  window.open(target, '_blank')
 }
 
 const copyPayload = async (text, message = 'Berhasil disalin!') => {
@@ -1298,9 +1409,10 @@ const copyPayload = async (text, message = 'Berhasil disalin!') => {
 }
 
 watch(
-  () => store.checkoutQrUrl,
+  () => [store.checkoutQrUrl, latestAttempt.value?.id],
   () => {
     qrImageLoadFailed.value = false
+    proxyBlobUrl.value = null
   }
 )
 
