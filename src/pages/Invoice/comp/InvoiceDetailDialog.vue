@@ -308,56 +308,59 @@
               </div>
 
               <!-- Gateway Selector Toggle (Midtrans Sandbox / DANA Sandbox) -->
-              <div v-if="canStartCheckout" class="q-mb-md">
-                <div class="text-caption text-muted q-mb-xs"
-                  >Pilih Gateway Pembayaran:</div
-                >
-                <div class="row q-gutter-xs">
-                  <q-btn
-                    v-for="gw in availableGateways"
-                    :key="gw"
-                    dense
-                    unelevated
-                    no-caps
-                    :class="[
-                      'gateway-toggle-btn',
-                      store.checkoutProvider === gw
-                        ? 'gateway-btn-active'
-                        : 'gateway-btn-inactive'
-                    ]"
-                    :icon="
-                      gw === 'midtrans' ? 'bolt' : 'account_balance_wallet'
-                    "
-                    :label="
-                      gw === 'midtrans' ? 'Midtrans Sandbox' : 'DANA Sandbox'
-                    "
-                    @click="setProvider(gw)"
-                  />
+              <div
+                v-if="canStartCheckout && availableGateways.length > 1"
+                class="q-mb-md"
+              >
+                <div class="text-caption text-muted q-mb-xs">
+                  Pilih Gateway Pembayaran:
                 </div>
+                <q-btn-toggle
+                  v-model="store.checkoutProvider"
+                  spread
+                  dense
+                  no-caps
+                  rounded
+                  unelevated
+                  toggle-color="amber-9"
+                  color="dark"
+                  text-color="grey-4"
+                  toggle-text-color="dark"
+                  class="gateway-btn-toggle"
+                  :options="[
+                    {
+                      label: 'DANA Sandbox',
+                      value: 'dana',
+                      icon: 'account_balance_wallet'
+                    },
+                    {
+                      label: 'Midtrans Sandbox',
+                      value: 'midtrans',
+                      icon: 'bolt'
+                    }
+                  ]"
+                />
               </div>
 
               <!-- Payment Method Selector (QRIS / VA / GoPay / etc.) -->
               <div v-if="canStartCheckout" class="q-mb-md">
-                <div class="text-caption text-muted q-mb-xs"
-                  >Pilih Metode Transaksi:</div
-                >
-                <div class="row q-gutter-xs">
-                  <q-btn
-                    v-for="opt in paymentMethodOptions"
-                    :key="opt.value"
-                    dense
-                    unelevated
-                    no-caps
-                    :class="[
-                      'method-toggle-btn',
-                      store.checkoutPaymentMethod === opt.value
-                        ? 'method-btn-active'
-                        : 'method-btn-inactive'
-                    ]"
-                    :label="opt.label"
-                    @click="store.checkoutPaymentMethod = opt.value"
-                  />
+                <div class="text-caption text-muted q-mb-xs">
+                  Pilih Metode Transaksi:
                 </div>
+                <q-btn-toggle
+                  v-model="store.checkoutPaymentMethod"
+                  spread
+                  dense
+                  no-caps
+                  rounded
+                  unelevated
+                  toggle-color="amber-9"
+                  color="dark"
+                  text-color="grey-4"
+                  toggle-text-color="dark"
+                  class="method-btn-toggle"
+                  :options="paymentMethodOptions"
+                />
               </div>
 
               <!-- Start Checkout Button (with double-click prevention) -->
@@ -465,7 +468,7 @@
                     <img
                       :src="displayQrSource"
                       :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
-                      class="qris-render-img"
+                      class="qris-img"
                       @error="handleQrImageError"
                     />
                   </div>
@@ -1335,6 +1338,10 @@ const isCheckoutExpired = computed(() => {
   return false
 })
 
+const isQrisExpired = computed(() => {
+  return isCheckoutExpired.value
+})
+
 const isLatestAttemptFailed = computed(() => {
   return (
     latestAttempt.value?.status === 'failed' ||
@@ -1644,7 +1651,8 @@ onBeforeUnmount(() => {
   border: 1px solid #e0d7c6;
 }
 
-.qris-render-img {
+.qris-render-img,
+.qris-img {
   width: 220px;
   height: 220px;
   max-width: 100%;
