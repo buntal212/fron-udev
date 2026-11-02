@@ -114,6 +114,9 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutAttempt: null,
     checkoutUrl: null,
     checkoutIdempotencyKey: null,
+    checkoutLastMethod: null,
+    checkoutLastProvider: null,
+    checkoutLastBank: null,
     checkoutPaymentMethod: 'qris',
     checkoutProvider: null,
     checkoutBank: 'bca',
@@ -710,6 +713,9 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutExpiresAt = null
       this.checkoutRemainingSeconds = 0
       this.checkoutIdempotencyKey = createIdempotencyKey()
+      this.checkoutLastMethod = null
+      this.checkoutLastProvider = null
+      this.checkoutLastBank = null
       this.reconcileLoading = false
       this.reconcileError = ''
       this.simulateLoading = false
@@ -844,6 +850,18 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutProvider = provider
       this.checkoutBank = bank
 
+      if (
+        !this.checkoutIdempotencyKey ||
+        this.checkoutLastMethod !== method ||
+        this.checkoutLastProvider !== provider ||
+        this.checkoutLastBank !== bank
+      ) {
+        this.checkoutIdempotencyKey = createIdempotencyKey()
+        this.checkoutLastMethod = method
+        this.checkoutLastProvider = provider
+        this.checkoutLastBank = bank
+      }
+
       try {
         const payload = { payment_method: method }
         if (provider) payload.provider = provider
@@ -964,7 +982,12 @@ export const useInvoiceStore = defineStore('invoice', {
         }
       } catch (error) {
         const status = error?.response?.status
-        if (
+        if (status === 409) {
+          this.checkoutIdempotencyKey = createIdempotencyKey()
+          this.checkoutError =
+            error.response?.data?.message ||
+            'Permintaan checkout berkonflik dengan transaksi sebelumnya. Silakan klik tombol untuk membuat instruksi baru.'
+        } else if (
           error?.code === 'ECONNABORTED' ||
           error?.message?.includes('timeout') ||
           error?.message?.includes('Network Error')
@@ -990,6 +1013,9 @@ export const useInvoiceStore = defineStore('invoice', {
     async retryCheckout() {
       this.stopCheckoutSession()
       this.checkoutIdempotencyKey = createIdempotencyKey()
+      this.checkoutLastMethod = this.checkoutPaymentMethod
+      this.checkoutLastProvider = this.checkoutProvider
+      this.checkoutLastBank = this.checkoutBank
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
       this.checkoutPaymentCode = null
