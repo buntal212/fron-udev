@@ -1120,25 +1120,45 @@ const attemptPaymentMethod = attempt =>
   attempt?.metadata?.payment_method || attempt?.payment_method || null
 
 const latestAttempt = computed(() => {
-  const attempts = invoice.value.payment_attempts
-  if (!Array.isArray(attempts) || attempts.length === 0) return null
-  return [...attempts].sort((a, b) => b.attempt_number - a.attempt_number)[0]
+  const attempts = invoice.value?.payment_attempts
+  if (Array.isArray(attempts) && attempts.length > 0) {
+    return [...attempts].sort((a, b) => b.attempt_number - a.attempt_number)[0]
+  }
+  return store.checkoutAttempt || null
 })
 
 const isMidtrans = computed(() => {
   if (store.checkoutProvider) {
     return store.checkoutProvider === 'midtrans'
   }
-  const attemptProvider = latestAttempt.value?.provider
+  const attemptProvider =
+    latestAttempt.value?.provider ||
+    latestAttempt.value?.metadata?.provider ||
+    latestAttempt.value?.payment_gateway?.provider
   if (attemptProvider) {
     return attemptProvider === 'midtrans'
   }
-  const gateways = invoice.value.application_payment_gateways || []
+  const qrUrl =
+    store.checkoutQrUrl ||
+    store.checkoutQrImageUrl ||
+    latestAttempt.value?.qr_url ||
+    latestAttempt.value?.qr_image_url ||
+    ''
+  if (
+    typeof qrUrl === 'string' &&
+    (qrUrl.toLowerCase().includes('midtrans') || qrUrl.includes('/qr-image'))
+  ) {
+    return true
+  }
+  const gateways = invoice.value?.application_payment_gateways || []
   const hasMidtrans = gateways.some(
     g => g.provider === 'midtrans' && g.is_active
   )
   const hasDana = gateways.some(g => g.provider === 'dana' && g.is_active)
-  return hasMidtrans && !hasDana
+  if (hasMidtrans && !hasDana) {
+    return true
+  }
+  return false
 })
 
 const availableGateways = computed(() => {
@@ -1437,9 +1457,13 @@ const loadProxyQrBlob = async () => {
 const displayQrSource = computed(() => {
   if (isCheckoutExpired.value) return null
 
-  // 1. Gambar dari proxy terautentikasi (Axios responseType blob -> URL.createObjectURL)
+  // 1. Gambar dari proxy terautentikasi (ref lokal atau store untuk attempt aktif)
+  const attemptId = latestAttempt.value?.id || store.checkoutAttempt?.id
   if (proxyBlobUrl.value) {
     return proxyBlobUrl.value
+  }
+  if (store.checkoutQrBlobUrl && store.checkoutQrBlobAttemptId === attemptId) {
+    return store.checkoutQrBlobUrl
   }
 
   // 2. URL QR resmi gateway jika valid (bukan proxy internal tanpa token)
@@ -1497,8 +1521,6 @@ const showQrisSection = computed(() => {
 
 const isCheckoutExpired = computed(() => {
   if (store.checkoutIsExpired) return true
-  if (store.checkoutRemainingSeconds <= 0 && store.checkoutExpiresAt)
-    return true
   if (latestAttempt.value?.status === 'expired') return true
   if (
     store.checkoutExpiresAt &&
@@ -1608,6 +1630,7 @@ const onDialogClose = () => {
 
 watch(
   () => [
+    store.detailDialogOpen,
     store.checkoutQrUrl,
     store.checkoutQrImageUrl,
     latestAttempt.value?.id,
@@ -1615,6 +1638,8 @@ watch(
     latestAttempt.value?.qr_image_url
   ],
   async () => {
+    if (!store.detailDialogOpen) return
+
     const attemptId =
       latestAttempt.value?.id || store.checkoutAttempt?.id || null
     const attemptChanged = attemptId !== currentAttemptId.value
@@ -1645,7 +1670,7 @@ watch(
       (proxyQrUrl.value || latestAttempt.value?.id) &&
       !isCheckoutExpired.value &&
       !isTerminal &&
-      !qrImageLoading.value &&
+      (!qrImageLoading.value || attemptChanged) &&
       (!proxyBlobUrl.value || attemptChanged)
     ) {
       await loadProxyQrBlob()

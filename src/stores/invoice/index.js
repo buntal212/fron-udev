@@ -964,7 +964,10 @@ export const useInvoiceStore = defineStore('invoice', {
             latestAttempt.payment_method ||
             'qris'
           this.checkoutPaymentMethod = method
-          this.checkoutProvider = latestAttempt.provider || null
+          this.checkoutProvider =
+            latestAttempt.provider ||
+            latestAttempt.metadata?.provider ||
+            (latestAttempt.qr_image_url ? 'midtrans' : null)
           this.checkoutBank = latestAttempt.metadata?.bank || 'bca'
           this.checkoutAttempt = latestAttempt
           this.checkoutUrl = latestAttempt.checkout_url || null
@@ -1028,6 +1031,10 @@ export const useInvoiceStore = defineStore('invoice', {
             latestAttempt.status === 'pending' &&
             !this.checkoutIsExpired
           ) {
+            if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
+              this.startCountdown(this.checkoutExpiresAt)
+              this.startPolling(latestAttempt?.id)
+            }
             if (method === 'qris') {
               if (rawPayload) {
                 this.checkoutQrPayload = rawPayload
@@ -1042,10 +1049,6 @@ export const useInvoiceStore = defineStore('invoice', {
               this.checkoutQrDataUrl = null
               this.checkoutPaymentCode =
                 typeof rawPayload === 'string' ? rawPayload : null
-            }
-            if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
-              this.startCountdown(this.checkoutExpiresAt)
-              this.startPolling(latestAttempt?.id)
             }
           }
         } else if (this.selectedInvoice) {
