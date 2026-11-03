@@ -51,6 +51,8 @@ const isProxyQrUrl = value => {
   )
 }
 
+const inFlightProxyQrPromises = new Map()
+
 async function fetchAllPages(request) {
   const records = []
   let page = 1
@@ -136,6 +138,7 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutQrDataUrl: null,
     checkoutQrPayload: null,
     checkoutQrBlobUrl: null,
+    checkoutQrBlobAttemptId: null,
     checkoutPaymentCode: null,
     checkoutPaymentInstruction: null,
     checkoutQrLoading: false,
@@ -590,44 +593,105 @@ export const useInvoiceStore = defineStore('invoice', {
       if (this.checkoutQrBlobUrl && typeof window !== 'undefined') {
         window.URL.revokeObjectURL(this.checkoutQrBlobUrl)
         this.checkoutQrBlobUrl = null
+        this.checkoutQrBlobAttemptId = null
       }
     },
 
     async fetchProxyQrBlob(attemptId = this.checkoutAttempt?.id) {
       if (!attemptId || this.checkoutIsExpired) return null
-      try {
-        const response = await paymentAttemptService.qrImageBlob(attemptId)
-        if (response?.data) {
-          let data = response.data
-          if (
-            typeof Blob !== 'undefined' &&
-            data instanceof Blob &&
-            data.type === 'application/json'
-          ) {
-            return null
-          }
-          if (
-            typeof Blob !== 'undefined' &&
-            !(data instanceof Blob) &&
-            (data instanceof ArrayBuffer || ArrayBuffer.isView(data))
-          ) {
-            data = new Blob([data], { type: 'image/png' })
-          }
-          response.data = data
-          if (this.checkoutQrBlobUrl && typeof window !== 'undefined') {
-            window.URL.revokeObjectURL(this.checkoutQrBlobUrl)
-          }
-          this.checkoutQrBlobUrl = window.URL.createObjectURL(response.data)
-          return this.checkoutQrBlobUrl
-        }
-      } catch (err) {
-        if (err?.response?.status === 410) {
-          this.checkoutIsExpired = true
-          this.checkoutRemainingSeconds = 0
-          this.stopCheckoutSession()
-        }
+
+      const attemptStatus =
+        this.selectedInvoice?.payment_attempts?.find(a => a.id === attemptId)
+          ?.status || this.checkoutAttempt?.status
+      if (
+        ['succeeded', 'paid', 'expired', 'failed', 'cancelled'].includes(
+          attemptStatus
+        )
+      ) {
+        return null
       }
-      return null
+
+      // Reuse existing Object URL for the same attempt ID
+      if (
+        this.checkoutQrBlobUrl &&
+        this.checkoutQrBlobAttemptId === attemptId
+      ) {
+        return this.checkoutQrBlobUrl
+      }
+
+      // Deduplicate in-flight requests for the same attempt ID
+      if (inFlightProxyQrPromises.has(attemptId)) {
+        return inFlightProxyQrPromises.get(attemptId)
+      }
+
+      const fetchPromise = (async () => {
+        try {
+          const response = await paymentAttemptService.qrImageBlob(attemptId)
+          if (response?.data) {
+            let data = response.data
+            if (
+              typeof Blob !== 'undefined' &&
+              data instanceof Blob &&
+              data.type === 'application/json'
+            ) {
+              return null
+            }
+            if (
+              typeof Blob !== 'undefined' &&
+              !(data instanceof Blob) &&
+              (data instanceof ArrayBuffer || ArrayBuffer.isView(data))
+            ) {
+              data = new Blob([data], { type: 'image/png' })
+            }
+            if (typeof Blob !== 'undefined' && data instanceof Blob) {
+              if (data.size === 0) return null
+              if (
+                typeof data.slice === 'function' &&
+                typeof data.arrayBuffer === 'function' &&
+                data.size >= 4
+              ) {
+                try {
+                  const headerBuf = await data.slice(0, 4).arrayBuffer()
+                  const h = new Uint8Array(headerBuf)
+                  const isPng =
+                    h[0] === 0x89 &&
+                    h[1] === 0x50 &&
+                    h[2] === 0x4e &&
+                    h[3] === 0x47
+                  if (!isPng && !data.type.startsWith('image/')) {
+                    return null
+                  }
+                } catch {
+                  // ignore slice/arrayBuffer error in mock environments
+                }
+              }
+              if (!data.type || data.type === 'application/octet-stream') {
+                data = new Blob([data], { type: 'image/png' })
+              }
+            }
+            response.data = data
+            if (this.checkoutQrBlobUrl && typeof window !== 'undefined') {
+              window.URL.revokeObjectURL(this.checkoutQrBlobUrl)
+            }
+            this.checkoutQrBlobUrl = window.URL.createObjectURL(response.data)
+            this.checkoutQrBlobAttemptId = attemptId
+            return this.checkoutQrBlobUrl
+          }
+        } catch (err) {
+          if (err?.response?.status === 410) {
+            this.checkoutIsExpired = true
+            this.checkoutRemainingSeconds = 0
+            this.stopCheckoutSession()
+          }
+          return null
+        } finally {
+          inFlightProxyQrPromises.delete(attemptId)
+        }
+        return null
+      })()
+
+      inFlightProxyQrPromises.set(attemptId, fetchPromise)
+      return fetchPromise
     },
 
     startCountdown(expiresAt) {
@@ -777,6 +841,7 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutQrDataUrl = null
       this.checkoutQrPayload = null
       this.checkoutQrBlobUrl = null
+      this.checkoutQrBlobAttemptId = null
       this.checkoutPaymentCode = null
       this.checkoutPaymentInstruction = null
       this.checkoutQrLoading = false
@@ -1153,6 +1218,7 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutPaymentCode = null
       this.checkoutTransactionId = null
       this.checkoutQrBlobUrl = null
+      this.checkoutQrBlobAttemptId = null
       this.checkoutIsExpired = false
       this.checkoutError = ''
       await this.startCheckout(

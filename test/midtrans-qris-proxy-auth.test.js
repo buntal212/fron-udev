@@ -221,3 +221,103 @@ test('Regression: Service udev-billing dan store invoice memvalidasi response bl
   // Store menangani jika respons berupa ArrayBuffer/binary dan mengonversi ke image/png Blob
   assert.match(store, /new Blob\(\[data\],\s*\{\s*type:\s*'image\/png'\s*\}\)/)
 })
+
+test('Regression: Store menduplikasi in-flight request, memvalidasi signature PNG 89 50 4E 47, dan cache per attemptId', async () => {
+  const store = await readFile(
+    new URL('../src/stores/invoice/index.js', import.meta.url),
+    'utf8'
+  )
+
+  // Deduplikasi in-flight request memakai Map
+  assert.match(store, /inFlightProxyQrPromises\.has\(attemptId\)/)
+  assert.match(
+    store,
+    /inFlightProxyQrPromises\.set\(attemptId,\s*fetchPromise\)/
+  )
+  assert.match(store, /inFlightProxyQrPromises\.delete\(attemptId\)/)
+
+  // Cache per attemptId agar tidak re-fetch attempt yang sama
+  assert.match(store, /checkoutQrBlobAttemptId\s*===\s*attemptId/)
+
+  // Validasi signature PNG 89 50 4E 47
+  assert.match(store, /0x89/)
+  assert.match(store, /0x50/)
+  assert.match(store, /0x4e/)
+  assert.match(store, /0x47/)
+})
+
+test('Regression: Dialog mencegah loop fallback dan loading selalu selesai termasuk saat error', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Penanda kegagalan proxy untuk memutus infinite loop
+  assert.match(dialog, /const proxyFetchFailed\s*=\s*ref\(false\)/)
+  assert.match(dialog, /proxyFetchFailed\.value\s*=\s*true/)
+
+  // handleQrImageError tidak mengulang loadProxyQrBlob jika proxy sudah pernah dicoba/gagal
+  assert.match(
+    dialog,
+    /if\s*\(proxyBlobUrl\.value\)\s*\{\s*proxyFetchFailed\.value\s*=\s*true[\s\S]*cleanupProxyBlobUrl\(\)/
+  )
+  assert.match(
+    dialog,
+    /else if\s*\(!proxyFetchFailed\.value\s*&&\s*!isCheckoutExpired\.value\)/
+  )
+
+  // Loading selalu direset ke false pada finally
+  assert.match(dialog, /finally\s*\{\s*qrImageLoading\.value\s*=\s*false\s*\}/)
+})
+
+test('Regression: Request proxy dihentikan saat status attempt terminal atau kedaluwarsa', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  const store = await readFile(
+    new URL('../src/stores/invoice/index.js', import.meta.url),
+    'utf8'
+  )
+
+  // Pengecekan status terminal di store
+  assert.match(
+    store,
+    /\[\s*'succeeded',\s*'paid',\s*'expired',\s*'failed',\s*'cancelled'\s*\]\.includes\(\s*attemptStatus\s*\)/
+  )
+
+  // Pengecekan status terminal di watcher dan loadProxyQrBlob dialog
+  assert.match(
+    dialog,
+    /\[\s*'succeeded',\s*'paid',\s*'expired',\s*'failed',\s*'cancelled'\s*\]\.includes\(\s*attemptStatus\s*\)/
+  )
+  assert.match(dialog, /!isTerminal/)
+})
+
+test('Regression: Lifecycle cleanup membersihkan state pada dialog ditutup dan unmount', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // onDialogClose me-reset attempt dan flag error
+  assert.match(
+    dialog,
+    /const onDialogClose\s*=\s*\(\)\s*=>\s*\{[\s\S]*currentAttemptId\.value\s*=\s*null[\s\S]*proxyFetchFailed\.value\s*=\s*false[\s\S]*cleanupProxyBlobUrl\(\)[\s\S]*store\.closeDetailDialog\(\)/
+  )
+
+  // onBeforeUnmount me-reset attempt dan flag error
+  assert.match(
+    dialog,
+    /onBeforeUnmount\(\(\)\s*=>\s*\{[\s\S]*currentAttemptId\.value\s*=\s*null[\s\S]*proxyFetchFailed\.value\s*=\s*false[\s\S]*cleanupProxyBlobUrl\(\)[\s\S]*store\.stopCheckoutSession\(\)/
+  )
+})

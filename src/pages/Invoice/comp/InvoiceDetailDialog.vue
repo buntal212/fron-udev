@@ -1059,6 +1059,7 @@ const qrImageLoadFailed = ref(false)
 const qrImageLoading = ref(false)
 const proxyBlobUrl = ref(null)
 const currentAttemptId = ref(null)
+const proxyFetchFailed = ref(false)
 
 const onQrImageLoad = () => {
   qrImageLoading.value = false
@@ -1201,6 +1202,7 @@ watch(
 
 const onStartCheckout = () => {
   qrImageLoadFailed.value = false
+  proxyFetchFailed.value = false
   currentAttemptId.value = null
   cleanupProxyBlobUrl()
   const method = store.checkoutPaymentMethod
@@ -1340,8 +1342,28 @@ const loadProxyQrBlob = async () => {
     return null
   }
   const attemptId = latestAttempt.value?.id || store.checkoutAttempt?.id
+  const attemptStatus =
+    latestAttempt.value?.status || store.checkoutAttempt?.status
+  if (
+    ['succeeded', 'paid', 'expired', 'failed', 'cancelled'].includes(
+      attemptStatus
+    )
+  ) {
+    return null
+  }
+
   const target = proxyQrUrl.value || attemptId
-  if (!target || proxyBlobUrl.value) return proxyBlobUrl.value
+  if (!target) return null
+
+  // Jika untuk attempt ini proxy blob sudah ada, jangan fetch ulang
+  if (proxyBlobUrl.value && currentAttemptId.value === attemptId) {
+    return proxyBlobUrl.value
+  }
+
+  // Jika proxy untuk attempt ini sudah pernah gagal, cegah loop fetch
+  if (proxyFetchFailed.value && currentAttemptId.value === attemptId) {
+    return null
+  }
 
   qrImageLoading.value = true
   try {
@@ -1351,9 +1373,14 @@ const loadProxyQrBlob = async () => {
         cleanupProxyBlobUrl()
       }
       proxyBlobUrl.value = blobUrl
+      currentAttemptId.value = attemptId
+      proxyFetchFailed.value = false
       return blobUrl
+    } else {
+      proxyFetchFailed.value = true
     }
   } catch (err) {
+    proxyFetchFailed.value = true
     if (err?.response?.status === 410) {
       cleanupProxyBlobUrl()
     }
@@ -1389,14 +1416,15 @@ const displayQrSource = computed(() => {
 })
 
 const handleQrImageError = async () => {
-  if (proxyBlobUrl.value) {
-    cleanupProxyBlobUrl()
-  }
-
   qrImageLoadFailed.value = true
 
-  // Ambil gambar melalui proxy Axios terautentikasi jika belum tersedia
-  if (!proxyBlobUrl.value && !isCheckoutExpired.value) {
+  // Jika proxy blob yang aktif mengalami error render di browser,
+  // tandai proxy gagal dan bersihkan agar tidak terjadi loop fetch ulang
+  if (proxyBlobUrl.value) {
+    proxyFetchFailed.value = true
+    cleanupProxyBlobUrl()
+  } else if (!proxyFetchFailed.value && !isCheckoutExpired.value) {
+    // Ambil gambar melalui proxy Axios terautentikasi jika belum dicoba
     const blobUrl = await loadProxyQrBlob()
     if (blobUrl) return
   }
@@ -1521,6 +1549,7 @@ const copyPayload = async (text, message = 'Berhasil disalin!') => {
 
 const onDialogClose = () => {
   currentAttemptId.value = null
+  proxyFetchFailed.value = false
   cleanupProxyBlobUrl()
   store.closeDetailDialog()
 }
@@ -1541,13 +1570,25 @@ watch(
     if (attemptChanged) {
       currentAttemptId.value = attemptId
       qrImageLoadFailed.value = false
+      proxyFetchFailed.value = false
       cleanupProxyBlobUrl()
     }
+
+    const attemptStatus =
+      latestAttempt.value?.status || store.checkoutAttempt?.status
+    const isTerminal = [
+      'succeeded',
+      'paid',
+      'expired',
+      'failed',
+      'cancelled'
+    ].includes(attemptStatus)
 
     if (
       currentAttemptMethod.value === 'qris' &&
       (proxyQrUrl.value || latestAttempt.value?.id) &&
       !isCheckoutExpired.value &&
+      !isTerminal &&
       (!proxyBlobUrl.value || attemptChanged)
     ) {
       await loadProxyQrBlob()
@@ -1562,6 +1603,7 @@ watch(
     if (expired) {
       cleanupProxyBlobUrl()
       currentAttemptId.value = null
+      proxyFetchFailed.value = false
       store.stopCheckoutSession()
     }
   }
@@ -1569,6 +1611,7 @@ watch(
 
 onBeforeUnmount(() => {
   currentAttemptId.value = null
+  proxyFetchFailed.value = false
   cleanupProxyBlobUrl()
   store.stopCheckoutSession()
 })
