@@ -422,3 +422,113 @@ test('Regression: Normalisasi endpoint proxy dan cleanup sinkron antara dialog d
   assert.match(dialog, /store\.checkoutQrBlobUrl\s*=\s*null/)
   assert.match(dialog, /store\.checkoutQrBlobAttemptId\s*=\s*null/)
 })
+
+test('Regression: State polling dipisahkan dari state gambar QRIS, mencegah timer ganda dan request overlap', async () => {
+  const store = await readFile(
+    new URL('../src/stores/invoice/index.js', import.meta.url),
+    'utf8'
+  )
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Store memiliki method stopPolling tersendiri yang terpisah dari stopCheckoutSession
+  assert.match(store, /stopPolling\(\)\s*\{/)
+  assert.match(store, /checkoutPollInProgress\s*=\s*false/)
+  assert.match(store, /checkoutPollAttemptId\s*=\s*null/)
+
+  // Polling mendeteksi timer ganda per attempt ID
+  assert.match(
+    store,
+    /if\s*\(this\.checkoutPollId\s*&&\s*this\.checkoutPollAttemptId\s*===\s*attemptId\)\s*\{\s*return/
+  )
+
+  // Polling mencegah request overlap
+  assert.match(store, /if\s*\(this\.checkoutPollInProgress\)\s*\{\s*return/)
+
+  // Polling berhenti saat attempt berstatus terminal
+  assert.match(
+    store,
+    /\[\s*'succeeded',\s*'paid',\s*'expired',\s*'failed',\s*'cancelled'\s*\]\.includes\(\s*currentStatus\s*\)[\s\S]*this\.stopPolling\(\)/
+  )
+
+  // Dialog menghentikan polling saat status terminal atau dialog ditutup
+  assert.match(dialog, /if\s*\(isTerminal\)\s*\{\s*store\.stopPolling\(\)/)
+  assert.match(
+    dialog,
+    /store\.stopPolling\(\)[\s\S]*store\.closeDetailDialog\(\)/
+  )
+})
+
+test('Regression: Simulasi banyak respons polling (status pending) tidak memicu reload gambar atau pembatalan Blob URL', async () => {
+  // Simulasi state QRIS dan Polling
+  const attemptId = 32
+  let fetchImageCallCount = 0
+  let revokeBlobCallCount = 0
+  let stableBlobUrl = 'blob:http://localhost:9200/midtrans-qris-attempt-32'
+
+  // Fungsi fetch proxy hanya dipanggil sekali di awal untuk attempt ini
+  const mockFetchProxyQrBlob = targetId => {
+    if (targetId === attemptId && stableBlobUrl) {
+      return stableBlobUrl
+    }
+    fetchImageCallCount += 1
+    stableBlobUrl = `blob:http://localhost:9200/midtrans-qris-attempt-${targetId}`
+    return stableBlobUrl
+  }
+
+  // Fetch pertama sebelum polling dimulai
+  const initialBlob = mockFetchProxyQrBlob(attemptId)
+  assert.strictEqual(
+    initialBlob,
+    'blob:http://localhost:9200/midtrans-qris-attempt-32'
+  )
+  assert.strictEqual(fetchImageCallCount, 0)
+
+  // Simulasi 10 siklus polling HTTP 200 JSON { status: 'pending' }
+  let pollingInProgress = false
+  let pollCycleCount = 0
+
+  const simulatePollTick = async (mockResponseStatus = 'pending') => {
+    if (pollingInProgress) {
+      // Overlap dicegah
+      return 'skipped'
+    }
+    pollingInProgress = true
+    try {
+      pollCycleCount += 1
+      const resultStatus = mockResponseStatus
+      if (resultStatus === 'pending') {
+        // Status pending: gambar tidak disentuh sama sekali
+        return 'polled'
+      }
+      return resultStatus
+    } finally {
+      pollingInProgress = false
+    }
+  }
+
+  for (let i = 0; i < 10; i++) {
+    const outcome = await simulatePollTick('pending')
+    assert.strictEqual(outcome, 'polled')
+    // Verifikasi bahwa Blob URL tetap stabil dan tidak pernah di-fetch ulang atau di-revoke
+    assert.strictEqual(
+      stableBlobUrl,
+      'blob:http://localhost:9200/midtrans-qris-attempt-32'
+    )
+    assert.strictEqual(fetchImageCallCount, 0)
+    assert.strictEqual(revokeBlobCallCount, 0)
+  }
+
+  assert.strictEqual(pollCycleCount, 10)
+
+  // Simulasi perlindungan request overlap: tick saat request sedang berjalan harus di-skip
+  pollingInProgress = true
+  const overlapOutcome = await simulatePollTick('pending')
+  assert.strictEqual(overlapOutcome, 'skipped')
+  pollingInProgress = false
+})

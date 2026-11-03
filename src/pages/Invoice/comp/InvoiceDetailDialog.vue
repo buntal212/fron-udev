@@ -1562,6 +1562,7 @@ const onDialogClose = () => {
   currentAttemptId.value = null
   proxyFetchFailed.value = false
   cleanupProxyBlobUrl()
+  store.stopPolling()
   store.closeDetailDialog()
 }
 
@@ -1595,6 +1596,10 @@ watch(
       'cancelled'
     ].includes(attemptStatus)
 
+    if (isTerminal) {
+      store.stopPolling()
+    }
+
     if (
       currentAttemptMethod.value === 'qris' &&
       (proxyQrUrl.value || latestAttempt.value?.id) &&
@@ -1615,6 +1620,7 @@ watch(
       cleanupProxyBlobUrl()
       currentAttemptId.value = null
       proxyFetchFailed.value = false
+      store.stopPolling()
       store.stopCheckoutSession()
     }
   }
@@ -1624,6 +1630,7 @@ onBeforeUnmount(() => {
   currentAttemptId.value = null
   proxyFetchFailed.value = false
   cleanupProxyBlobUrl()
+  store.stopPolling()
   store.stopCheckoutSession()
 })
 </script>

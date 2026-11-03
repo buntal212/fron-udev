@@ -148,6 +148,8 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutIsExpired: false,
     checkoutTimerId: null,
     checkoutPollId: null,
+    checkoutPollInProgress: false,
+    checkoutPollAttemptId: null,
     reconcileLoading: false,
     reconcileError: '',
     simulateLoading: false,
@@ -581,15 +583,21 @@ export const useInvoiceStore = defineStore('invoice', {
       )
     },
 
+    stopPolling() {
+      if (this.checkoutPollId) {
+        clearInterval(this.checkoutPollId)
+        this.checkoutPollId = null
+      }
+      this.checkoutPollInProgress = false
+      this.checkoutPollAttemptId = null
+    },
+
     stopCheckoutSession() {
       if (this.checkoutTimerId) {
         clearInterval(this.checkoutTimerId)
         this.checkoutTimerId = null
       }
-      if (this.checkoutPollId) {
-        clearInterval(this.checkoutPollId)
-        this.checkoutPollId = null
-      }
+      this.stopPolling()
       if (this.checkoutQrBlobUrl && typeof window !== 'undefined') {
         window.URL.revokeObjectURL(this.checkoutQrBlobUrl)
         this.checkoutQrBlobUrl = null
@@ -717,10 +725,7 @@ export const useInvoiceStore = defineStore('invoice', {
             clearInterval(this.checkoutTimerId)
             this.checkoutTimerId = null
           }
-          if (this.checkoutPollId) {
-            clearInterval(this.checkoutPollId)
-            this.checkoutPollId = null
-          }
+          this.stopPolling()
         }
       }
       calculate()
@@ -732,75 +737,148 @@ export const useInvoiceStore = defineStore('invoice', {
       }
     },
 
-    startPolling() {
-      if (this.checkoutPollId) {
-        clearInterval(this.checkoutPollId)
-        this.checkoutPollId = null
+    startPolling(targetAttemptId = null) {
+      const activeAttempt =
+        this.checkoutAttempt ||
+        (Array.isArray(this.selectedInvoice?.payment_attempts)
+          ? [...this.selectedInvoice.payment_attempts].sort(
+              (a, b) => b.attempt_number - a.attempt_number
+            )[0]
+          : null)
+      const attemptId = targetAttemptId || activeAttempt?.id
+
+      if (!attemptId || !this.detailDialogOpen || this.checkoutIsExpired) {
+        this.stopPolling()
+        return
       }
+
+      const attemptStatus = activeAttempt?.status
+      if (
+        ['succeeded', 'paid', 'expired', 'failed', 'cancelled'].includes(
+          attemptStatus
+        )
+      ) {
+        this.stopPolling()
+        return
+      }
+
+      // Cegah timer ganda: jika sudah polling untuk attempt yang sama, pertahankan timer aktif
+      if (this.checkoutPollId && this.checkoutPollAttemptId === attemptId) {
+        return
+      }
+
+      this.stopPolling()
+      this.checkoutPollAttemptId = attemptId
+      this.checkoutPollInProgress = false
+
       this.checkoutPollId = setInterval(async () => {
         if (!this.selectedInvoice?.id || !this.detailDialogOpen) {
           this.stopCheckoutSession()
           return
         }
-        try {
-          const latestAttempt = Array.isArray(
-            this.selectedInvoice?.payment_attempts
-          )
-            ? [...this.selectedInvoice.payment_attempts].sort(
-                (a, b) => b.attempt_number - a.attempt_number
-              )[0]
-            : null
-          const gatewayPaymentId =
-            this.checkoutAttempt?.gateway_payment_id ||
-            latestAttempt?.gateway_payment_id
 
+        if (this.checkoutPollAttemptId !== attemptId) {
+          return
+        }
+
+        // Cegah request overlap: jika request sebelumnya masih berjalan, lewati tick ini
+        if (this.checkoutPollInProgress) {
+          return
+        }
+
+        const currentLatest = Array.isArray(
+          this.selectedInvoice?.payment_attempts
+        )
+          ? [...this.selectedInvoice.payment_attempts].sort(
+              (a, b) => b.attempt_number - a.attempt_number
+            )[0]
+          : null
+
+        const currentStatus =
+          this.checkoutAttempt?.status || currentLatest?.status
+        if (
+          ['succeeded', 'paid', 'expired', 'failed', 'cancelled'].includes(
+            currentStatus
+          )
+        ) {
+          this.stopPolling()
+          return
+        }
+
+        const gatewayPaymentId =
+          this.checkoutAttempt?.gateway_payment_id ||
+          currentLatest?.gateway_payment_id
+
+        this.checkoutPollInProgress = true
+        try {
           if (gatewayPaymentId) {
             const resultRes = await paymentResultService.get(gatewayPaymentId)
+
+            if (
+              this.checkoutPollAttemptId !== attemptId ||
+              !this.detailDialogOpen
+            ) {
+              return
+            }
+
             const resultStatus = resultRes.data?.data?.status
             if (resultStatus === 'paid') {
-              this.stopCheckoutSession()
+              this.stopPolling()
               const invoiceRes = await invoiceService.get(
                 this.selectedInvoice.id
               )
-              this.selectedInvoice =
-                invoiceRes.data?.data || this.selectedInvoice
-              const index = this.items.findIndex(
-                item => item.id === this.selectedInvoice.id
-              )
-              if (index !== -1) {
-                this.items[index] = this.selectedInvoice
+              if (
+                this.detailDialogOpen &&
+                (this.checkoutPollAttemptId === attemptId ||
+                  !this.checkoutPollAttemptId)
+              ) {
+                this.selectedInvoice =
+                  invoiceRes.data?.data || this.selectedInvoice
+                const index = this.items.findIndex(
+                  item => item.id === this.selectedInvoice.id
+                )
+                if (index !== -1) {
+                  this.items[index] = this.selectedInvoice
+                }
               }
-              this.checkoutQrPayload = null
-              this.checkoutQrDataUrl = null
-              this.checkoutPaymentCode = null
               return
             } else if (
-              resultStatus === 'failed' ||
-              resultStatus === 'expired' ||
-              resultStatus === 'cancelled'
+              ['failed', 'expired', 'cancelled'].includes(resultStatus)
             ) {
-              this.stopCheckoutSession()
+              this.stopPolling()
               const invoiceRes = await invoiceService.get(
                 this.selectedInvoice.id
               )
-              this.selectedInvoice =
-                invoiceRes.data?.data || this.selectedInvoice
+              if (
+                this.detailDialogOpen &&
+                (this.checkoutPollAttemptId === attemptId ||
+                  !this.checkoutPollAttemptId)
+              ) {
+                this.selectedInvoice =
+                  invoiceRes.data?.data || this.selectedInvoice
+              }
               return
             }
           } else {
             const res = await invoiceService.get(this.selectedInvoice.id)
+            if (
+              this.checkoutPollAttemptId !== attemptId ||
+              !this.detailDialogOpen
+            ) {
+              return
+            }
             this.selectedInvoice = res.data?.data || this.selectedInvoice
-            if (this.selectedInvoice.status === 'paid') {
-              this.stopCheckoutSession()
-              this.checkoutQrPayload = null
-              this.checkoutQrDataUrl = null
-              this.checkoutPaymentCode = null
-            } else if (this.selectedInvoice.status !== 'pending') {
-              this.stopCheckoutSession()
+            if (
+              this.selectedInvoice.status === 'paid' ||
+              this.selectedInvoice.status !== 'pending'
+            ) {
+              this.stopPolling()
             }
           }
         } catch {
           // ignore transient poll error
+        } finally {
+          this.checkoutPollInProgress = false
         }
       }, 4000)
     },
@@ -967,7 +1045,7 @@ export const useInvoiceStore = defineStore('invoice', {
             }
             if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
               this.startCountdown(this.checkoutExpiresAt)
-              this.startPolling()
+              this.startPolling(latestAttempt?.id)
             }
           }
         } else if (this.selectedInvoice) {
@@ -1134,7 +1212,7 @@ export const useInvoiceStore = defineStore('invoice', {
           }
           if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
             this.startCountdown(this.checkoutExpiresAt)
-            this.startPolling()
+            this.startPolling(checkout?.id || latestAttempt?.id)
           }
         } else if (method === 'qris') {
           const rawPayload = isQrisMpmInstruction(
@@ -1157,7 +1235,7 @@ export const useInvoiceStore = defineStore('invoice', {
           if (rawPayload || this.checkoutQrUrl) {
             if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
               this.startCountdown(this.checkoutExpiresAt)
-              this.startPolling()
+              this.startPolling(latestAttempt?.id)
             }
           } else {
             this.checkoutError =
@@ -1177,7 +1255,7 @@ export const useInvoiceStore = defineStore('invoice', {
               typeof rawPayload === 'string' ? rawPayload : null
             if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
               this.startCountdown(this.checkoutExpiresAt)
-              this.startPolling()
+              this.startPolling(latestAttempt?.id)
             }
           } else {
             this.checkoutError =
