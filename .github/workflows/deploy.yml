@@ -102,19 +102,30 @@ jobs:
           echo "Build completed."
 
       # ------------------------------------------------------
-      # 7. VALIDATE BUILD
+      # 7. VALIDATE BUILD & CSP
       # ------------------------------------------------------
-      - name: Validate PWA build
+      - name: Validate PWA build and CSP
         run: |
           set -euo pipefail
 
           test -s dist/pwa/index.html
           test -d dist/pwa/assets
 
+          echo "Verifying Content-Security-Policy in built index.html..."
+          if ! grep -q "img-src 'self' blob: data: https://api.sandbox.midtrans.com" dist/pwa/index.html; then
+            echo "::error::Built index.html missing required img-src CSP directive."
+            exit 1
+          fi
+
+          grep -q "default-src 'self'" dist/pwa/index.html
+          grep -q "connect-src 'self' https://apiudev.udumbara.my.id" dist/pwa/index.html
+          grep -q "script-src 'self'" dist/pwa/index.html
+          grep -q "style-src 'self' 'unsafe-inline'" dist/pwa/index.html
+
           echo "Build size:"
           du -sh dist/pwa
 
-          echo "Build validated."
+          echo "Build and CSP validated."
 
       # ------------------------------------------------------
       # 8. VERIFY API URL
@@ -254,9 +265,9 @@ jobs:
           echo "Deployment completed."
 
       # ------------------------------------------------------
-      # 5. VERIFY DEPLOYMENT
+      # 5. VERIFY DEPLOYMENT & CSP
       # ------------------------------------------------------
-      - name: Verify production deployment
+      - name: Verify production deployment and CSP
         run: |
           set -euo pipefail
 
@@ -271,7 +282,25 @@ jobs:
             exit 1
           fi
 
-          echo "Production deployment verified."
+          echo "Verifying deployed index.html CSP directives..."
+          if ! grep -q "img-src 'self' blob: data: https://api.sandbox.midtrans.com" "$DEPLOY_PATH/index.html"; then
+            echo "::error::Deployed index.html missing required img-src CSP directive."
+            exit 1
+          fi
+
+          # Verifikasi tidak ada header CSP server ganda yang memblokir img-src
+          SERVER_CSP=$(curl --silent --head --max-time 10 "https://udev.udumbara.my.id" | tr -d '\r' | grep -i '^content-security-policy:' || true)
+          if [ -n "$SERVER_CSP" ]; then
+            echo "Server HTTP CSP header detected: $SERVER_CSP"
+            if ! echo "$SERVER_CSP" | grep -qi "blob:" || ! echo "$SERVER_CSP" | grep -qi "data:" || ! echo "$SERVER_CSP" | grep -qi "api.sandbox.midtrans.com"; then
+              echo "::error::Conflicting server HTTP CSP header detected that blocks QRIS images."
+              exit 1
+            fi
+          else
+            echo "No conflicting server HTTP CSP header detected."
+          fi
+
+          echo "Production deployment and CSP verified."
           du -sh "$DEPLOY_PATH"
 
       # ------------------------------------------------------
