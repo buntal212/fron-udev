@@ -152,38 +152,75 @@
             </template>
           </q-banner>
           <q-banner v-if="selectedPlan" rounded class="price-preview">
-            <div class="text-weight-bold">Rincian pembayaran</div>
-            <div>{{
-              selectedCustomer?.referral
-                ? `Harga normal ${formatSubscriptionPrice(Number(selectedCustomer.referral.base_price) * Number(store.form.period_count || 1), selectedPlan.currency)}`
-                : formatSubscriptionPrice(
-                    Number(selectedPlan.price) *
+            <div class="text-weight-bold text-subtitle2 q-mb-xs"
+              >Rincian Pembayaran & Tagihan</div
+            >
+            <div class="row justify-between text-caption">
+              <span>Paket:</span>
+              <span class="text-weight-bold">{{ selectedPlan.name }}</span>
+            </div>
+            <div class="row justify-between text-caption">
+              <span>Harga normal:</span>
+              <span>{{
+                selectedCustomer?.referral
+                  ? formatSubscriptionPrice(
+                      Number(selectedCustomer.referral.base_price) *
+                        Number(store.form.period_count || 1),
+                      selectedPlan.currency
+                    )
+                  : formatSubscriptionPrice(
+                      Number(selectedPlan.price) *
+                        Number(store.form.period_count || 1),
+                      selectedPlan.currency
+                    )
+              }}</span>
+            </div>
+            <div
+              v-if="selectedCustomer?.referral"
+              class="row justify-between text-caption text-negative"
+            >
+              <span>Potongan diskon referral:</span>
+              <span
+                >-{{
+                  formatSubscriptionPrice(
+                    Number(selectedCustomer.referral.discount_amount) *
                       Number(store.form.period_count || 1),
                     selectedPlan.currency
                   )
-            }}</div>
-            <div v-if="selectedCustomer?.referral" class="text-caption"
-              >Diskon referral
-              {{
-                formatSubscriptionPrice(
-                  Number(selectedCustomer.referral.discount_amount) *
-                    Number(store.form.period_count || 1),
-                  selectedPlan.currency
-                )
-              }}
-              · Total
-              {{
-                formatSubscriptionPrice(totalPrice, selectedPlan.currency)
-              }}</div
-            >
-            <div class="text-caption">
-              {{ store.form.period_count }} periode ×
-              {{ selectedPlan.duration_days }} hari =
-              {{ totalDurationDays }} hari
+                }}</span
+              >
             </div>
-            <div class="text-caption text-weight-bold">
-              Total tagihan
-              {{ formatSubscriptionPrice(totalPrice, selectedPlan.currency) }}
+            <div
+              class="row justify-between text-caption text-weight-bold q-py-xs"
+              style="
+                border-top: 1px dashed rgba(224, 195, 124, 0.4);
+                border-bottom: 1px dashed rgba(224, 195, 124, 0.4);
+              "
+            >
+              <span>Subtotal setelah diskon:</span>
+              <span>{{
+                formatSubscriptionPrice(totalPrice, selectedPlan.currency)
+              }}</span>
+            </div>
+            <div class="row justify-between text-caption text-muted q-mt-xs">
+              <span>Durasi langganan:</span>
+              <span
+                >{{ store.form.period_count }} periode ×
+                {{ selectedPlan.duration_days }} hari =
+                {{ totalDurationDays }} hari</span
+              >
+            </div>
+            <div class="row justify-between text-caption text-muted">
+              <span>Biaya admin gateway:</span>
+              <span>Dihitung otomatis saat metode dipilih</span>
+            </div>
+            <div
+              class="row justify-between text-subtitle2 text-weight-bolder text-warning q-mt-xs"
+            >
+              <span>Total Tagihan Paket:</span>
+              <span>{{
+                formatSubscriptionPrice(totalPrice, selectedPlan.currency)
+              }}</span>
             </div>
           </q-banner>
           <q-select

@@ -207,10 +207,18 @@
             <div class="gold-card q-pa-md">
               <div class="row items-center q-gutter-xs q-mb-sm">
                 <q-icon name="receipt" color="warning" size="18px" />
-                <span class="gold-card-title">Rincian Tagihan</span>
+                <span class="gold-card-title"
+                  >Rincian Tagihan & Pembayaran</span
+                >
               </div>
 
               <div class="column q-gutter-y-xs q-mb-md">
+                <div class="row justify-between text-body2">
+                  <span class="text-muted">Paket Langganan</span>
+                  <span class="text-sand text-weight-bold">
+                    {{ invoice.plan?.name || 'Paket Langganan' }}
+                  </span>
+                </div>
                 <div class="row justify-between text-body2">
                   <span class="text-muted">Harga Normal</span>
                   <span class="text-sand">
@@ -246,6 +254,44 @@
                   <span class="text-muted">Referral Mitra</span>
                   <span class="text-gold">{{ referralName }}</span>
                 </div>
+                <div
+                  class="row justify-between text-body2 q-pt-xs text-weight-medium"
+                  style="border-top: 1px dashed rgba(224, 195, 124, 0.25)"
+                >
+                  <span class="text-muted">Subtotal Tagihan</span>
+                  <span class="text-sand">
+                    {{
+                      formatSubscriptionPrice(currentSubtotal, invoice.currency)
+                    }}
+                  </span>
+                </div>
+                <div class="row justify-between text-body2">
+                  <span class="text-muted">Metode Transaksi</span>
+                  <span class="text-warning text-weight-medium">
+                    {{
+                      latestAttempt?.fee_breakdown?.payment_method_label ||
+                      paymentMethodLabel(currentAttemptMethod)
+                    }}
+                  </span>
+                </div>
+                <div class="row justify-between text-body2">
+                  <span class="text-muted">
+                    Biaya Admin {{ activeFeeLabel }}
+                  </span>
+                  <span
+                    :class="
+                      activeAdminFee > 0
+                        ? 'text-warning text-weight-medium'
+                        : 'text-sand'
+                    "
+                  >
+                    {{
+                      activeAdminFee > 0
+                        ? `+ ${formatSubscriptionPrice(activeAdminFee, invoice.currency)}`
+                        : 'Rp 0'
+                    }}
+                  </span>
+                </div>
               </div>
 
               <!-- Total Bayar Highlight Box -->
@@ -259,9 +305,18 @@
                   <div class="total-amount text-gold-glow">
                     {{
                       formatSubscriptionPrice(
-                        invoice.pricing?.final_price ?? invoice.amount,
+                        activeTotalPayable,
                         invoice.currency
                       )
+                    }}
+                  </div>
+                  <div
+                    v-if="activeAdminFee > 0"
+                    class="text-caption text-grey-4"
+                  >
+                    Termasuk biaya admin
+                    {{
+                      formatSubscriptionPrice(activeAdminFee, invoice.currency)
                     }}
                   </div>
                 </div>
@@ -973,6 +1028,101 @@
                           {{ attempt.settlement.settlement_reference || '—' }})
                         </div>
                       </div>
+
+                      <!-- Snapshot Rincian Biaya & Tagihan -->
+                      <div
+                        v-if="attempt.fee_breakdown"
+                        class="col-12 q-mt-xs q-pa-sm"
+                        style="
+                          background: #19191e;
+                          border: 1px solid rgba(224, 195, 124, 0.2);
+                          border-radius: 6px;
+                        "
+                      >
+                        <div
+                          class="text-caption text-weight-bold text-gold q-mb-xs"
+                        >
+                          Snapshot Rincian Transaksi
+                        </div>
+                        <div class="row q-col-gutter-xs text-caption">
+                          <div class="col-6 text-muted">Paket:</div>
+                          <div class="col-6 text-right text-sand">
+                            {{ attempt.fee_breakdown.package_name }}
+                          </div>
+                          <div class="col-6 text-muted">Subtotal Tagihan:</div>
+                          <div class="col-6 text-right text-sand">
+                            {{
+                              formatSubscriptionPrice(
+                                attempt.fee_breakdown.subtotal_amount,
+                                attempt.currency
+                              )
+                            }}
+                          </div>
+                          <div
+                            v-if="attempt.fee_breakdown.discount_amount > 0"
+                            class="col-6 text-muted"
+                          >
+                            Diskon:
+                          </div>
+                          <div
+                            v-if="attempt.fee_breakdown.discount_amount > 0"
+                            class="col-6 text-right text-negative"
+                          >
+                            -{{
+                              formatSubscriptionPrice(
+                                attempt.fee_breakdown.discount_amount,
+                                attempt.currency
+                              )
+                            }}
+                          </div>
+                          <div class="col-6 text-muted">Metode:</div>
+                          <div class="col-6 text-right text-warning">
+                            {{
+                              attempt.fee_breakdown.payment_method_label ||
+                              paymentMethodLabel(attemptPaymentMethod(attempt))
+                            }}
+                          </div>
+                          <div class="col-6 text-muted">Biaya Admin:</div>
+                          <div class="col-6 text-right text-warning">
+                            +{{
+                              formatSubscriptionPrice(
+                                attempt.fee_breakdown.fee_amount,
+                                attempt.currency
+                              )
+                            }}
+                            <span
+                              v-if="
+                                attempt.fee_breakdown.fee_type === 'percent'
+                              "
+                              class="text-grey-5"
+                            >
+                              ({{ attempt.fee_breakdown.fee_rate }}%)
+                            </span>
+                          </div>
+                          <div
+                            class="col-6 text-weight-bold text-sand q-pt-xs"
+                            style="
+                              border-top: 1px solid rgba(224, 195, 124, 0.2);
+                            "
+                          >
+                            Total Dibayar:
+                          </div>
+                          <div
+                            class="col-6 text-right text-weight-bold text-gold q-pt-xs"
+                            style="
+                              border-top: 1px solid rgba(224, 195, 124, 0.2);
+                            "
+                          >
+                            {{
+                              formatSubscriptionPrice(
+                                attempt.fee_breakdown.total_amount ||
+                                  attempt.amount,
+                                attempt.currency
+                              )
+                            }}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </q-expansion-item>
@@ -1050,6 +1200,7 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useQuasar } from 'quasar'
 import { useInvoiceStore } from '@/stores/invoice'
+import { midtransGatewayService } from '@/services/udev-billing'
 import {
   formatSubscriptionDate,
   formatSubscriptionPrice,
@@ -1160,6 +1311,108 @@ const isMidtrans = computed(() => {
   }
   return false
 })
+
+const activeFeeRule = ref(null)
+const feeCalculating = ref(false)
+
+const currentSubtotal = computed(() => {
+  return Number(
+    invoice.value?.pricing?.final_price ?? invoice.value?.amount ?? 0
+  )
+})
+
+const activeAdminFee = computed(() => {
+  if (latestAttempt.value?.fee_breakdown?.fee_amount !== undefined) {
+    return Number(latestAttempt.value.fee_breakdown.fee_amount)
+  }
+  if (
+    latestAttempt.value?.admin_fee !== undefined &&
+    latestAttempt.value?.admin_fee > 0
+  ) {
+    return Number(latestAttempt.value.admin_fee)
+  }
+
+  if (isMidtrans.value) {
+    if (activeFeeRule.value && activeFeeRule.value.fee_amount !== undefined) {
+      return Number(activeFeeRule.value.fee_amount)
+    }
+    const method = store.checkoutPaymentMethod
+    const subtotal = currentSubtotal.value
+    if (method === 'qris') {
+      return Math.round(subtotal * 0.007)
+    }
+    if (method === 'gopay') {
+      return Math.round(subtotal * 0.02)
+    }
+    if (method?.startsWith('va_') || method === 'echannel') {
+      return 4000
+    }
+  }
+
+  return 0
+})
+
+const activeTotalPayable = computed(() => {
+  if (latestAttempt.value && isCurrentAttemptActive.value) {
+    return Number(latestAttempt.value.amount)
+  }
+  return currentSubtotal.value + activeAdminFee.value
+})
+
+const activeFeeLabel = computed(() => {
+  if (latestAttempt.value?.fee_breakdown) {
+    const fb = latestAttempt.value.fee_breakdown
+    if (fb.fee_type === 'percent') {
+      return `(${fb.fee_rate}%)`
+    }
+    return '(Tetap)'
+  }
+  if (activeFeeRule.value) {
+    if (activeFeeRule.value.fee_type === 'percent') {
+      return `(${activeFeeRule.value.fee_rate}%)`
+    }
+    return '(Tetap)'
+  }
+  const method = store.checkoutPaymentMethod
+  if (method === 'qris') return '(0.7%)'
+  if (method === 'gopay') return '(2%)'
+  if (method?.startsWith('va_')) return '(Tetap)'
+  return ''
+})
+
+async function recalculateAdminFee() {
+  if (!isMidtrans.value || currentSubtotal.value <= 0) {
+    activeFeeRule.value = null
+    return
+  }
+  feeCalculating.value = true
+  try {
+    const resp = await midtransGatewayService.calculateFee({
+      merchant_code: 'udev-central',
+      payment_method: store.checkoutPaymentMethod,
+      amount: currentSubtotal.value
+    })
+    if (resp.data?.data) {
+      activeFeeRule.value = resp.data.data
+    }
+  } catch (err) {
+    console.warn('Gagal memuat kalkulasi biaya admin dari gateway:', err)
+  } finally {
+    feeCalculating.value = false
+  }
+}
+
+watch(
+  [
+    () => store.checkoutPaymentMethod,
+    () => store.checkoutProvider,
+    () => invoice.value?.id
+  ],
+  () => {
+    recalculateAdminFee()
+  },
+  { immediate: true }
+)
 
 const availableGateways = computed(() => {
   const gateways = invoice.value.application_payment_gateways || []

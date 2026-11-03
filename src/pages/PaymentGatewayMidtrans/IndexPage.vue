@@ -95,6 +95,7 @@
         <q-tab name="merchants" icon="storefront" label="Daftar Merchant" />
         <q-tab name="mappings" icon="account_tree" label="Mapping Aplikasi" />
         <q-tab name="credentials" icon="vpn_key" label="Konfigurasi API" />
+        <q-tab name="fees" icon="payments" label="Biaya Admin" />
         <q-tab
           name="billing-transactions"
           icon="receipt_long"
@@ -127,7 +128,12 @@
           <MidtransCredentialForm />
         </q-tab-panel>
 
-        <!-- Tab 5: Transaksi Billing -->
+        <!-- Tab 5: Biaya Admin per Metode -->
+        <q-tab-panel name="fees" class="q-px-none q-pt-lg">
+          <MidtransFeeManagement />
+        </q-tab-panel>
+
+        <!-- Tab 6: Transaksi Billing -->
         <q-tab-panel name="billing-transactions" class="q-px-none q-pt-lg">
           <MidtransBillingTransactions />
         </q-tab-panel>
@@ -146,6 +152,7 @@
       <!-- Modal Dialogs -->
       <MidtransMerchantFormDialog />
       <MidtransApplicationMappingDialog />
+      <MidtransFeeFormDialog />
     </div>
   </q-page>
 </template>
@@ -161,6 +168,8 @@ import MidtransAuditTable from './comp/MidtransAuditTable.vue'
 import MidtransBillingTransactions from './comp/MidtransBillingTransactions.vue'
 import MidtransCredentialForm from './comp/MidtransCredentialForm.vue'
 import MidtransDashboard from './comp/MidtransDashboard.vue'
+import MidtransFeeFormDialog from './comp/MidtransFeeFormDialog.vue'
+import MidtransFeeManagement from './comp/MidtransFeeManagement.vue'
 import MidtransMerchantFormDialog from './comp/MidtransMerchantFormDialog.vue'
 import MidtransMerchantTable from './comp/MidtransMerchantTable.vue'
 import MidtransSandboxTester from './comp/MidtransSandboxTester.vue'

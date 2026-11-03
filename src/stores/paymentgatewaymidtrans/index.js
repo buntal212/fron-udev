@@ -41,6 +41,20 @@ const emptyTestPaymentForm = () => ({
   bank: 'bca'
 })
 
+const emptyFeeForm = () => ({
+  id: null,
+  merchant_code: 'udev-central',
+  payment_method: 'qris',
+  payment_method_name: '',
+  fee_type: 'percent',
+  fee_rate: 0.7,
+  fixed_amount: 0,
+  min_fee: null,
+  max_fee: null,
+  is_active: true,
+  notes: ''
+})
+
 export const usePaymentGatewayMidtransStore = defineStore(
   'payment-gateway-midtrans',
   {
@@ -149,6 +163,25 @@ export const usePaymentGatewayMidtransStore = defineStore(
       selectedAudit: null,
       auditDetailDialogOpen: false,
 
+      // Payment Method Admin Fees
+      fees: [],
+      feesLoading: false,
+      feesHasMore: true,
+      feesPage: 1,
+      feeFilter: {
+        search: '',
+        fee_type: null,
+        status: null
+      },
+      feeFormDialogOpen: false,
+      feeFormMode: 'create', // 'create' | 'edit'
+      feeForm: emptyFeeForm(),
+      feeFormErrors: {},
+      feeSaving: false,
+      feeDeleting: false,
+      feeDeleteConfirmDialogOpen: false,
+      feeToDelete: null,
+
       // Error message general
       error: null
     }),
@@ -219,7 +252,8 @@ export const usePaymentGatewayMidtransStore = defineStore(
         this.selectedMerchant = merchantCode
         await Promise.all([
           this.fetchConfiguration(merchantCode),
-          this.fetchAudits({ page: 1 })
+          this.fetchAudits({ page: 1 }),
+          this.fetchFees(true)
         ])
       },
 
@@ -867,6 +901,200 @@ export const usePaymentGatewayMidtransStore = defineStore(
       viewAuditDetail(audit) {
         this.selectedAudit = audit
         this.auditDetailDialogOpen = true
+      },
+
+      // ----------------------------------------------------
+      // Fee Management Actions (Card List & Infinite Scroll)
+      // ----------------------------------------------------
+      async fetchFees(reset = false) {
+        if (reset) {
+          this.feesPage = 1
+          this.fees = []
+          this.feesHasMore = true
+        }
+        this.feesLoading = true
+        try {
+          const params = {
+            merchant_code: this.selectedMerchant,
+            page: this.feesPage,
+            per_page: 10
+          }
+          if (this.feeFilter.search) params.search = this.feeFilter.search
+          if (this.feeFilter.fee_type) params.fee_type = this.feeFilter.fee_type
+          if (this.feeFilter.status) params.status = this.feeFilter.status
+
+          const resp = await midtransGatewayService.fees(params)
+          const items = resp.data?.data ?? []
+          const meta = resp.data?.meta
+
+          if (this.feesPage === 1) {
+            this.fees = items
+          } else {
+            // Deduplicate incoming items by id
+            const existingIds = new Set(this.fees.map(f => f.id))
+            const newItems = items.filter(f => !existingIds.has(f.id))
+            this.fees.push(...newItems)
+          }
+
+          this.feesHasMore = meta ? meta.has_more : items.length >= 10
+        } catch (err) {
+          console.error('Failed to load Midtrans fees:', err)
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              err,
+              'Gagal memuat daftar biaya metode pembayaran.'
+            )
+          })
+        } finally {
+          this.feesLoading = false
+        }
+      },
+
+      async loadMoreFees(index, done) {
+        if (!this.feesHasMore || this.feesLoading) {
+          if (typeof done === 'function') done()
+          return
+        }
+        this.feesPage += 1
+        await this.fetchFees(false)
+        if (typeof done === 'function') done(!this.feesHasMore)
+      },
+
+      openCreateFeeDialog() {
+        this.feeFormMode = 'create'
+        this.feeForm = emptyFeeForm()
+        this.feeForm.merchant_code = this.selectedMerchant
+        this.feeFormErrors = {}
+        this.feeFormDialogOpen = true
+      },
+
+      openEditFeeDialog(fee) {
+        this.feeFormMode = 'edit'
+        this.feeForm = {
+          id: fee.id,
+          merchant_code: fee.merchant_code,
+          payment_method: fee.payment_method,
+          payment_method_name: fee.payment_method_name,
+          fee_type: fee.fee_type,
+          fee_rate: Number(fee.fee_rate || 0),
+          fixed_amount: Number(fee.fixed_amount || 0),
+          min_fee: fee.min_fee !== null ? Number(fee.min_fee) : null,
+          max_fee: fee.max_fee !== null ? Number(fee.max_fee) : null,
+          is_active: Boolean(fee.is_active),
+          notes: fee.notes || ''
+        }
+        this.feeFormErrors = {}
+        this.feeFormDialogOpen = true
+      },
+
+      async saveFee() {
+        this.feeSaving = true
+        this.feeFormErrors = {}
+        try {
+          const payload = {
+            merchant_code: this.feeForm.merchant_code || this.selectedMerchant,
+            payment_method: this.feeForm.payment_method,
+            payment_method_name: this.feeForm.payment_method_name,
+            fee_type: this.feeForm.fee_type,
+            fee_rate:
+              this.feeForm.fee_type === 'percent'
+                ? Number(this.feeForm.fee_rate || 0)
+                : 0,
+            fixed_amount:
+              this.feeForm.fee_type === 'fixed'
+                ? Number(this.feeForm.fixed_amount || 0)
+                : 0,
+            min_fee:
+              this.feeForm.min_fee !== null && this.feeForm.min_fee !== ''
+                ? Number(this.feeForm.min_fee)
+                : null,
+            max_fee:
+              this.feeForm.max_fee !== null && this.feeForm.max_fee !== ''
+                ? Number(this.feeForm.max_fee)
+                : null,
+            is_active: Boolean(this.feeForm.is_active),
+            notes: this.feeForm.notes || null
+          }
+
+          if (this.feeFormMode === 'create') {
+            await midtransGatewayService.createFee(payload)
+            Notify.create({
+              type: 'positive',
+              message: 'Biaya metode pembayaran berhasil ditambahkan.'
+            })
+          } else {
+            await midtransGatewayService.updateFee(this.feeForm.id, payload)
+            Notify.create({
+              type: 'positive',
+              message: 'Biaya metode pembayaran berhasil diperbarui.'
+            })
+          }
+
+          this.feeFormDialogOpen = false
+          await this.fetchFees(true)
+        } catch (err) {
+          this.feeFormErrors = getApiValidationErrors(err)
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              err,
+              'Gagal menyimpan biaya metode pembayaran.'
+            )
+          })
+        } finally {
+          this.feeSaving = false
+        }
+      },
+
+      async toggleFeeStatus(fee) {
+        const newStatus = !fee.is_active
+        try {
+          await midtransGatewayService.toggleFeeStatus(fee.id, newStatus)
+          fee.is_active = newStatus
+          Notify.create({
+            type: 'positive',
+            message: `Metode ${fee.payment_method_name} berhasil di${newStatus ? 'aktifkan' : 'nonaktifkan'}.`
+          })
+        } catch (err) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              err,
+              'Gagal mengubah status biaya metode pembayaran.'
+            )
+          })
+        }
+      },
+
+      confirmDeleteFee(fee) {
+        this.feeToDelete = fee
+        this.feeDeleteConfirmDialogOpen = true
+      },
+
+      async deleteFee() {
+        if (!this.feeToDelete) return
+        this.feeDeleting = true
+        try {
+          await midtransGatewayService.deleteFee(this.feeToDelete.id)
+          Notify.create({
+            type: 'positive',
+            message: 'Konfigurasi biaya metode pembayaran berhasil dihapus.'
+          })
+          this.feeDeleteConfirmDialogOpen = false
+          this.feeToDelete = null
+          await this.fetchFees(true)
+        } catch (err) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              err,
+              'Gagal menghapus biaya metode pembayaran.'
+            )
+          })
+        } finally {
+          this.feeDeleting = false
+        }
       }
     }
   }

@@ -56,6 +56,86 @@
               {{ formatSubscriptionPrice(attempt.amount, attempt.currency) }}
             </p>
           </div>
+
+          <!-- Rincian Biaya Admin & Paket Snapshot -->
+          <div
+            v-if="feeBreakdown"
+            class="col-12 q-pa-sm"
+            style="
+              background: #19191e;
+              border: 1px solid rgba(224, 195, 124, 0.2);
+              border-radius: 6px;
+            "
+          >
+            <div class="text-caption text-weight-bold text-gold q-mb-xs">
+              Snapshot Rincian Biaya & Tagihan
+            </div>
+            <div class="row q-col-gutter-xs text-caption">
+              <div class="col-6 text-muted">Paket:</div>
+              <div class="col-6 text-right text-sand">
+                {{ feeBreakdown.package_name }}
+              </div>
+              <div class="col-6 text-muted">Subtotal Tagihan:</div>
+              <div class="col-6 text-right text-sand">
+                {{
+                  formatSubscriptionPrice(
+                    feeBreakdown.subtotal_amount,
+                    attempt.currency
+                  )
+                }}
+              </div>
+              <div
+                v-if="feeBreakdown.discount_amount > 0"
+                class="col-6 text-muted"
+              >
+                Diskon:
+              </div>
+              <div
+                v-if="feeBreakdown.discount_amount > 0"
+                class="col-6 text-right text-negative"
+              >
+                -{{
+                  formatSubscriptionPrice(
+                    feeBreakdown.discount_amount,
+                    attempt.currency
+                  )
+                }}
+              </div>
+              <div class="col-6 text-muted">Metode:</div>
+              <div class="col-6 text-right text-warning">
+                {{
+                  feeBreakdown.payment_method_label || attempt.payment_method
+                }}
+              </div>
+              <div class="col-6 text-muted">Biaya Admin:</div>
+              <div class="col-6 text-right text-warning">
+                +{{
+                  formatSubscriptionPrice(
+                    feeBreakdown.fee_amount,
+                    attempt.currency
+                  )
+                }}
+                <span
+                  v-if="feeBreakdown.fee_type === 'percent'"
+                  class="text-grey-5"
+                >
+                  ({{ feeBreakdown.fee_rate }}%)
+                </span>
+              </div>
+              <div
+                class="col-6 text-weight-bold text-sand q-pt-xs"
+                style="border-top: 1px solid rgba(224, 195, 124, 0.2)"
+              >
+                Total Dibayar:
+              </div>
+              <div
+                class="col-6 text-right text-weight-bold text-gold q-pt-xs"
+                style="border-top: 1px solid rgba(224, 195, 124, 0.2)"
+              >
+                {{ formatSubscriptionPrice(attempt.amount, attempt.currency) }}
+              </div>
+            </div>
+          </div>
           <div class="col-12 col-sm-6">
             <p class="label">Referensi merchant</p>
             <p class="value">{{ attempt.merchant_reference || '—' }}</p>
@@ -257,6 +337,12 @@ import {
 
 const store = useRiwayatPembayaranStore()
 const attempt = computed(() => store.selectedAttempt || {})
+const feeBreakdown = computed(
+  () =>
+    attempt.value?.fee_breakdown ||
+    attempt.value?.metadata?.fee_breakdown ||
+    null
+)
 const reconciliationStatus = computed(() =>
   getReconciliationStatus(attempt.value.reconciliation?.status)
 )
