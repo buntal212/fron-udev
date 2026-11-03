@@ -469,6 +469,7 @@
                       :src="displayQrSource"
                       :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
                       class="qris-img"
+                      @load="onQrImageLoad"
                       @error="handleQrImageError"
                     />
                   </div>
@@ -1057,6 +1058,11 @@ const activeTab = ref('attempts')
 const qrImageLoadFailed = ref(false)
 const qrImageLoading = ref(false)
 const proxyBlobUrl = ref(null)
+const currentAttemptId = ref(null)
+
+const onQrImageLoad = () => {
+  qrImageLoading.value = false
+}
 
 const invoice = computed(() => store.selectedInvoice || {})
 
@@ -1195,7 +1201,8 @@ watch(
 
 const onStartCheckout = () => {
   qrImageLoadFailed.value = false
-  proxyBlobUrl.value = null
+  currentAttemptId.value = null
+  cleanupProxyBlobUrl()
   const method = store.checkoutPaymentMethod
   const provider = isMidtrans.value ? 'midtrans' : 'dana'
   let bank = null
@@ -1340,7 +1347,9 @@ const loadProxyQrBlob = async () => {
   try {
     const blobUrl = await store.fetchProxyQrBlob(target)
     if (blobUrl) {
-      cleanupProxyBlobUrl()
+      if (proxyBlobUrl.value && proxyBlobUrl.value !== blobUrl) {
+        cleanupProxyBlobUrl()
+      }
       proxyBlobUrl.value = blobUrl
       return blobUrl
     }
@@ -1380,6 +1389,10 @@ const displayQrSource = computed(() => {
 })
 
 const handleQrImageError = async () => {
+  if (proxyBlobUrl.value) {
+    cleanupProxyBlobUrl()
+  }
+
   qrImageLoadFailed.value = true
 
   // Ambil gambar melalui proxy Axios terautentikasi jika belum tersedia
@@ -1507,6 +1520,7 @@ const copyPayload = async (text, message = 'Berhasil disalin!') => {
 }
 
 const onDialogClose = () => {
+  currentAttemptId.value = null
   cleanupProxyBlobUrl()
   store.closeDetailDialog()
 }
@@ -1520,14 +1534,21 @@ watch(
     latestAttempt.value?.qr_image_url
   ],
   async () => {
-    qrImageLoadFailed.value = false
-    cleanupProxyBlobUrl()
+    const attemptId =
+      latestAttempt.value?.id || store.checkoutAttempt?.id || null
+    const attemptChanged = attemptId !== currentAttemptId.value
+
+    if (attemptChanged) {
+      currentAttemptId.value = attemptId
+      qrImageLoadFailed.value = false
+      cleanupProxyBlobUrl()
+    }
 
     if (
       currentAttemptMethod.value === 'qris' &&
-      !rawMidtransQrUrl.value &&
       (proxyQrUrl.value || latestAttempt.value?.id) &&
-      !isCheckoutExpired.value
+      !isCheckoutExpired.value &&
+      (!proxyBlobUrl.value || attemptChanged)
     ) {
       await loadProxyQrBlob()
     }
@@ -1540,12 +1561,14 @@ watch(
   expired => {
     if (expired) {
       cleanupProxyBlobUrl()
+      currentAttemptId.value = null
       store.stopCheckoutSession()
     }
   }
 )
 
 onBeforeUnmount(() => {
+  currentAttemptId.value = null
   cleanupProxyBlobUrl()
   store.stopCheckoutSession()
 })

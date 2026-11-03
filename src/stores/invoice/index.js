@@ -598,6 +598,22 @@ export const useInvoiceStore = defineStore('invoice', {
       try {
         const response = await paymentAttemptService.qrImageBlob(attemptId)
         if (response?.data) {
+          let data = response.data
+          if (
+            typeof Blob !== 'undefined' &&
+            data instanceof Blob &&
+            data.type === 'application/json'
+          ) {
+            return null
+          }
+          if (
+            typeof Blob !== 'undefined' &&
+            !(data instanceof Blob) &&
+            (data instanceof ArrayBuffer || ArrayBuffer.isView(data))
+          ) {
+            data = new Blob([data], { type: 'image/png' })
+          }
+          response.data = data
           if (this.checkoutQrBlobUrl && typeof window !== 'undefined') {
             window.URL.revokeObjectURL(this.checkoutQrBlobUrl)
           }
@@ -865,7 +881,7 @@ export const useInvoiceStore = defineStore('invoice', {
                 this.checkoutQrPayload = rawPayload
                 this.checkoutPaymentCode = null
                 await this.renderQr(rawPayload)
-              } else if (qrUrl) {
+              } else if (rawQrUrl) {
                 this.checkoutQrPayload = null
                 this.checkoutPaymentCode = null
               }

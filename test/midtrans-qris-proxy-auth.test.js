@@ -159,3 +159,65 @@ test('InvoiceDetailDialog menangani kedaluwarsa QRIS Midtrans dengan aman', asyn
   assert.match(dialog, /Kode QRIS Telah Kedaluwarsa/)
   assert.match(dialog, /!isCheckoutExpired\.value/)
 })
+
+test('Regression: Proxy terautentikasi menjadi sumber utama tanpa terblokir oleh keberadaan rawMidtransQrUrl', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Watcher tidak lagi mensyaratkan !rawMidtransQrUrl untuk memuat proxy blob
+  assert.doesNotMatch(dialog, /!rawMidtransQrUrl\.value\s*&&/)
+  assert.match(
+    dialog,
+    /currentAttemptMethod\.value === 'qris'[\s\S]*\(proxyQrUrl\.value \|\| latestAttempt\.value\?\.id\)[\s\S]*await loadProxyQrBlob\(\)/
+  )
+})
+
+test('Regression: Watcher mencegah reset src dan pencabutan prematur object URL saat attempt ID tidak berubah', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Pelacakan currentAttemptId dan perbandingan attemptChanged
+  assert.match(dialog, /const currentAttemptId\s*=\s*ref\(null\)/)
+  assert.match(
+    dialog,
+    /const attemptChanged\s*=\s*attemptId\s*!==\s*currentAttemptId\.value/
+  )
+  assert.match(
+    dialog,
+    /if\s*\(attemptChanged\)\s*\{\s*currentAttemptId\.value\s*=\s*attemptId[\s\S]*cleanupProxyBlobUrl\(\)/
+  )
+
+  // Img tag memiliki handler @load untuk konfirmasi gambar berhasil tampil
+  assert.match(dialog, /@load="onQrImageLoad"/)
+  assert.match(dialog, /const onQrImageLoad\s*=\s*\(\)\s*=>/)
+})
+
+test('Regression: Service udev-billing dan store invoice memvalidasi response blob bukan JSON error', async () => {
+  const service = await readFile(
+    new URL('../src/services/udev-billing.js', import.meta.url),
+    'utf8'
+  )
+  const store = await readFile(
+    new URL('../src/stores/invoice/index.js', import.meta.url),
+    'utf8'
+  )
+
+  // Service menyertakan Accept image untuk mencegah respons proxy diperlakukan sebagai JSON
+  assert.match(service, /Accept:\s*'image\/png,\s*image\/\*'/)
+
+  // Store memeriksa bahwa blob bukan bertipe application/json
+  assert.match(store, /data\.type\s*===\s*'application\/json'/)
+
+  // Store menangani jika respons berupa ArrayBuffer/binary dan mengonversi ke image/png Blob
+  assert.match(store, /new Blob\(\[data\],\s*\{\s*type:\s*'image\/png'\s*\}\)/)
+})

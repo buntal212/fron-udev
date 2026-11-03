@@ -174,7 +174,11 @@ export const paymentAttemptService = {
         : `/v1/admin/payment-attempts/${idOrUrl}/qr-image`
     return api.get(endpoint, {
       responseType: 'blob',
-      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+      headers: {
+        'Cache-Control': 'no-store',
+        Pragma: 'no-cache',
+        Accept: 'image/png, image/*'
+      }
     })
   },
   retryCheckout: id =>
