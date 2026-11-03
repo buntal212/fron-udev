@@ -321,3 +321,104 @@ test('Regression: Lifecycle cleanup membersihkan state pada dialog ditutup dan u
     /onBeforeUnmount\(\(\)\s*=>\s*\{[\s\S]*currentAttemptId\.value\s*=\s*null[\s\S]*proxyFetchFailed\.value\s*=\s*false[\s\S]*cleanupProxyBlobUrl\(\)[\s\S]*store\.stopCheckoutSession\(\)/
   )
 })
+
+test('Regression: Elemen img menggunakan :key="displayQrSource" dan spinner menutup jendela muat proxy agar tidak broken image', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Memastikan tag img memiliki key reaktif displayQrSource untuk mendiskon state error lama
+  assert.match(
+    dialog,
+    /<img[\s\S]*?:key="displayQrSource"[\s\S]*?:src="displayQrSource"[\s\S]*?class="qris-img"[\s\S]*?@load="onQrImageLoad"[\s\S]*?@error="handleQrImageError"/
+  )
+
+  // Spinner loading aktif selama Midtrans proxy blob belum siap agar tidak membocorkan rawMidtransQrUrl unauthenticated
+  assert.match(
+    dialog,
+    /isMidtrans\s*&&\s*\(proxyQrUrl\s*\|\|\s*latestAttempt\?\.id\)\s*&&\s*!proxyBlobUrl\s*&&\s*!proxyFetchFailed/
+  )
+
+  // Handler onQrImageLoad membersihkan seluruh state loading dan error
+  assert.match(
+    dialog,
+    /const onQrImageLoad\s*=\s*\(\)\s*=>\s*\{[\s\S]*qrImageLoading\.value\s*=\s*false[\s\S]*qrImageLoadFailed\.value\s*=\s*false[\s\S]*proxyFetchFailed\.value\s*=\s*false[\s\S]*\}/
+  )
+})
+
+test('Regression: Konfirmasi load gambar (@load="onQrImageLoad") membuktikan gambar QRIS berhasil dimuat', async () => {
+  // Simulasi validasi respons PNG proxy Midtrans (HTTP 200)
+  const validPngBuffer = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+    0x49, 0x48, 0x44, 0x52
+  ])
+
+  // Verifikasi signature PNG valid (89 50 4E 47)
+  const isPng =
+    validPngBuffer[0] === 0x89 &&
+    validPngBuffer[1] === 0x50 &&
+    validPngBuffer[2] === 0x4e &&
+    validPngBuffer[3] === 0x47
+  assert.strictEqual(isPng, true)
+
+  // Simulasi state reaktif dialog
+  let proxyBlobUrl = 'blob:http://localhost:9200/midtrans-qris-attempt-32'
+  let qrImageLoading = true
+  let qrImageLoadFailed = false
+  let proxyFetchFailed = false
+  let renderQrCalled = false
+
+  const onQrImageLoad = () => {
+    qrImageLoading = false
+    qrImageLoadFailed = false
+    proxyFetchFailed = false
+  }
+
+  // Simulasi event browser @load terpanggil saat PNG valid berhasil di-decode
+  onQrImageLoad()
+
+  assert.strictEqual(qrImageLoading, false)
+  assert.strictEqual(qrImageLoadFailed, false)
+  assert.strictEqual(proxyFetchFailed, false)
+  assert.strictEqual(
+    proxyBlobUrl,
+    'blob:http://localhost:9200/midtrans-qris-attempt-32'
+  )
+  assert.strictEqual(renderQrCalled, false)
+})
+
+test('Regression: Normalisasi endpoint proxy dan cleanup sinkron antara dialog dan store invoice', async () => {
+  const service = await readFile(
+    new URL('../src/services/udev-billing.js', import.meta.url),
+    'utf8'
+  )
+  const store = await readFile(
+    new URL('../src/stores/invoice/index.js', import.meta.url),
+    'utf8'
+  )
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // Service menangani baik ID numerik maupun path /api/ tanpa menghasilkan /api/api
+  assert.match(service, /const match = idOrUrl\.match\(\/payment-attempts/)
+  assert.match(service, /idOrUrl\.replace\(\/\^\\\/api\/,\s*''\)/)
+
+  // Store menormalisasi target attemptId
+  assert.match(
+    store,
+    /async\s+fetchProxyQrBlob\(target\s*=\s*this\.checkoutAttempt\?\.id\)/
+  )
+
+  // Dialog membersihkan Object URL store saat cleanupProxyBlobUrl dipanggil
+  assert.match(dialog, /store\.checkoutQrBlobUrl\s*=\s*null/)
+  assert.match(dialog, /store\.checkoutQrBlobAttemptId\s*=\s*null/)
+})

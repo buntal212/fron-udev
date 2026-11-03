@@ -452,7 +452,11 @@
                   v-else-if="
                     store.checkoutLoading ||
                     store.checkoutQrLoading ||
-                    qrImageLoading
+                    qrImageLoading ||
+                    (isMidtrans &&
+                      (proxyQrUrl || latestAttempt?.id) &&
+                      !proxyBlobUrl &&
+                      !proxyFetchFailed)
                   "
                   class="q-py-lg"
                 >
@@ -466,6 +470,7 @@
                 <div v-else-if="displayQrSource" class="column items-center">
                   <div class="qris-image-frame q-pa-xs bg-white shadow-3">
                     <img
+                      :key="displayQrSource"
                       :src="displayQrSource"
                       :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
                       class="qris-img"
@@ -1063,6 +1068,8 @@ const proxyFetchFailed = ref(false)
 
 const onQrImageLoad = () => {
   qrImageLoading.value = false
+  qrImageLoadFailed.value = false
+  proxyFetchFailed.value = false
 }
 
 const invoice = computed(() => store.selectedInvoice || {})
@@ -1333,6 +1340,10 @@ const cleanupProxyBlobUrl = () => {
       // ignore
     }
     proxyBlobUrl.value = null
+  }
+  if (store.checkoutQrBlobUrl) {
+    store.checkoutQrBlobUrl = null
+    store.checkoutQrBlobAttemptId = null
   }
 }
 

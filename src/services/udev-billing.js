@@ -165,13 +165,22 @@ export const paymentAttemptService = {
   list: params => getList('/v1/admin/payment-attempts', params),
   get: id => api.get(`/v1/admin/payment-attempts/${id}`),
   qrImageBlob: idOrUrl => {
-    const endpoint =
-      typeof idOrUrl === 'string' &&
-      (idOrUrl.startsWith('http://') ||
-        idOrUrl.startsWith('https://') ||
-        idOrUrl.startsWith('/api/'))
-        ? idOrUrl
-        : `/v1/admin/payment-attempts/${idOrUrl}/qr-image`
+    let endpoint = `/v1/admin/payment-attempts/${idOrUrl}/qr-image`
+    if (typeof idOrUrl === 'string') {
+      const match = idOrUrl.match(/payment-attempts\/(\d+)\/qr-image/)
+      if (match) {
+        endpoint = `/v1/admin/payment-attempts/${match[1]}/qr-image`
+      } else if (
+        idOrUrl.startsWith('http://') ||
+        idOrUrl.startsWith('https://')
+      ) {
+        endpoint = idOrUrl
+      } else if (idOrUrl.startsWith('/api/')) {
+        endpoint = idOrUrl.replace(/^\/api/, '')
+      } else if (idOrUrl.startsWith('/')) {
+        endpoint = idOrUrl
+      }
+    }
     return api.get(endpoint, {
       responseType: 'blob',
       headers: {

@@ -597,8 +597,17 @@ export const useInvoiceStore = defineStore('invoice', {
       }
     },
 
-    async fetchProxyQrBlob(attemptId = this.checkoutAttempt?.id) {
-      if (!attemptId || this.checkoutIsExpired) return null
+    async fetchProxyQrBlob(target = this.checkoutAttempt?.id) {
+      if (!target || this.checkoutIsExpired) return null
+
+      const attemptId =
+        typeof target === 'number'
+          ? target
+          : typeof target === 'string' && /payment-attempts\/(\d+)/.test(target)
+            ? Number(target.match(/payment-attempts\/(\d+)/)[1])
+            : !Number.isNaN(Number(target))
+              ? Number(target)
+              : target
 
       const attemptStatus =
         this.selectedInvoice?.payment_attempts?.find(a => a.id === attemptId)
@@ -626,7 +635,7 @@ export const useInvoiceStore = defineStore('invoice', {
 
       const fetchPromise = (async () => {
         try {
-          const response = await paymentAttemptService.qrImageBlob(attemptId)
+          const response = await paymentAttemptService.qrImageBlob(target)
           if (response?.data) {
             let data = response.data
             if (
