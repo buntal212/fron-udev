@@ -255,6 +255,68 @@
                   <span class="text-gold">{{ referralName }}</span>
                 </div>
                 <div
+                  v-if="referralCommission"
+                  class="row justify-between items-center text-body2 q-pt-xs"
+                >
+                  <span class="text-muted">Komisi Referral</span>
+                  <div class="row items-center q-gutter-xs">
+                    <q-badge
+                      dense
+                      :color="
+                        referralCommission.commission_type ===
+                        'pembayaran_pertama'
+                          ? 'teal-9'
+                          : 'blue-9'
+                      "
+                      :label="
+                        referralCommission.commission_type ===
+                        'pembayaran_pertama'
+                          ? 'Pertama (Rp50rb)'
+                          : 'Perpanjangan (Rp7,5rb)'
+                      "
+                    />
+                    <q-badge
+                      dense
+                      :color="
+                        referralCommission.status === 'available'
+                          ? 'positive'
+                          : referralCommission.status === 'reversed'
+                            ? 'negative'
+                            : 'warning'
+                      "
+                      :label="
+                        referralCommission.status === 'available'
+                          ? 'Tersedia'
+                          : referralCommission.status === 'reversed'
+                            ? 'Dibalikkan'
+                            : 'Tertahan'
+                      "
+                    />
+                    <span
+                      class="text-weight-bold"
+                      :class="
+                        referralCommission.is_reversed
+                          ? 'text-negative text-strike'
+                          : 'text-positive'
+                      "
+                    >
+                      {{
+                        formatSubscriptionPrice(
+                          referralCommission.amount,
+                          invoice.currency
+                        )
+                      }}
+                    </span>
+                  </div>
+                </div>
+                <div
+                  v-if="referralCommission?.reversal"
+                  class="text-caption text-negative text-right q-pt-xs"
+                >
+                  <q-icon name="warning" size="14px" />
+                  Dibalikkan: {{ referralCommission.reversal.notes }}
+                </div>
+                <div
                   class="row justify-between text-body2 q-pt-xs text-weight-medium"
                   style="border-top: 1px dashed rgba(224, 195, 124, 0.25)"
                 >
@@ -1233,6 +1295,10 @@ const referralName = computed(() => {
   if (partnerName && referralCode) return `${partnerName} (${referralCode})`
   return partnerName || referralCode || '—'
 })
+
+const referralCommission = computed(
+  () => invoice.value.referral_commission || null
+)
 
 const reconciliationLabel = status => getReconciliationStatus(status)
 

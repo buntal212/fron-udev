@@ -63,6 +63,26 @@
               :label="
                 props.row.is_active ? 'Aktif' : 'Tidak aktif'
               " /></q-td></template
+        ><template #body-cell-referred_warungs_count="props"
+          ><q-td :props="props" class="text-center"
+            ><q-badge color="dark" text-color="amber-3" class="text-weight-bold"
+              >{{ props.row.referred_warungs_count || 0 }} warung</q-badge
+            ></q-td
+          ></template
+        ><template #body-cell-available_balance="props"
+          ><q-td :props="props" class="text-right"
+            ><div class="text-weight-bold text-positive">{{
+              money(
+                props.row.balances?.available_balance ||
+                  props.row.commission_total
+              )
+            }}</div
+            ><div
+              v-if="Number(props.row.balances?.pending_balance) > 0"
+              class="caption text-purple-8"
+              >Tertahan {{ money(props.row.balances?.pending_balance) }}</div
+            ></q-td
+          ></template
         ><template #body-cell-actions="props"
           ><q-td :props="props"
             ><q-btn
@@ -165,8 +185,27 @@
               ><span>Email</span><strong>{{ store.detail.email || '-' }}</strong
               ><span>Kode referral</span
               ><strong>{{ store.detail.referral_codes_count || 0 }}</strong
-              ><span>Total komisi terverifikasi</span
-              ><strong>{{ money(store.detail.commission_total) }}</strong></div
+              ><span>Warung referral</span
+              ><strong
+                >{{ store.detail.referred_warungs_count || 0 }} warung</strong
+              ><span>Saldo tersedia</span
+              ><strong class="text-positive">{{
+                money(
+                  store.detail.balances?.available_balance ||
+                    store.detail.commission_total
+                )
+              }}</strong
+              ><span>Saldo tertahan</span
+              ><strong class="text-purple-8">{{
+                money(store.detail.balances?.pending_balance || '0.00')
+              }}</strong
+              ><span>Total penghasilan</span
+              ><strong>{{
+                money(
+                  store.detail.balances?.total_earnings ||
+                    store.detail.commission_total
+                )
+              }}</strong></div
             ><q-separator class="q-my-md" /><div
               class="text-weight-bold q-mb-sm"
               >Kode referral</div
@@ -234,6 +273,19 @@ const columns = [
     label: 'Kode',
     field: 'referral_codes_count',
     align: 'center'
+  },
+  {
+    name: 'referred_warungs_count',
+    label: 'Warung',
+    field: 'referred_warungs_count',
+    align: 'center'
+  },
+  {
+    name: 'available_balance',
+    label: 'Saldo Tersedia',
+    field: row =>
+      row.balances?.available_balance || row.commission_total || '0.00',
+    align: 'right'
   },
   { name: 'status', label: 'Status', field: 'is_active', align: 'center' },
   { name: 'actions', label: '', field: 'id', align: 'right' }

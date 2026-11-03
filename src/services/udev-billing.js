@@ -41,6 +41,14 @@ export const referralCodeService = {
   update: (id, payload) => api.patch(`/v1/admin/referral-codes/${id}`, payload)
 }
 
+export const referralCommissionService = {
+  summary: () => api.get('/v1/admin/referral-commissions/summary'),
+  list: params => getList('/v1/admin/referral-commissions', params),
+  warungs: params => getList('/v1/admin/referral-warungs', params),
+  reverse: (id, payload) =>
+    api.post(`/v1/admin/referral-commissions/${id}/reverse`, payload)
+}
+
 export const applicationIntegrationService = {
   globalToken: applicationId =>
     api.get(`/v1/admin/applications/${applicationId}/global-integration-token`),
