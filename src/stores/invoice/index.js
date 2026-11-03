@@ -1228,11 +1228,11 @@ export const useInvoiceStore = defineStore('invoice', {
             this.checkoutQrPayload = rawPayload
             this.checkoutPaymentCode = null
             await this.renderQr(rawPayload)
-          } else if (this.checkoutQrUrl) {
+          } else if (this.checkoutQrUrl || this.checkoutQrImageUrl) {
             this.checkoutQrPayload = null
             this.checkoutPaymentCode = null
           }
-          if (rawPayload || this.checkoutQrUrl) {
+          if (rawPayload || this.checkoutQrUrl || this.checkoutQrImageUrl) {
             if (this.checkoutExpiresAt && !this.checkoutIsExpired) {
               this.startCountdown(this.checkoutExpiresAt)
               this.startPolling(latestAttempt?.id)

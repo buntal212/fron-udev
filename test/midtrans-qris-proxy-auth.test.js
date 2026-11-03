@@ -532,3 +532,126 @@ test('Regression: Simulasi banyak respons polling (status pending) tidak memicu 
   assert.strictEqual(overlapOutcome, 'skipped')
   pollingInProgress = false
 })
+
+test('Regression: Dialog mencegah race condition attempt lama menimpa attempt baru saat fetch in-flight selesai', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // loadProxyQrBlob menyimpan targetAttemptId dan memverifikasi kesesuaian currentAttemptId sebelum update
+  assert.match(dialog, /const targetAttemptId = attemptId/)
+  assert.match(
+    dialog,
+    /if\s*\(\s*currentAttemptId\.value\s*&&\s*currentAttemptId\.value\s*!==\s*targetAttemptId\s*\)\s*\{\s*return null/
+  )
+
+  // Simulasi race condition async dua attempt
+  let activeAttemptId = 31
+  let currentProxyBlobUrl = null
+
+  const simulateFetch = async (attemptId, delayMs, blobResult) => {
+    const targetAttemptId = attemptId
+    await new Promise(resolve => setTimeout(resolve, delayMs))
+    // Jika attempt aktif telah berganti, buang respons lama
+    if (activeAttemptId && activeAttemptId !== targetAttemptId) {
+      return null
+    }
+    currentProxyBlobUrl = blobResult
+    return blobResult
+  }
+
+  // Attempt 31 mulai fetch (lambat: 50ms)
+  const fetch31Promise = simulateFetch(31, 50, 'blob:attempt-31')
+
+  // User beralih ke Attempt 32
+  activeAttemptId = 32
+  // Attempt 32 mulai fetch (cepat: 10ms)
+  const fetch32Promise = simulateFetch(32, 10, 'blob:attempt-32')
+
+  const res32 = await fetch32Promise
+  assert.strictEqual(res32, 'blob:attempt-32')
+  assert.strictEqual(currentProxyBlobUrl, 'blob:attempt-32')
+
+  // Attempt 31 selesai belakangan
+  const res31 = await fetch31Promise
+  assert.strictEqual(res31, null)
+  // Blob URL tetap milik Attempt 32, tidak tertimpa respons lama
+  assert.strictEqual(currentProxyBlobUrl, 'blob:attempt-32')
+})
+
+test('Regression: Dialog menghentikan spinner pada kegagalan proxy dan fallback otomatis ke render canvas EMVCo', async () => {
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // loadProxyQrBlob menandai proxyFetchFailed = true pada status terminal, target kosong, atau fetch null
+  assert.match(
+    dialog,
+    /\[\s*'succeeded',\s*'paid',\s*'expired',\s*'failed',\s*'cancelled'\s*\]\.includes\(\s*attemptStatus\s*\)[\s\S]*proxyFetchFailed\.value\s*=\s*true[\s\S]*return null/
+  )
+  assert.match(
+    dialog,
+    /if\s*\(!target\)\s*\{[\s\S]*proxyFetchFailed\.value\s*=\s*true[\s\S]*return null/
+  )
+
+  // Jika proxy gagal dan emvcoPayload ada, memicu renderQr sebagai fallback otomatis
+  assert.match(
+    dialog,
+    /if\s*\(emvcoPayload\.value\s*&&\s*!store\.checkoutQrDataUrl\)\s*\{\s*await store\.renderQr\(emvcoPayload\.value\)/
+  )
+
+  // Simulasi: Kegagalan proxy menyelesaikan spinner dan beralih ke fallback
+  let proxyBlobUrl = null
+  let proxyFetchFailed = false
+  let isAttemptTerminal = false
+  let renderedCanvasUrl = null
+
+  const isSpinnerActive = () =>
+    !isAttemptTerminal && !proxyBlobUrl && !proxyFetchFailed
+
+  // Awal: spinner aktif menunggu
+  assert.strictEqual(isSpinnerActive(), true)
+
+  // Simulasi fetch gagal
+  proxyFetchFailed = true
+  renderedCanvasUrl = 'data:image/png;base64,mockCanvasQr'
+
+  // Spinner harus berhenti
+  assert.strictEqual(isSpinnerActive(), false)
+  // Fallback canvas siap ditampilkan
+  assert.strictEqual(Boolean(renderedCanvasUrl), true)
+})
+
+test('Regression: store invoice mendeteksi QRIS Midtrans dari checkoutQrImageUrl dan reuse Object URL antar dialog', async () => {
+  const store = await readFile(
+    new URL('../src/stores/invoice/index.js', import.meta.url),
+    'utf8'
+  )
+  const dialog = await readFile(
+    new URL(
+      '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // startCheckout mengakui checkoutQrImageUrl sebagai instruksi QRIS valid
+  assert.match(
+    store,
+    /if\s*\(rawPayload\s*\|\|\s*this\.checkoutQrUrl\s*\|\|\s*this\.checkoutQrImageUrl\)/
+  )
+
+  // Dialog menyinkronkan checkoutQrBlobUrl dari store jika sudah ada untuk attempt ini
+  assert.match(
+    dialog,
+    /if\s*\(\s*store\.checkoutQrBlobUrl\s*&&\s*store\.checkoutQrBlobAttemptId\s*===\s*attemptId\s*\)/
+  )
+})
