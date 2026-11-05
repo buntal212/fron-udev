@@ -74,8 +74,16 @@
       <!-- Environment Column -->
       <template #body-cell-environment="props">
         <q-td :props="props">
-          <q-badge color="amber-9" text-color="dark" class="text-weight-bold">
-            {{ props.row.environment }}
+          <q-badge
+            :color="
+              props.row.environment === 'production' ? 'negative' : 'amber-9'
+            "
+            :text-color="
+              props.row.environment === 'production' ? 'white' : 'dark'
+            "
+            class="text-weight-bold"
+          >
+            {{ (props.row.environment || 'sandbox').toUpperCase() }}
           </q-badge>
         </q-td>
       </template>

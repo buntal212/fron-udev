@@ -12,16 +12,16 @@
           <h1>Payment Gateway Midtrans</h1>
           <p class="page-description">
             Kelola merchant Midtrans, mapping aplikasi, konfigurasi API Core
-            Sandbox terenkripsi, transaksi billing, simulasi pembayaran, dan
+            Sandbox &amp; Production terenkripsi, transaksi billing, simulasi pembayaran, dan
             audit log keamanan.
           </p>
         </div>
 
         <div class="col-12 col-md-auto row items-center q-gutter-sm">
           <q-badge
-            color="amber-9"
-            text-color="dark"
-            label="SANDBOX ONLY"
+            :color="store.isProductionActive ? 'negative' : 'amber-9'"
+            :text-color="store.isProductionActive ? 'white' : 'dark'"
+            :label="store.isProductionActive ? 'PRODUCTION AKTIF' : 'SANDBOX AKTIF'"
             class="q-px-md q-py-xs text-weight-bold"
           />
         </div>
@@ -82,7 +82,7 @@
         </div>
       </q-card>
 
-      <!-- Navigation Tabs (7 Feature Tabs) -->
+      <!-- Navigation Tabs (8 Feature Tabs) -->
       <q-tabs
         v-model="activeTab"
         align="left"
@@ -92,6 +92,11 @@
         narrow-indicator
       >
         <q-tab name="dashboard" icon="space_dashboard" label="Dashboard" />
+        <q-tab
+          name="environment"
+          icon="tune"
+          label="Pengaturan Environment"
+        />
         <q-tab name="merchants" icon="storefront" label="Daftar Merchant" />
         <q-tab name="mappings" icon="account_tree" label="Mapping Aplikasi" />
         <q-tab name="credentials" icon="vpn_key" label="Konfigurasi API" />
@@ -111,6 +116,11 @@
         <!-- Tab 1: Dashboard -->
         <q-tab-panel name="dashboard" class="q-px-none q-pt-lg">
           <MidtransDashboard @navigate="onNavigateTab" />
+        </q-tab-panel>
+
+        <!-- Tab: Pengaturan Environment -->
+        <q-tab-panel name="environment" class="q-px-none q-pt-lg">
+          <MidtransEnvironmentSettings />
         </q-tab-panel>
 
         <!-- Tab 2: Daftar Merchant -->
@@ -168,6 +178,7 @@ import MidtransAuditTable from './comp/MidtransAuditTable.vue'
 import MidtransBillingTransactions from './comp/MidtransBillingTransactions.vue'
 import MidtransCredentialForm from './comp/MidtransCredentialForm.vue'
 import MidtransDashboard from './comp/MidtransDashboard.vue'
+import MidtransEnvironmentSettings from './comp/MidtransEnvironmentSettings.vue'
 import MidtransFeeFormDialog from './comp/MidtransFeeFormDialog.vue'
 import MidtransFeeManagement from './comp/MidtransFeeManagement.vue'
 import MidtransMerchantFormDialog from './comp/MidtransMerchantFormDialog.vue'
@@ -205,6 +216,7 @@ const onNavigateTab = tabName => {
 onMounted(async () => {
   await Promise.all([
     store.fetchDashboardSummary(),
+    store.fetchEnvironmentSettings(),
     store.fetchMerchants(),
     store.fetchApplications(),
     store.fetchMappings()
@@ -217,6 +229,8 @@ watch(activeTab, newTab => {
     store.fetchBillingTransactions()
   } else if (newTab === 'mappings') {
     store.fetchMappings()
+  } else if (newTab === 'environment') {
+    store.fetchEnvironmentSettings()
   } else if (newTab === 'audits') {
     store.fetchAudits()
   } else if (newTab === 'tester') {

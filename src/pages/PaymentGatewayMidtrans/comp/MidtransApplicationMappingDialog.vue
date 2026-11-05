@@ -81,16 +81,24 @@
             </div>
             <div class="col-6">
               <label
-                class="text-caption text-weight-bold text-grey-7 q-mb-xs block"
+                class="text-caption text-weight-bold text-grey-8 q-mb-xs block"
               >
-                Environment
+                Environment <span class="text-negative">*</span>
               </label>
-              <q-input
+              <q-select
+                v-model="store.mappingForm.environment"
                 outlined
                 dense
-                model-value="Sandbox"
-                disable
-                bg-color="grey-1"
+                emit-value
+                map-options
+                :options="[
+                  { label: 'Sandbox', value: 'sandbox' },
+                  { label: 'Production', value: 'production' }
+                ]"
+                label="Pilih Environment"
+                :disable="store.mappingFormMode === 'edit'"
+                :error="Boolean(store.mappingFormErrors.environment)"
+                :error-message="store.mappingFormErrors.environment?.[0]"
               />
             </div>
           </div>

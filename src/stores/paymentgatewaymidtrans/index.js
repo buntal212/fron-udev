@@ -61,6 +61,17 @@ export const usePaymentGatewayMidtransStore = defineStore(
     state: () => ({
       activeTab: 'dashboard',
 
+      // Environment Settings & Production Activation
+      activeEnvironment: 'sandbox',
+      environmentSettings: null,
+      productionReadiness: null,
+      environmentLoading: false,
+      activatingProduction: false,
+      switchingSandbox: false,
+      selectedConfigEnvironment: 'sandbox',
+      environmentConnectionResult: null,
+      testingEnvironmentConnection: false,
+
       // Dashboard
       dashboardSummary: null,
       dashboardLoading: false,
@@ -187,6 +198,9 @@ export const usePaymentGatewayMidtransStore = defineStore(
     }),
 
     getters: {
+      isProductionActive: state => state.activeEnvironment === 'production',
+      isReadyForProduction: state =>
+        Boolean(state.productionReadiness?.is_ready_for_production),
       isConfigured: state => Boolean(state.config?.has_server_key),
       isReady: state =>
         Boolean(state.config?.has_server_key && state.config?.is_active),
@@ -196,6 +210,136 @@ export const usePaymentGatewayMidtransStore = defineStore(
     },
 
     actions: {
+      // ----------------------------------------------------
+      // ENVIRONMENT & PRODUCTION MANAGEMENT
+      // ----------------------------------------------------
+      async fetchEnvironmentSettings() {
+        this.environmentLoading = true
+        try {
+          const resp = await midtransGatewayService.environment()
+          const data = resp.data?.data ?? null
+          this.environmentSettings = data
+          this.activeEnvironment = data?.active_environment || 'sandbox'
+          this.productionReadiness = data?.readiness || null
+          return data
+        } catch (err) {
+          console.error('Failed to load Midtrans environment settings:', err)
+          return null
+        } finally {
+          this.environmentLoading = false
+        }
+      },
+
+      async activateProduction(confirmationPhrase, notes = null) {
+        this.activatingProduction = true
+        try {
+          const resp = await midtransGatewayService.activateProduction({
+            confirmation_phrase: confirmationPhrase,
+            notes
+          })
+          Notify.create({
+            type: 'positive',
+            message:
+              resp.data?.message ||
+              'Midtrans mode Production berhasil diaktifkan.',
+            position: 'top'
+          })
+          await this.fetchEnvironmentSettings()
+          await this.fetchDashboardSummary()
+          await this.fetchMerchants()
+          return true
+        } catch (err) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              err,
+              'Gagal mengaktifkan Midtrans Production.'
+            ),
+            position: 'top'
+          })
+          return false
+        } finally {
+          this.activatingProduction = false
+        }
+      },
+
+      async switchSandbox(notes = null) {
+        this.switchingSandbox = true
+        try {
+          const resp = await midtransGatewayService.switchSandbox({ notes })
+          Notify.create({
+            type: 'positive',
+            message:
+              resp.data?.message ||
+              'Midtrans berhasil dialihkan kembali ke Sandbox.',
+            position: 'top'
+          })
+          await this.fetchEnvironmentSettings()
+          await this.fetchDashboardSummary()
+          await this.fetchMerchants()
+          return true
+        } catch (err) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              err,
+              'Gagal mengalihkan Midtrans ke Sandbox.'
+            ),
+            position: 'top'
+          })
+          return false
+        } finally {
+          this.switchingSandbox = false
+        }
+      },
+
+      async setConfigEnvironment(environment) {
+        this.selectedConfigEnvironment = environment
+        await this.fetchConfiguration(this.selectedMerchant, environment)
+      },
+
+      async testEnvironmentConnection(
+        merchantCode = this.selectedMerchant,
+        environment = this.selectedConfigEnvironment
+      ) {
+        this.testingEnvironmentConnection = true
+        this.environmentConnectionResult = null
+        try {
+          const resp = await midtransGatewayService.testConnection(
+            merchantCode,
+            environment
+          )
+          this.environmentConnectionResult = resp.data
+          const isSuccess = resp.data?.is_connected === true
+          Notify.create({
+            type: isSuccess ? 'positive' : 'warning',
+            message:
+              resp.data?.message ||
+              `Uji koneksi ${environment.toUpperCase()} selesai.`,
+            position: 'top'
+          })
+          await this.fetchEnvironmentSettings()
+          await this.fetchConfiguration(merchantCode, environment)
+          return resp.data
+        } catch (err) {
+          this.environmentConnectionResult = {
+            is_connected: false,
+            message: getApiErrorMessage(
+              err,
+              `Uji koneksi ${environment.toUpperCase()} gagal.`
+            )
+          }
+          Notify.create({
+            type: 'negative',
+            message: this.environmentConnectionResult.message,
+            position: 'top'
+          })
+          return this.environmentConnectionResult
+        } finally {
+          this.testingEnvironmentConnection = false
+        }
+      },
+
       // ----------------------------------------------------
       // DASHBOARD
       // ----------------------------------------------------
@@ -382,21 +526,38 @@ export const usePaymentGatewayMidtransStore = defineStore(
       // ----------------------------------------------------
       // CONFIGURATION & CREDENTIALS
       // ----------------------------------------------------
-      async fetchConfiguration(merchantCode = this.selectedMerchant) {
+      async fetchConfiguration(
+        merchantCode = this.selectedMerchant,
+        environment = this.selectedConfigEnvironment
+      ) {
         this.configLoading = true
         try {
-          const resp = await midtransGatewayService.configuration(merchantCode)
+          const resp = await midtransGatewayService.configuration(
+            merchantCode,
+            environment
+          )
           this.config = resp.data?.data ?? null
 
           // Populate form with existing values (excluding blank secrets)
           if (this.config) {
             this.configForm = {
               merchant_code: this.config.merchant_code,
+              environment: this.config.environment || environment || 'sandbox',
               midtrans_merchant_id: this.config.midtrans_merchant_id || '',
               client_key: this.config.client_key || '',
               server_key: '',
               signature_secret_key: '',
               is_active: this.config.is_active
+            }
+          } else {
+            this.configForm = {
+              merchant_code: merchantCode,
+              environment: environment || 'sandbox',
+              midtrans_merchant_id: '',
+              client_key: '',
+              server_key: '',
+              signature_secret_key: '',
+              is_active: true
             }
           }
         } catch (err) {
@@ -406,13 +567,16 @@ export const usePaymentGatewayMidtransStore = defineStore(
         }
       },
 
-      async saveConfiguration() {
+      async saveConfiguration(environment = this.selectedConfigEnvironment) {
         this.configSaving = true
         this.configFormErrors = {}
 
         try {
+          const targetEnv =
+            environment || this.configForm.environment || 'sandbox'
           const payload = {
             merchant_code: this.selectedMerchant,
+            environment: targetEnv,
             midtrans_merchant_id: this.configForm.midtrans_merchant_id,
             client_key: this.configForm.client_key,
             is_active: this.configForm.is_active
@@ -428,8 +592,7 @@ export const usePaymentGatewayMidtransStore = defineStore(
           await midtransGatewayService.saveConfiguration(payload)
           Notify.create({
             type: 'positive',
-            message:
-              'Kredensial API Midtrans berhasil disimpan terenkripsi di backend.',
+            message: `Kredensial API Midtrans (${targetEnv.toUpperCase()}) berhasil disimpan terenkripsi di backend.`,
             position: 'top'
           })
 
@@ -437,7 +600,8 @@ export const usePaymentGatewayMidtransStore = defineStore(
           this.configForm.server_key = ''
           this.configForm.signature_secret_key = ''
 
-          await this.fetchConfiguration(this.selectedMerchant)
+          await this.fetchConfiguration(this.selectedMerchant, targetEnv)
+          await this.fetchEnvironmentSettings()
           await this.fetchMerchants()
           await this.fetchDashboardSummary()
         } catch (err) {
@@ -455,19 +619,22 @@ export const usePaymentGatewayMidtransStore = defineStore(
         }
       },
 
-      async deleteConfiguration() {
+      async deleteConfiguration(environment = this.selectedConfigEnvironment) {
         this.configDeleting = true
         try {
+          const targetEnv = environment || 'sandbox'
           await midtransGatewayService.deleteConfiguration(
-            this.selectedMerchant
+            this.selectedMerchant,
+            targetEnv
           )
           Notify.create({
             type: 'positive',
-            message: 'Kredensial Midtrans berhasil dihapus dari sistem.',
+            message: `Kredensial Midtrans (${targetEnv.toUpperCase()}) berhasil dihapus dari sistem.`,
             position: 'top'
           })
           this.deleteConfigDialogOpen = false
-          await this.fetchConfiguration(this.selectedMerchant)
+          await this.fetchConfiguration(this.selectedMerchant, targetEnv)
+          await this.fetchEnvironmentSettings()
           await this.fetchMerchants()
           await this.fetchDashboardSummary()
         } catch (err) {
@@ -505,9 +672,12 @@ export const usePaymentGatewayMidtransStore = defineStore(
 
           const params = {
             provider: 'midtrans',
-            environment: 'sandbox',
             page,
             per_page: rowsPerPage
+          }
+
+          if (this.mappingFilter.environment) {
+            params.environment = this.mappingFilter.environment
           }
 
           if (this.mappingFilter.application_id) {
@@ -538,10 +708,15 @@ export const usePaymentGatewayMidtransStore = defineStore(
         }
       },
 
-      openCreateMappingDialog() {
+      openCreateMappingDialog(environment = null) {
         this.mappingFormMode = 'create'
         this.mappingForm = {
           ...emptyMappingForm(),
+          environment:
+            environment ||
+            this.selectedConfigEnvironment ||
+            this.activeEnvironment ||
+            'sandbox',
           gateway_merchant_code: this.selectedMerchant || 'udev-central'
         }
         this.mappingFormErrors = {}
@@ -554,7 +729,7 @@ export const usePaymentGatewayMidtransStore = defineStore(
           id: mapping.id,
           application_id: mapping.application?.id || mapping.application_id,
           provider: 'midtrans',
-          environment: 'sandbox',
+          environment: mapping.environment || 'sandbox',
           gateway_merchant_code: mapping.gateway_merchant_code,
           is_active: mapping.is_active
         }
@@ -577,7 +752,7 @@ export const usePaymentGatewayMidtransStore = defineStore(
           } else {
             await paymentGatewayService.update(this.mappingForm.id, {
               gateway_merchant_code: this.mappingForm.gateway_merchant_code,
-              environment: 'sandbox',
+              environment: this.mappingForm.environment || 'sandbox',
               is_active: this.mappingForm.is_active
             })
             Notify.create({
@@ -589,6 +764,7 @@ export const usePaymentGatewayMidtransStore = defineStore(
 
           this.mappingFormDialogOpen = false
           await this.fetchMappings()
+          await this.fetchEnvironmentSettings()
           await this.fetchMerchants()
           await this.fetchDashboardSummary()
         } catch (err) {
@@ -615,6 +791,7 @@ export const usePaymentGatewayMidtransStore = defineStore(
             message: `Mapping berhasil ${nextStatus ? 'diaktifkan' : 'dinonaktifkan'}.`,
             position: 'top'
           })
+          await this.fetchEnvironmentSettings()
         } catch (err) {
           Notify.create({
             type: 'negative',
@@ -643,6 +820,7 @@ export const usePaymentGatewayMidtransStore = defineStore(
           this.mappingDeleteConfirmDialogOpen = false
           this.mappingToDelete = null
           await this.fetchMappings()
+          await this.fetchEnvironmentSettings()
           await this.fetchMerchants()
           await this.fetchDashboardSummary()
         } catch (err) {
@@ -730,12 +908,13 @@ export const usePaymentGatewayMidtransStore = defineStore(
       // ----------------------------------------------------
       // SANDBOX TESTER & SIMULATOR
       // ----------------------------------------------------
-      async testConnection() {
+      async testConnection(environment = this.selectedConfigEnvironment) {
         this.testingConnection = true
         this.connectionResult = null
         try {
           const resp = await midtransGatewayService.testConnection(
-            this.selectedMerchant
+            this.selectedMerchant,
+            environment
           )
           this.connectionResult = resp.data
           const isSuccess = resp.data?.is_connected === true
@@ -744,7 +923,8 @@ export const usePaymentGatewayMidtransStore = defineStore(
             message: resp.data?.message || 'Uji koneksi selesai.',
             position: 'top'
           })
-          await this.fetchConfiguration(this.selectedMerchant)
+          await this.fetchConfiguration(this.selectedMerchant, environment)
+          await this.fetchEnvironmentSettings()
           await this.fetchDashboardSummary()
         } catch (err) {
           this.connectionResult = {
@@ -752,7 +932,7 @@ export const usePaymentGatewayMidtransStore = defineStore(
             is_connected: false,
             message: getApiErrorMessage(
               err,
-              'Gagal melakukan uji koneksi Midtrans Sandbox.'
+              `Gagal melakukan uji koneksi Midtrans ${environment?.toUpperCase() || ''}.`
             )
           }
           Notify.create({

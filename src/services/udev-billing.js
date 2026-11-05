@@ -523,6 +523,15 @@ export const dokuGatewayService = {
 export const midtransGatewayService = {
   dashboardSummary: () =>
     api.get('/v1/admin/midtrans-gateway/dashboard-summary'),
+  environment: () =>
+    api.get('/v1/admin/midtrans-gateway/environment'),
+  activateProduction: payload =>
+    api.post(
+      '/v1/admin/midtrans-gateway/environment/activate-production',
+      payload
+    ),
+  switchSandbox: payload =>
+    api.post('/v1/admin/midtrans-gateway/environment/switch-sandbox', payload),
   merchants: params =>
     api.get('/v1/admin/midtrans-gateway/merchants', { params }),
   createMerchant: payload =>
@@ -535,19 +544,26 @@ export const midtransGatewayService = {
     }),
   deleteMerchant: merchantCode =>
     api.delete(`/v1/admin/midtrans-gateway/merchants/${merchantCode}`),
-  configuration: merchantCode =>
+  configuration: (merchantCode, environment = null) =>
     api.get('/v1/admin/midtrans-gateway/configuration', {
-      params: { merchant_code: merchantCode }
+      params: {
+        merchant_code: merchantCode,
+        ...(environment ? { environment } : {})
+      }
     }),
   saveConfiguration: payload =>
     api.put('/v1/admin/midtrans-gateway/configuration', payload),
-  deleteConfiguration: merchantCode =>
+  deleteConfiguration: (merchantCode, environment = null) =>
     api.delete('/v1/admin/midtrans-gateway/configuration', {
-      params: { merchant_code: merchantCode }
+      params: {
+        merchant_code: merchantCode,
+        ...(environment ? { environment } : {})
+      }
     }),
-  testConnection: merchantCode =>
+  testConnection: (merchantCode, environment = null) =>
     api.post('/v1/admin/midtrans-gateway/test-connection', {
-      merchant_code: merchantCode
+      merchant_code: merchantCode,
+      ...(environment ? { environment } : {})
     }),
   createSandboxPayment: payload =>
     api.post('/v1/admin/midtrans-gateway/sandbox-payment', payload),
