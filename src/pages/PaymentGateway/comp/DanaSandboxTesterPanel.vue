@@ -319,7 +319,7 @@
           outline
           color="negative"
           icon="science"
-          label="UAT Webhook 500 (5005601)"
+          label="UAT Webhook Internal Error (5005601)"
           no-caps
           :loading="armingWebhook500"
           @click="armWebhook500"
@@ -2738,6 +2738,7 @@ async function armWebhook500() {
         payload
       )
     armedWebhook500Uat.value = response.data?.data?.uat ?? null
+    await refreshHistory(1)
   } catch (requestError) {
     error.value = getApiErrorMessage(requestError)
   } finally {

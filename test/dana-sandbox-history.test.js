@@ -62,7 +62,7 @@ test('riwayat pembayaran memakai audit gateway yang terverifikasi dan metadata w
   assert.match(history, /detailRequestId/)
   assert.match(history, /webhookRequestId/)
   assert.match(history, /webhookMeta/)
-  assert.match(history, /page, per_page: 25/)
+  assert.match(history, /page, per_page: 5/)
   assert.match(history, /retry-after/)
   assert.match(history, /Response Code:/)
   assert.match(history, /Request ID:/)

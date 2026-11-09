@@ -795,7 +795,17 @@
                         </div>
 
                         <div
-                          v-if="webhook.error_code"
+                          v-if="
+                            webhook.error_code === 'uat_simulated_500' ||
+                            webhook.http_status === 500
+                          "
+                          class="text-caption text-warning text-weight-medium q-mt-xs"
+                        >
+                          Hasil: 5005601 Internal Server Error (Simulasi UAT
+                          terpicu, status pembayaran tetap pending)
+                        </div>
+                        <div
+                          v-else-if="webhook.error_code"
                           class="text-caption text-negative q-mt-xs"
                         >
                           Hasil: Ditolak ({{ webhook.error_code }})
@@ -931,7 +941,7 @@ const cancellingPaymentId = ref(null)
 const webhookMeta = ref({
   current_page: 1,
   last_page: 1,
-  per_page: 25,
+  per_page: 5,
   total: 0
 })
 
@@ -1258,7 +1268,7 @@ async function loadWebhooks(
         danaGatewayMerchantService.sandboxPaymentWebhooks(
           merchantId.value,
           paymentId,
-          { page, per_page: 25 }
+          { page, per_page: 5 }
         ),
       force
     )
@@ -1301,7 +1311,7 @@ async function openDetail(payment, force = false) {
   webhookMeta.value = {
     current_page: 1,
     last_page: 1,
-    per_page: 25,
+    per_page: 5,
     total: 0
   }
   detailLoadedAt.value = 0
@@ -1331,7 +1341,7 @@ async function openDetail(payment, force = false) {
       danaGatewayMerchantService.sandboxPaymentWebhooks(
         merchantId.value,
         payment.id,
-        { page: 1, per_page: 25 }
+        { page: 1, per_page: 5 }
       ),
     force
   )
