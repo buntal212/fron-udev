@@ -1418,93 +1418,100 @@
       </div>
     </div>
 
-    <div class="row q-col-gutter-md q-mt-md items-end">
-      <div class="col-12 col-sm-4">
-        <q-input
-          v-model.number="amountMinor"
-          outlined
-          dense
-          type="number"
-          min="1"
-          label="Nominal Sandbox (IDR)"
-          hint="Nominal rupiah utuh"
-          bg-color="white"
-        />
-      </div>
-      <div class="col-12 col-sm-4">
-        <q-select
-          v-model="paymentMethod"
-          outlined
-          dense
-          emit-value
-          map-options
-          label="Metode pembayaran Sandbox"
-          :options="paymentMethodOptions"
-          bg-color="white"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          color="warning"
-          text-color="dark"
-          icon="receipt_long"
-          :label="
-            pendingTransactionAction
-              ? 'Coba Ulang Transaksi Sandbox'
-              : 'Buat Transaksi Sandbox'
-          "
-          no-caps
-          :loading="creatingTransaction"
-          @click="createTransaction"
-        />
-      </div>
-      <div v-if="pendingTransactionAction" class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="grey-8"
-          icon="restart_alt"
-          label="Mulai Tindakan Baru"
-          no-caps
-          :disable="creatingTransaction"
-          @click="startNewTransactionAction"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          v-if="transaction?.checkout_available && transaction.checkout_url"
-          outline
-          color="primary"
-          icon="open_in_new"
-          label="Buka Checkout Sandbox"
-          no-caps
-          @click="openCheckout"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          v-if="transaction?.id"
-          outline
-          color="warning"
-          icon="refresh"
-          label="Periksa Status Transaksi"
-          no-caps
-          :loading="checkingStatus"
-          @click="checkTransactionStatus"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          v-if="transaction?.id"
-          outline
-          color="primary"
-          icon="query_stats"
-          label="Cek Status DANA"
-          no-caps
-          :loading="checkingDanaStatus"
-          @click="checkDanaStatus"
-        />
-      </div>
-    </div>
+    <q-card flat bordered class="q-mt-md transaction-form-card bg-white">
+      <q-card-section>
+        <div class="text-subtitle2 text-weight-bold text-dark q-mb-sm">
+          Pembuatan Transaksi Sandbox
+        </div>
+        <div class="row q-col-gutter-md items-end">
+          <div class="col-12 col-sm-4">
+            <q-input
+              v-model.number="amountMinor"
+              outlined
+              dense
+              type="number"
+              min="1"
+              label="Nominal Sandbox (IDR)"
+              hint="Nominal rupiah utuh"
+              bg-color="white"
+            />
+          </div>
+          <div class="col-12 col-sm-4">
+            <q-select
+              v-model="paymentMethod"
+              outlined
+              dense
+              emit-value
+              map-options
+              label="Metode pembayaran Sandbox"
+              :options="paymentMethodOptions"
+              bg-color="white"
+            />
+          </div>
+          <div class="col-12 col-sm-auto">
+            <q-btn
+              color="warning"
+              text-color="dark"
+              icon="receipt_long"
+              :label="
+                pendingTransactionAction
+                  ? 'Coba Ulang Transaksi Sandbox'
+                  : 'Buat Transaksi Sandbox'
+              "
+              no-caps
+              :loading="creatingTransaction"
+              @click="createTransaction"
+            />
+          </div>
+          <div v-if="pendingTransactionAction" class="col-12 col-sm-auto">
+            <q-btn
+              outline
+              color="grey-8"
+              icon="restart_alt"
+              label="Mulai Tindakan Baru"
+              no-caps
+              :disable="creatingTransaction"
+              @click="startNewTransactionAction"
+            />
+          </div>
+          <div class="col-12 col-sm-auto">
+            <q-btn
+              v-if="transaction?.checkout_available && transaction.checkout_url"
+              outline
+              color="primary"
+              icon="open_in_new"
+              label="Buka Checkout Sandbox"
+              no-caps
+              @click="openCheckout"
+            />
+          </div>
+          <div class="col-12 col-sm-auto">
+            <q-btn
+              v-if="transaction?.id"
+              outline
+              color="warning"
+              icon="refresh"
+              label="Periksa Status Transaksi"
+              no-caps
+              :loading="checkingStatus"
+              @click="checkTransactionStatus"
+            />
+          </div>
+          <div class="col-12 col-sm-auto">
+            <q-btn
+              v-if="transaction?.id"
+              outline
+              color="primary"
+              icon="query_stats"
+              label="Cek Status DANA"
+              no-caps
+              :loading="checkingDanaStatus"
+              @click="checkDanaStatus"
+            />
+          </div>
+        </div>
+      </q-card-section>
+    </q-card>
 
     <q-banner v-if="transaction" rounded class="tester-transaction q-mt-md">
       <template #avatar><q-icon name="receipt" /></template>
@@ -1692,159 +1699,177 @@
     </div>
     <div class="tester-history q-mt-sm">
       <q-inner-loading :showing="historyLoading" color="warning" />
-      <q-table
-        v-if="history.length && $q.screen.gt.sm"
-        flat
-        bordered
-        hide-bottom
-        row-key="id"
-        :rows="history"
-        :columns="historyColumns"
-        :pagination="{ rowsPerPage: 0 }"
-      >
-        <template #body-cell-status="props">
-          <q-td :props="props">
-            <q-badge :color="runStatusColor(props.row.status)">
-              {{ labelFor(props.row.status) }}
-            </q-badge>
-          </q-td>
-        </template>
-        <template #body-cell-actions="props">
-          <q-td :props="props">
-            <q-btn
-              v-if="props.row.payment_id"
-              flat
-              round
-              dense
-              color="warning"
-              icon="visibility"
-              aria-label="Lihat hasil transaksi"
-              @click="viewHistoryResult(props.row.payment_id)"
-            />
-          </q-td>
-        </template>
-      </q-table>
-      <div v-else-if="history.length" class="q-gutter-y-sm">
-        <q-card v-for="run in history" :key="run.id" flat bordered>
-          <q-card-section class="q-pa-sm">
-            <div
-              class="row items-start justify-between no-wrap q-col-gutter-sm"
-            >
-              <div class="col">
-                <div class="text-caption text-grey-7">
-                  {{ formatDate(run.created_at) }} · {{ run.merchant_code }} ·
-                  {{ run.environment }}
+      <template v-if="displayedHistory.length">
+        <q-list
+          bordered
+          separator
+          class="rounded-borders bg-white history-list"
+        >
+          <q-expansion-item
+            v-for="run in displayedHistory"
+            :key="run.id"
+            group="tester-history"
+            header-class="history-item-header"
+            expand-icon-class="text-warning"
+          >
+            <template #header>
+              <div
+                class="row items-center justify-between full-width q-py-xs q-pr-sm no-wrap-md"
+              >
+                <div class="col-12 col-md-5 q-pr-sm">
+                  <div class="text-caption text-grey-7">
+                    {{ formatDate(run.created_at) }} · {{ run.merchant_code }} ·
+                    {{ run.environment }}
+                  </div>
+                  <div class="text-weight-bold text-body2 text-dark">
+                    {{ labelFor(run.operation) }}
+                  </div>
                 </div>
-                <div class="text-weight-medium">{{
-                  labelFor(run.operation)
-                }}</div>
-                <div class="text-caption q-mt-xs">{{ run.message }}</div>
-                <q-btn
-                  v-if="run.payment_id"
-                  class="q-mt-sm"
-                  flat
-                  dense
-                  color="warning"
-                  icon="visibility"
-                  label="Lihat Hasil"
-                  no-caps
-                  @click="viewHistoryResult(run.payment_id)"
-                />
+                <div
+                  class="col-12 col-md-4 q-pr-sm ellipsis text-caption text-grey-8"
+                  :title="run.message"
+                >
+                  {{ run.message }}
+                </div>
+                <div
+                  class="col-12 col-md-3 row items-center justify-end q-gutter-x-sm q-mt-xs q-mt-md-none"
+                >
+                  <q-badge :color="runStatusColor(run.status)">
+                    {{ labelFor(run.status) }}
+                  </q-badge>
+                  <q-btn
+                    v-if="run.payment_id"
+                    flat
+                    dense
+                    color="warning"
+                    icon="visibility"
+                    label="Lihat Hasil"
+                    no-caps
+                    @click.stop="viewHistoryResult(run.payment_id)"
+                  />
+                </div>
               </div>
-              <div class="col-auto">
-                <q-badge :color="runStatusColor(run.status)">
-                  {{ labelFor(run.status) }}
-                </q-badge>
+            </template>
+
+            <div class="bg-grey-1 q-pa-md">
+              <div class="text-caption text-grey-8">
+                <strong>Detail Aktivitas:</strong> {{ run.message }}
+              </div>
+              <div class="row q-col-gutter-sm q-mt-xs text-caption text-grey-7">
+                <div class="col-12 col-sm-6">
+                  ID Run: <code>#{{ run.id }}</code>
+                </div>
+                <div class="col-12 col-sm-6" v-if="run.payment_id">
+                  Payment ID: <code>#{{ run.payment_id }}</code>
+                </div>
               </div>
             </div>
-          </q-card-section>
-        </q-card>
-      </div>
+          </q-expansion-item>
+        </q-list>
+
+        <q-pagination
+          v-if="historyMeta.last_page > 1"
+          class="q-mt-md justify-center"
+          color="warning"
+          :model-value="historyMeta.current_page"
+          :max="historyMeta.last_page"
+          :max-pages="6"
+          :disable="historyLoading"
+          @update:model-value="refreshHistory"
+        />
+      </template>
       <q-banner v-else-if="!historyLoading" rounded class="warning-banner">
         Belum ada riwayat pengujian Sandbox untuk merchant ini.
       </q-banner>
-      <q-pagination
-        v-if="historyMeta.last_page > 1"
-        class="q-mt-md justify-center"
-        color="warning"
-        :model-value="historyMeta.current_page"
-        :max="historyMeta.last_page"
-        :max-pages="6"
-        :disable="historyLoading"
-        @update:model-value="refreshHistory"
-      />
     </div>
 
-    <q-dialog v-model="showCustomExceedsAmountDialog" persistent>
-      <q-card style="min-width: 360px; max-width: 480px">
-        <q-card-section class="row items-center q-pb-none">
-          <div class="text-h6 text-negative">
-            <q-icon name="edit_note" class="q-mr-xs" />
-            Nominal Manual UAT Exceeds Amount
-          </div>
-          <q-space />
-          <q-btn icon="close" flat round dense v-close-popup />
-        </q-card-section>
+    <!-- Nominal Manual UAT Exceeds Amount (Inline Card tanpa QDialog) -->
+    <q-card
+      v-if="showCustomExceedsAmountDialog"
+      flat
+      bordered
+      class="q-my-md custom-amount-card bg-red-1"
+      style="max-width: 560px"
+    >
+      <q-card-section class="row items-center q-pb-none">
+        <div class="text-h6 text-negative">
+          <q-icon name="edit_note" class="q-mr-xs" />
+          Nominal Manual UAT Exceeds Amount
+        </div>
+        <q-space />
+        <q-btn
+          icon="close"
+          flat
+          round
+          dense
+          @click="showCustomExceedsAmountDialog = false"
+        />
+      </q-card-section>
 
-        <q-card-section class="q-pt-sm">
-          <div class="text-caption text-grey-8 q-mb-md">
-            Masukkan nominal bilangan bulat IDR positif untuk menguji batas
-            nominal transaksi DANA Sandbox Cashier Pay (4035402).
-          </div>
-          <q-input
-            v-model.number="customExceedsAmountInput"
-            type="number"
-            label="Nominal IDR"
-            prefix="Rp"
-            outlined
-            dense
-            min="1"
-            max="10000000000"
-            step="1"
-            :error="Boolean(customAmountValidationError)"
-            :error-message="customAmountValidationError"
-            @keyup.enter="submitCustomExceedsAmount"
-          />
-          <div class="row q-gutter-xs q-mt-xs">
-            <q-btn
-              outline
-              size="sm"
-              dense
-              color="primary"
-              label="Default (Rp10.000.001)"
-              @click="customExceedsAmountInput = 10000001"
-            />
-            <q-btn
-              outline
-              size="sm"
-              dense
-              color="negative"
-              label="Resmi SNAP (Rp5 Miliar)"
-              @click="customExceedsAmountInput = 5000000000"
-            />
-            <q-btn
-              outline
-              size="sm"
-              dense
-              color="secondary"
-              label="Rp10.000.000"
-              @click="customExceedsAmountInput = 10000000"
-            />
-          </div>
-        </q-card-section>
-
-        <q-card-actions align="right" class="q-px-md q-pb-md">
-          <q-btn flat label="Batal" color="grey" v-close-popup />
+      <q-card-section class="q-pt-sm">
+        <div class="text-caption text-grey-8 q-mb-md">
+          Masukkan nominal bilangan bulat IDR positif untuk menguji batas
+          nominal transaksi DANA Sandbox Cashier Pay (4035402).
+        </div>
+        <q-input
+          v-model.number="customExceedsAmountInput"
+          type="number"
+          label="Nominal IDR"
+          prefix="Rp"
+          outlined
+          dense
+          min="1"
+          max="10000000000"
+          step="1"
+          bg-color="white"
+          :error="Boolean(customAmountValidationError)"
+          :error-message="customAmountValidationError"
+          @keyup.enter="submitCustomExceedsAmount"
+        />
+        <div class="row q-gutter-xs q-mt-xs">
           <q-btn
-            unelevated
-            color="negative"
-            label="Jalankan UAT"
-            :loading="runningIpgExceedsAmountLimitUat"
-            @click="submitCustomExceedsAmount"
+            outline
+            size="sm"
+            dense
+            color="primary"
+            label="Default (Rp10.000.001)"
+            @click="customExceedsAmountInput = 10000001"
           />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
+          <q-btn
+            outline
+            size="sm"
+            dense
+            color="negative"
+            label="Resmi SNAP (Rp5 Miliar)"
+            @click="customExceedsAmountInput = 5000000000"
+          />
+          <q-btn
+            outline
+            size="sm"
+            dense
+            color="secondary"
+            label="Rp10.000.000"
+            @click="customExceedsAmountInput = 10000000"
+          />
+        </div>
+      </q-card-section>
+
+      <q-card-actions align="right" class="q-px-md q-pb-md">
+        <q-btn
+          flat
+          label="Batal"
+          color="grey"
+          @click="showCustomExceedsAmountDialog = false"
+        />
+        <q-btn
+          unelevated
+          color="negative"
+          label="Jalankan UAT"
+          :loading="runningIpgExceedsAmountLimitUat"
+          @click="submitCustomExceedsAmount"
+        />
+      </q-card-actions>
+    </q-card>
   </q-card-section>
 </template>
 
@@ -1921,8 +1946,11 @@ const qrisError = ref(null)
 const historyMeta = ref({
   current_page: 1,
   last_page: 1,
-  per_page: 15,
+  per_page: 5,
   total: 0
+})
+const displayedHistory = computed(() => {
+  return history.value.length > 5 ? history.value.slice(0, 5) : history.value
 })
 const historyRequestId = ref(0)
 const requiredFieldLabels = [
@@ -2052,7 +2080,7 @@ function reset() {
   debitStatusInternalServerErrorUat.value = null
   debitStatusInvalidSignatureUat.value = null
   armedWebhook500Uat.value = null
-  historyMeta.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 }
+  historyMeta.value = { current_page: 1, last_page: 1, per_page: 5, total: 0 }
 }
 
 const operationLabels = {
@@ -2795,7 +2823,7 @@ async function refreshHistory(page = historyMeta.value.current_page) {
       merchantId.value,
       {
         page: requestedPage,
-        per_page: 15
+        per_page: 5
       }
     )
     if (requestId !== historyRequestId.value) return

@@ -91,10 +91,6 @@ test('fitur Cek Status DANA mengizinkan transaksi pending dan expired pada metod
   // Verifikasi keberadaan elemen UI pada komponen
   assert.match(
     history,
-    /v-if="canQueryDanaStatus\(props\.row\)"[\s\S]*?label="Cek Status DANA"/
-  )
-  assert.match(
-    history,
     /v-if="canQueryDanaStatus\(payment\)"[\s\S]*?label="Cek Status DANA"/
   )
   assert.match(

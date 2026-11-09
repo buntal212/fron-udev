@@ -35,96 +35,111 @@
 
       <q-tab-panels v-model="activeTab" animated class="gateway-panels">
         <q-tab-panel name="merchants" class="q-px-none q-pt-lg">
-          <div class="row items-center justify-between q-mb-md q-col-gutter-md">
-            <div class="col-12 col-md">
-              <h2>Provisioning merchant DANA</h2>
-              <p class="section-description">
-                Merchant baru memerlukan bootstrap credential dan konfigurasi
-                DANA sebelum checkout dapat digunakan.
-              </p>
-            </div>
-            <div class="col-12 col-md-auto row q-gutter-sm">
-              <q-btn
-                outline
-                color="warning"
-                icon="refresh"
-                label="Muat ulang"
-                no-caps
-                :loading="merchantStore.loading"
-                @click="merchantStore.fetchMerchants()"
-              />
-              <q-btn
-                color="warning"
-                text-color="dark"
-                icon="add"
-                label="Tambah Merchant"
-                no-caps
-                @click="merchantStore.openCreateDialog"
-              />
-            </div>
-          </div>
-
-          <FilterPanel class="q-mb-md">
-            <div class="col-12 col-md-6">
-              <q-input
-                v-model="merchantStore.search"
-                outlined
-                dense
-                clearable
-                label="Cari nama atau kode merchant"
-                debounce="300"
-                bg-color="white"
-                @update:model-value="merchantStore.fetchMerchants({ page: 1 })"
-              >
-                <template #prepend><q-icon name="search" /></template>
-              </q-input>
-            </div>
-            <div class="col-12 col-md-3">
-              <q-select
-                v-model="merchantStore.environment"
-                outlined
-                dense
-                clearable
-                emit-value
-                map-options
-                label="Environment"
-                :options="environmentOptions"
-                bg-color="white"
-                @update:model-value="merchantStore.fetchMerchants({ page: 1 })"
-              />
-            </div>
-          </FilterPanel>
-
-          <ErrorState
-            v-if="merchantStore.error && !merchantStore.items.length"
-            :message="merchantStore.error"
-            @retry="merchantStore.fetchMerchants"
-          />
-          <q-banner
-            v-else-if="merchantStore.error"
-            rounded
-            class="merchant-error q-mb-md"
+          <div
+            v-if="
+              !merchantStore.selectedMerchant && !merchantStore.detailLoading
+            "
           >
-            <template #avatar><q-icon name="error_outline" /></template>
-            {{ merchantStore.error }}
-            <template #action>
-              <q-btn
-                flat
-                color="negative"
-                label="Coba lagi"
-                no-caps
-                @click="merchantStore.fetchMerchants"
-              />
-            </template>
-          </q-banner>
-          <DanaGatewayMerchantTable
-            v-else
-            :rows="merchantStore.items"
-            :loading="merchantStore.loading"
-            :pagination="merchantStore.pagination"
-            @request="merchantStore.fetchMerchants"
-            @detail="merchantStore.showMerchant"
-          />
+            <div
+              class="row items-center justify-between q-mb-md q-col-gutter-md"
+            >
+              <div class="col-12 col-md">
+                <h2>Provisioning merchant DANA</h2>
+                <p class="section-description">
+                  Merchant baru memerlukan bootstrap credential dan konfigurasi
+                  DANA sebelum checkout dapat digunakan.
+                </p>
+              </div>
+              <div class="col-12 col-md-auto row q-gutter-sm">
+                <q-btn
+                  outline
+                  color="warning"
+                  icon="refresh"
+                  label="Muat ulang"
+                  no-caps
+                  :loading="merchantStore.loading"
+                  @click="merchantStore.fetchMerchants()"
+                />
+                <q-btn
+                  color="warning"
+                  text-color="dark"
+                  icon="add"
+                  label="Tambah Merchant"
+                  no-caps
+                  @click="merchantStore.openCreateDialog"
+                />
+              </div>
+            </div>
+
+            <FilterPanel class="q-mb-md">
+              <div class="col-12 col-md-6">
+                <q-input
+                  v-model="merchantStore.search"
+                  outlined
+                  dense
+                  clearable
+                  label="Cari nama atau kode merchant"
+                  debounce="300"
+                  bg-color="white"
+                  @update:model-value="
+                    merchantStore.fetchMerchants({ page: 1 })
+                  "
+                >
+                  <template #prepend><q-icon name="search" /></template>
+                </q-input>
+              </div>
+              <div class="col-12 col-md-3">
+                <q-select
+                  v-model="merchantStore.environment"
+                  outlined
+                  dense
+                  clearable
+                  emit-value
+                  map-options
+                  label="Environment"
+                  :options="environmentOptions"
+                  bg-color="white"
+                  @update:model-value="
+                    merchantStore.fetchMerchants({ page: 1 })
+                  "
+                />
+              </div>
+            </FilterPanel>
+
+            <ErrorState
+              v-if="merchantStore.error && !merchantStore.items.length"
+              :message="merchantStore.error"
+              @retry="merchantStore.fetchMerchants"
+            />
+            <q-banner
+              v-else-if="merchantStore.error"
+              rounded
+              class="merchant-error q-mb-md"
+            >
+              <template #avatar><q-icon name="error_outline" /></template>
+              {{ merchantStore.error }}
+              <template #action>
+                <q-btn
+                  flat
+                  color="negative"
+                  label="Coba lagi"
+                  no-caps
+                  @click="merchantStore.fetchMerchants"
+                />
+              </template>
+            </q-banner>
+            <DanaGatewayMerchantTable
+              v-else
+              :rows="merchantStore.items"
+              :loading="merchantStore.loading"
+              :pagination="merchantStore.pagination"
+              @request="merchantStore.fetchMerchants"
+              @detail="merchantStore.showMerchant"
+            />
+          </div>
+          <div v-else>
+            <DanaGatewayMerchantDetailDialog />
+          </div>
         </q-tab-panel>
 
         <q-tab-panel name="mappings" class="q-px-none q-pt-lg">
@@ -199,7 +214,6 @@
 
       <PaymentGatewayFormDialog />
       <DanaGatewayMerchantFormDialog />
-      <DanaGatewayMerchantDetailDialog />
     </div>
   </q-page>
 </template>
