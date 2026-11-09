@@ -179,6 +179,17 @@
                     "
                     @click.stop="checkDanaStatus(payment)"
                   />
+                  <q-btn
+                    v-if="payment.status === 'pending'"
+                    flat
+                    dense
+                    no-caps
+                    color="negative"
+                    icon="cancel"
+                    label="Batalkan"
+                    :loading="cancellingPaymentId === payment.id"
+                    @click.stop="cancelPayment(payment)"
+                  />
                 </div>
               </div>
             </template>
@@ -510,16 +521,29 @@
                       </p>
                     </div>
                   </div>
-                  <q-btn
-                    outline
-                    dense
-                    no-caps
-                    color="primary"
-                    icon="query_stats"
-                    label="Cek Status DANA"
-                    :loading="danaStatusLoading"
-                    @click="checkDanaStatus(selectedPayment)"
-                  />
+                  <div class="row q-gutter-sm items-center">
+                    <q-btn
+                      outline
+                      dense
+                      no-caps
+                      color="primary"
+                      icon="query_stats"
+                      label="Cek Status DANA"
+                      :loading="danaStatusLoading"
+                      @click="checkDanaStatus(selectedPayment)"
+                    />
+                    <q-btn
+                      v-if="selectedPayment.status === 'pending'"
+                      outline
+                      dense
+                      no-caps
+                      color="negative"
+                      icon="cancel"
+                      label="Batalkan Transaksi Sandbox"
+                      :loading="cancellingPaymentId === selectedPayment.id"
+                      @click="cancelPayment(selectedPayment)"
+                    />
+                  </div>
                   <q-banner
                     v-if="danaStatusError"
                     rounded
@@ -821,6 +845,7 @@ const danaStatus = ref(null)
 const danaStatusError = ref(null)
 const danaStatusLoading = ref(false)
 const danaStatusPaymentId = ref(null)
+const cancellingPaymentId = ref(null)
 const webhookMeta = ref({
   current_page: 1,
   last_page: 1,
@@ -1272,6 +1297,33 @@ async function checkDanaStatus(payment) {
   } finally {
     if (danaStatusPaymentId.value === payment.id)
       danaStatusLoading.value = false
+  }
+}
+
+async function cancelPayment(payment) {
+  if (!merchantId.value || !payment?.id || cancellingPaymentId.value) return
+  cancellingPaymentId.value = payment.id
+  try {
+    await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      payment.id
+    )
+    $q.notify({
+      type: 'positive',
+      message: 'Transaksi DANA Sandbox berhasil dibatalkan di DANA.'
+    })
+    await checkDanaStatus(payment)
+    await refreshPayments(meta.value.current_page, true)
+  } catch (exception) {
+    rememberRateLimit(exception)
+    $q.notify({
+      type: 'negative',
+      message:
+        auditErrorMessage(exception) ||
+        'Gagal membatalkan transaksi di DANA Sandbox.'
+    })
+  } finally {
+    cancellingPaymentId.value = null
   }
 }
 function isPngDataUrl(value) {

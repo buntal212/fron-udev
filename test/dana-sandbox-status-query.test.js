@@ -240,3 +240,92 @@ test('panel tester menyediakan tombol UAT Debit Status Invalid Signature 4015500
     /testDebitStatusInvalidSignature:\s*merchantId\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-invalid-signature`/
   )
 })
+
+test('panel tester menyediakan tombol UAT Status Cancelled (05) dengan validasi 2005500 dan latestTransactionStatus 05', async () => {
+  const [panel, service] = await Promise.all([
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/services/udev-billing.js', import.meta.url),
+      'utf8'
+    )
+  ])
+
+  // Verifikasi tombol UAT Status Cancelled (05)
+  assert.match(panel, /label="UAT Status Cancelled \(05\)"/)
+  assert.match(panel, /:loading="runningDebitStatusCancelledUat"/)
+  assert.match(panel, /@click="runDebitStatusCancelledUat"/)
+
+  // Verifikasi banner hasil UAT Status Cancelled (05)
+  assert.match(panel, /v-if="debitStatusCancelledUat"/)
+  assert.match(panel, /UAT Status Cancelled \(2005500 \/ 05\)/)
+  assert.match(panel, /Lolos \(2005500 \/ Status 05\)/)
+  assert.match(panel, /latestTransactionStatus:/)
+  assert.match(
+    panel,
+    /debitStatusCancelledUat\.received\?\.latest_transaction_status/
+  )
+  assert.match(panel, /testDebitStatusCancelled/)
+
+  // Verifikasi endpoint service di udev-billing.js
+  assert.match(
+    service,
+    /testDebitStatusCancelled:\s*\(merchantId,\s*payload\)\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/uat\/debit-status-cancelled`/
+  )
+})
+
+test('panel tester dan riwayat pembayaran menyediakan aksi Batalkan Transaksi Sandbox pada transaksi pending tanpa modal QDialog', async () => {
+  const [panel, history, service] = await Promise.all([
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL(
+        '../src/pages/PaymentGateway/comp/DanaSandboxPaymentHistory.vue',
+        import.meta.url
+      ),
+      'utf8'
+    ),
+    readFile(
+      new URL('../src/services/udev-billing.js', import.meta.url),
+      'utf8'
+    )
+  ])
+
+  // Verifikasi tombol pembatalan di panel tester
+  assert.match(
+    panel,
+    /v-if="transaction\?\.id && transaction\?\.status === 'pending'"[\s\S]*?label="Batalkan Transaksi Sandbox"/
+  )
+  assert.match(panel, /cancelCurrentTransaction/)
+
+  // Verifikasi tombol pembatalan di riwayat pembayaran (header quick action & detail)
+  assert.match(
+    history,
+    /v-if="payment\.status === 'pending'"[\s\S]*?label="Batalkan"/
+  )
+  assert.match(
+    history,
+    /v-if="selectedPayment\.status === 'pending'"[\s\S]*?label="Batalkan Transaksi Sandbox"/
+  )
+  assert.match(history, /cancelPayment\(selectedPayment\)/)
+
+  // Verifikasi endpoint service pembatalan di udev-billing.js
+  assert.match(
+    service,
+    /cancelDanaSandboxPayment:\s*\(merchantId,\s*paymentId,\s*payload\)\s*=>\s*api\.post\(\s*`\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/transactions\/\$\{paymentId\}\/cancel`/
+  )
+
+  // Memastikan tidak ada QDialog tersisa
+  assert.doesNotMatch(panel, /<q-dialog/i)
+  assert.doesNotMatch(history, /<q-dialog/i)
+})

@@ -295,6 +295,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="warning"
+          icon="science"
+          label="UAT Status Cancelled (05)"
+          no-caps
+          :loading="runningDebitStatusCancelledUat"
+          @click="runDebitStatusCancelledUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="negative"
           icon="science"
           label="UAT Status Internal Error (5005501)"
@@ -1318,6 +1329,61 @@
     </q-banner>
 
     <q-banner
+      v-if="debitStatusCancelledUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar
+        ><q-icon
+          :name="
+            debitStatusCancelledUat.passed ? 'check_circle' : 'error_outline'
+          "
+      /></template>
+      <div class="text-weight-bold"> UAT Status Cancelled (2005500 / 05) </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="debitStatusCancelledUat.passed ? 'positive' : 'negative'"
+        >
+          {{
+            debitStatusCancelledUat.passed
+              ? 'Lolos (2005500 / Status 05)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref:
+          <code>{{
+            debitStatusCancelledUat.request?.original_partner_reference_no ||
+            debitStatusCancelledUat.payment_id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>{{
+            debitStatusCancelledUat.request?.endpoint ||
+            '/payment-gateway/v1.0/debit/status.htm'
+          }}</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ debitStatusCancelledUat.received?.http_status }} ·
+        responseCode
+        <code>{{
+          debitStatusCancelledUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ debitStatusCancelledUat.received?.response_message }}
+        · latestTransactionStatus:
+        <code>{{
+          debitStatusCancelledUat.received?.latest_transaction_status ||
+          'Tidak tersedia'
+        }}</code>
+        <span v-if="debitStatusCancelledUat.received?.request_id">
+          · Request ID: {{ debitStatusCancelledUat.received.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
       v-if="armedWebhook500Uat"
       rounded
       class="transport-notice q-mt-md"
@@ -1507,6 +1573,18 @@
               no-caps
               :loading="checkingDanaStatus"
               @click="checkDanaStatus"
+            />
+          </div>
+          <div class="col-12 col-sm-auto">
+            <q-btn
+              v-if="transaction?.id && transaction?.status === 'pending'"
+              outline
+              color="negative"
+              icon="cancel"
+              label="Batalkan Transaksi Sandbox"
+              no-caps
+              :loading="cancellingTransaction"
+              @click="cancelCurrentTransaction"
             />
           </div>
         </div>
@@ -1912,6 +1990,8 @@ const runningDebitStatusNotFoundUat = ref(false)
 const runningDebitStatusMissingTimestampUat = ref(false)
 const runningDebitStatusInternalServerErrorUat = ref(false)
 const runningDebitStatusInvalidSignatureUat = ref(false)
+const runningDebitStatusCancelledUat = ref(false)
+const cancellingTransaction = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -1939,6 +2019,7 @@ const debitStatusNotFoundUat = ref(null)
 const debitStatusMissingTimestampUat = ref(null)
 const debitStatusInternalServerErrorUat = ref(null)
 const debitStatusInvalidSignatureUat = ref(null)
+const debitStatusCancelledUat = ref(null)
 const armedWebhook500Uat = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
@@ -2079,6 +2160,7 @@ function reset() {
   debitStatusMissingTimestampUat.value = null
   debitStatusInternalServerErrorUat.value = null
   debitStatusInvalidSignatureUat.value = null
+  debitStatusCancelledUat.value = null
   armedWebhook500Uat.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 5, total: 0 }
 }
@@ -2108,6 +2190,8 @@ const operationLabels = {
     'UAT Status Internal Error (5005501)',
   debit_status_invalid_signature_tested:
     'UAT Status Invalid Signature (4015500)',
+  debit_status_cancelled_tested: 'UAT Status Cancelled (2005500 / 05)',
+  dana_sandbox_payment_cancelled: 'Batalkan Transaksi Sandbox',
   uat_webhook_500_armed: 'Arm Webhook Simulasi 500'
 }
 
@@ -2611,6 +2695,34 @@ async function runDebitStatusInvalidSignatureUat() {
   }
 }
 
+async function runDebitStatusCancelledUat() {
+  if (!merchantId.value || runningDebitStatusCancelledUat.value) return
+  runningDebitStatusCancelledUat.value = true
+  error.value = null
+  debitStatusCancelledUat.value = null
+  try {
+    const payload = transaction.value?.id
+      ? { payment_id: transaction.value.id }
+      : {}
+    const response = await danaGatewayMerchantService.testDebitStatusCancelled(
+      merchantId.value,
+      payload
+    )
+    debitStatusCancelledUat.value = response.data?.data?.uat ?? null
+    if (!debitStatusCancelledUat.value?.passed) {
+      const diag =
+        debitStatusCancelledUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT 2005500 dengan status Cancelled (05).'
+      error.value = `UAT 2005500 (Cancelled 05) belum terpenuhi: ${diag}`
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningDebitStatusCancelledUat.value = false
+  }
+}
+
 async function armWebhook500() {
   if (!merchantId.value || armingWebhook500.value) return
   armingWebhook500.value = true
@@ -2810,6 +2922,33 @@ async function checkDanaStatus() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     checkingDanaStatus.value = false
+  }
+}
+
+async function cancelCurrentTransaction() {
+  if (
+    !merchantId.value ||
+    !transaction.value?.id ||
+    cancellingTransaction.value
+  )
+    return
+  cancellingTransaction.value = true
+  error.value = null
+  try {
+    await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      transaction.value.id
+    )
+    $q.notify({
+      type: 'positive',
+      message: 'Transaksi DANA Sandbox berhasil dibatalkan di DANA.'
+    })
+    await checkDanaStatus()
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    cancellingTransaction.value = false
   }
 }
 

@@ -361,6 +361,18 @@ export const danaGatewayMerchantService = {
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  testDebitStatusCancelled: (merchantId, payload) =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/debit-status-cancelled`,
+      payload || {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  cancelDanaSandboxPayment: (merchantId, paymentId, payload) =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/transactions/${paymentId}/cancel`,
+      payload || {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   armSandboxWebhookSimulated500: (merchantId, payload) =>
     api.post(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/arm-webhook-500`,
