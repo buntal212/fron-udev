@@ -496,14 +496,20 @@
                       ? 'qr_code_2'
                       : isVirtualAccountMethod(store.checkoutPaymentMethod)
                         ? 'account_balance'
-                        : 'payments'
+                        : store.checkoutPaymentMethod === 'indomaret' ||
+                            store.checkoutPaymentMethod === 'cstore'
+                          ? 'storefront'
+                          : 'payments'
                   "
                   :label="
                     store.checkoutPaymentMethod === 'qris'
                       ? `Bayar dengan QRIS ${isMidtrans ? 'Midtrans' : 'DANA'}`
                       : isVirtualAccountMethod(store.checkoutPaymentMethod)
                         ? `Dapatkan ${paymentMethodLabel(store.checkoutPaymentMethod)}`
-                        : `Lanjut ke ${paymentMethodLabel(store.checkoutPaymentMethod)}`
+                        : store.checkoutPaymentMethod === 'indomaret' ||
+                            store.checkoutPaymentMethod === 'cstore'
+                          ? 'Dapatkan Kode Bayar Indomaret'
+                          : `Lanjut ke ${paymentMethodLabel(store.checkoutPaymentMethod)}`
                   "
                   @click="onStartCheckout()"
                 />
@@ -789,6 +795,99 @@
                   :href="store.checkoutUrl || latestAttempt?.checkout_url"
                   target="_blank"
                 />
+              </div>
+
+              <!-- Indomaret CStore Display Box -->
+              <div
+                v-if="isCurrentAttemptIndomaret"
+                class="va-presentation-box q-pa-md text-center q-mb-sm"
+              >
+                <div
+                  class="row items-center justify-center q-gutter-xs q-mb-xs"
+                >
+                  <q-icon name="storefront" color="warning" size="20px" />
+                  <span class="text-caption text-weight-bold text-sand"
+                    >Gerai Indomaret</span
+                  >
+                </div>
+                <div class="text-caption text-grey-4">
+                  Tunjukkan kode pembayaran berikut kepada kasir Indomaret:
+                </div>
+                <div class="q-my-sm">
+                  <div class="text-caption text-gold font-weight-medium">
+                    Kode Pembayaran Indomaret
+                  </div>
+                  <div
+                    class="text-h4 text-weight-bolder text-gold-glow letter-spaced q-my-xs"
+                  >
+                    {{ currentPaymentCode }}
+                  </div>
+                </div>
+                <div class="row justify-center q-gutter-xs q-mt-sm">
+                  <q-btn
+                    outline
+                    dense
+                    no-caps
+                    size="sm"
+                    color="warning"
+                    icon="content_copy"
+                    label="Salin Kode Bayar"
+                    @click="
+                      copyPayload(
+                        currentPaymentCode,
+                        'Kode pembayaran Indomaret disalin!'
+                      )
+                    "
+                  />
+                </div>
+                <q-separator class="gold-separator q-my-md" />
+                <div class="text-left text-caption text-sand q-px-xs">
+                  <div class="text-weight-bold text-warning q-mb-xs">
+                    Instruksi Pembayaran di Indomaret:
+                  </div>
+                  <ol
+                    v-if="currentPaymentInstruction?.instructions?.length"
+                    class="q-pl-md q-my-none text-grey-3"
+                    style="line-height: 1.5"
+                  >
+                    <li
+                      v-for="(instruction, idx) in currentPaymentInstruction.instructions"
+                      :key="idx"
+                    >
+                      {{ instruction }}
+                    </li>
+                  </ol>
+                  <ol
+                    v-else
+                    class="q-pl-md q-my-none text-grey-3"
+                    style="line-height: 1.5"
+                  >
+                    <li>Kunjungi gerai <strong>Indomaret</strong> terdekat.</li>
+                    <li>
+                      Sampaikan kepada kasir bahwa Anda ingin melakukan
+                      pembayaran <strong>Midtrans / UDEV Invoice</strong>.
+                    </li>
+                    <li>
+                      Tunjukkan atau sebutkan
+                      <strong>Kode Pembayaran: {{ currentPaymentCode }}</strong>
+                      kepada kasir.
+                    </li>
+                    <li>
+                      Kasir akan mengonfirmasi detail tagihan dengan nominal
+                      total:
+                      <strong>{{
+                        formatSubscriptionPrice(
+                          activeTotalPayable,
+                          invoice.currency
+                        )
+                      }}</strong>.
+                    </li>
+                    <li>
+                      Selesaikan transaksi dan simpan struk pembayaran Indomaret
+                      sebagai bukti transaksi yang sah.
+                    </li>
+                  </ol>
+                </div>
               </div>
 
               <!-- Retry Checkout action when expired / failed -->
@@ -1328,7 +1427,9 @@ const paymentMethodLabels = {
   va_pani: 'Virtual Account PANI',
   va_cimb: 'Virtual Account CIMB',
   va_btpn: 'Virtual Account BTPN',
-  gopay: 'GoPay'
+  gopay: 'GoPay',
+  indomaret: 'Indomaret',
+  cstore: 'Indomaret'
 }
 
 const isVirtualAccountMethod = method => virtualAccountMethods.includes(method)
@@ -1413,6 +1514,9 @@ const activeAdminFee = computed(() => {
     if (method?.startsWith('va_') || method === 'echannel') {
       return 4000
     }
+    if (method === 'indomaret' || method === 'cstore') {
+      return 5000
+    }
   }
 
   return 0
@@ -1443,6 +1547,7 @@ const activeFeeLabel = computed(() => {
   if (method === 'qris') return '(0.7%)'
   if (method === 'gopay') return '(2%)'
   if (method?.startsWith('va_')) return '(Tetap)'
+  if (method === 'indomaret' || method === 'cstore') return '(Tetap)'
   return ''
 })
 
@@ -1502,7 +1607,8 @@ const paymentMethodOptions = computed(() => {
       { label: 'VA BRI', value: 'va_bri' },
       { label: 'VA Permata', value: 'va_permata' },
       { label: 'Mandiri Bill', value: 'va_mandiri' },
-      { label: 'GoPay', value: 'gopay' }
+      { label: 'GoPay', value: 'gopay' },
+      { label: 'Indomaret', value: 'indomaret' }
     ]
   }
   return [
@@ -1526,7 +1632,9 @@ watch(
         'va_bri',
         'va_permata',
         'va_mandiri',
-        'gopay'
+        'gopay',
+        'indomaret',
+        'cstore'
       ]
       if (!midtransAllowed.includes(store.checkoutPaymentMethod)) {
         store.checkoutPaymentMethod = 'qris'
@@ -1624,6 +1732,14 @@ const isCurrentAttemptGopay = computed(() => {
       currentPaymentInstruction.value?.checkout_url ||
       store.checkoutAttempt?.checkout_url
     )
+  )
+})
+
+const isCurrentAttemptIndomaret = computed(() => {
+  const method = currentAttemptMethod.value
+  return (
+    (method === 'indomaret' || method === 'cstore') &&
+    Boolean(currentPaymentCode.value)
   )
 })
 

@@ -396,6 +396,60 @@
                     />
                   </div>
                 </div>
+
+                <!-- Indomaret CStore Payment Code -->
+                <div
+                  v-if="
+                    store.testPaymentResult.payment_code ||
+                    store.testPaymentResult.payment_type === 'cstore'
+                  "
+                  class="q-mt-sm"
+                >
+                  <span class="text-caption text-grey-7"
+                    >Kode Pembayaran Indomaret:</span
+                  >
+                  <div
+                    class="bg-white q-pa-sm rounded-borders q-mt-xs border-grey q-gutter-y-xs"
+                  >
+                    <div class="row items-center justify-between">
+                      <span class="text-caption text-weight-bold text-grey-8"
+                        >Gerai:</span
+                      >
+                      <span
+                        class="text-subtitle2 text-weight-bolder text-primary text-uppercase"
+                      >
+                        {{ store.testPaymentResult.store || 'Indomaret' }}
+                      </span>
+                    </div>
+                    <div class="row items-center justify-between">
+                      <span class="text-caption text-weight-bold text-grey-8"
+                        >Kode Bayar:</span
+                      >
+                      <span
+                        class="font-mono text-h6 text-weight-bolder text-primary"
+                      >
+                        {{ store.testPaymentResult.payment_code }}
+                      </span>
+                    </div>
+                    <div
+                      v-if="store.testPaymentResult.payment_code"
+                      class="row justify-end q-mt-xs"
+                    >
+                      <q-btn
+                        flat
+                        dense
+                        size="sm"
+                        color="primary"
+                        icon="content_copy"
+                        label="Salin Kode Bayar"
+                        no-caps
+                        @click="
+                          copyToClipboard(store.testPaymentResult.payment_code)
+                        "
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -541,6 +595,7 @@
 
 <script setup>
 import { nextTick, ref, watch } from 'vue'
+import { useQuasar } from 'quasar'
 import QRCode from 'qrcode'
 import { usePaymentGatewayMidtransStore } from '@/stores/paymentgatewaymidtrans'
 import {
@@ -548,13 +603,15 @@ import {
   getMidtransStatusLabel
 } from '@/utils/midtrans-status'
 
+const $q = useQuasar()
 const store = usePaymentGatewayMidtransStore()
 const qrCanvasRef = ref(null)
 
 const paymentTypeOptions = [
   { label: 'QRIS (GoPay / ShopeePay / Mandiri)', value: 'qris' },
   { label: 'Virtual Account (Bank Transfer)', value: 'bank_transfer' },
-  { label: 'GoPay Direct', value: 'gopay' }
+  { label: 'GoPay Direct', value: 'gopay' },
+  { label: 'Indomaret (CStore)', value: 'cstore' }
 ]
 
 const bankOptions = [
@@ -624,6 +681,23 @@ function formatDate(val) {
 function hasVaNumber(num) {
   if (!store.testPaymentResult?.va_numbers?.length || !num) return false
   return store.testPaymentResult.va_numbers.some(v => v.va_number === num)
+}
+
+async function copyToClipboard(text, message = 'Kode pembayaran Indomaret berhasil disalin!') {
+  if (!text) return
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(text)
+      $q?.notify?.({
+        type: 'positive',
+        message,
+        position: 'top',
+        timeout: 1800
+      })
+    }
+  } catch (e) {
+    console.error('Failed to copy to clipboard', e)
+  }
 }
 </script>
 

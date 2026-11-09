@@ -258,7 +258,8 @@ const paymentMethodOptions = [
   { label: 'BRI Virtual Account', value: 'va_bri' },
   { label: 'Permata Virtual Account', value: 'va_permata' },
   { label: 'Mandiri Bill Payment', value: 'va_mandiri' },
-  { label: 'GoPay', value: 'gopay' }
+  { label: 'GoPay', value: 'gopay' },
+  { label: 'Indomaret', value: 'indomaret' }
 ]
 
 const defaultNames = {
@@ -268,7 +269,8 @@ const defaultNames = {
   va_bri: 'BRI Virtual Account',
   va_permata: 'Permata Virtual Account',
   va_mandiri: 'Mandiri Bill Payment',
-  gopay: 'GoPay'
+  gopay: 'GoPay',
+  indomaret: 'Indomaret'
 }
 
 function onPaymentMethodChanged(val) {

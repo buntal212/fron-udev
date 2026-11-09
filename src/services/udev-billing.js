@@ -280,6 +280,12 @@ export const danaGatewayMerchantService = {
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  testCreateOrderInvalidSignature: merchantId =>
+    api.post(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/create-order-invalid-signature`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
   testIpgCreateOrderSuccess: merchantId =>
     api.post(
       `/v1/admin/dana-gateway-merchants/${merchantId}/sandbox-tester/uat/ipg-create-order-success`,

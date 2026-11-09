@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-test('InvoiceDetailDialog mendukung checkout Midtrans Sandbox: QRIS, VA Bank, Mandiri Bill, dan GoPay', async () => {
+test('InvoiceDetailDialog mendukung checkout Midtrans Sandbox: QRIS, VA Bank, Mandiri Bill, GoPay, dan Indomaret CStore', async () => {
   const dialog = await readFile(
     new URL(
       '../src/pages/Invoice/comp/InvoiceDetailDialog.vue',
@@ -24,6 +24,17 @@ test('InvoiceDetailDialog mendukung checkout Midtrans Sandbox: QRIS, VA Bank, Ma
   assert.match(dialog, /value:\s*'va_mandiri'/)
   assert.match(dialog, /value:\s*'gopay'/)
   assert.match(dialog, /value:\s*'qris'/)
+  assert.match(dialog, /value:\s*'indomaret'/)
+
+  // Indomaret CStore presentation & instructions
+  assert.match(dialog, /isCurrentAttemptIndomaret/)
+  assert.match(dialog, /Gerai Indomaret/)
+  assert.match(dialog, /Kode Pembayaran Indomaret/)
+  assert.match(dialog, /Salin Kode Bayar/)
+  assert.match(dialog, /Instruksi Pembayaran di Indomaret:/)
+  assert.match(dialog, /currentPaymentCode/)
+  assert.match(dialog, /activeAdminFee/)
+  assert.match(dialog, /activeTotalPayable/)
 
   // Mandiri Bill Payment display (Biller Code and Bill Key)
   assert.match(dialog, /currentPaymentInstruction\?\.biller_code/)
@@ -43,6 +54,29 @@ test('InvoiceDetailDialog mendukung checkout Midtrans Sandbox: QRIS, VA Bank, Ma
     dialog,
     /if \(method === 'va_mandiri' \|\| method === 'echannel'\) bank = 'echannel'/
   )
+})
+
+test('MidtransSandboxTester dan MidtransFeeFormDialog mendukung Indomaret CStore', async () => {
+  const tester = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayMidtrans/comp/MidtransSandboxTester.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  assert.match(tester, /value:\s*'cstore'/)
+  assert.match(tester, /Kode Pembayaran Indomaret:/)
+  assert.match(tester, /Salin Kode Bayar/)
+
+  const feeDialog = await readFile(
+    new URL(
+      '../src/pages/PaymentGatewayMidtrans/comp/MidtransFeeFormDialog.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  assert.match(feeDialog, /value:\s*'indomaret'/)
+  assert.match(feeDialog, /indomaret:\s*'Indomaret'/)
 })
 
 test('Invoice store mendukung provider Midtrans, dynamic gateway auto-detection, dan penerusan bank', async () => {

@@ -57,6 +57,17 @@
       <div class="col-12 col-sm-auto">
         <q-btn
           outline
+          color="negative"
+          icon="vpn_key_off"
+          label="UAT PG Invalid Signature (4015400)"
+          no-caps
+          :loading="runningCreateOrderInvalidSignatureUat"
+          @click="runCreateOrderInvalidSignatureUat"
+        />
+      </div>
+      <div class="col-12 col-sm-auto">
+        <q-btn
+          outline
           color="primary"
           icon="shopping_bag"
           label="UAT IPG Sukses (2005400)"
@@ -419,6 +430,44 @@
         <span v-if="inconsistentRequestUat.second_request?.request_id">
           · Request ID: {{ inconsistentRequestUat.second_request.request_id }}
         </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="createOrderInvalidSignatureUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar
+        ><q-icon
+          :name="
+            createOrderInvalidSignatureUat.passed
+              ? 'check_circle'
+              : 'error_outline'
+          "
+      /></template>
+      <div class="text-weight-bold">
+        UAT PG Invalid Signature (4015400)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="createOrderInvalidSignatureUat.passed ? 'positive' : 'negative'"
+        >
+          {{ createOrderInvalidSignatureUat.passed ? 'Lolos (4015400)' : 'Gagal' }}
+        </q-badge>
+        · DANA HTTP {{ createOrderInvalidSignatureUat.received?.http_status }} · responseCode
+        <code>{{
+          createOrderInvalidSignatureUat.received?.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ createOrderInvalidSignatureUat.received?.response_message }}
+      </div>
+      <div class="text-caption q-mt-xs">
+        Override Signature:
+        <code>{{ createOrderInvalidSignatureUat.request?.signature_override }}</code>
+        <span v-if="createOrderInvalidSignatureUat.received?.request_id">
+          · Request ID: {{ createOrderInvalidSignatureUat.received.request_id }}</span
+        >
       </div>
     </q-banner>
 
@@ -1814,6 +1863,7 @@ const checkingDanaStatus = ref(false)
 const runningMissingTimestampUat = ref(false)
 const runningInvalidAmountUat = ref(false)
 const runningInconsistentRequestUat = ref(false)
+const runningCreateOrderInvalidSignatureUat = ref(false)
 const runningIpgCreateOrderSuccessUat = ref(false)
 const runningIpgMissingTimestampUat = ref(false)
 const runningIpgGeneralErrorUat = ref(false)
@@ -1844,6 +1894,7 @@ const danaStatus = ref(null)
 const missingTimestampUat = ref(null)
 const invalidAmountUat = ref(null)
 const inconsistentRequestUat = ref(null)
+const createOrderInvalidSignatureUat = ref(null)
 const ipgCreateOrderSuccessUat = ref(null)
 const ipgMissingTimestampUat = ref(null)
 const ipgGeneralErrorUat = ref(null)
@@ -1980,6 +2031,7 @@ function reset() {
   missingTimestampUat.value = null
   invalidAmountUat.value = null
   inconsistentRequestUat.value = null
+  createOrderInvalidSignatureUat.value = null
   ipgCreateOrderSuccessUat.value = null
   ipgMissingTimestampUat.value = null
   ipgGeneralErrorUat.value = null
@@ -2162,6 +2214,30 @@ async function runInconsistentRequestUat() {
     error.value = getApiErrorMessage(requestError)
   } finally {
     runningInconsistentRequestUat.value = false
+  }
+}
+
+async function runCreateOrderInvalidSignatureUat() {
+  if (!merchantId.value || runningCreateOrderInvalidSignatureUat.value) return
+  runningCreateOrderInvalidSignatureUat.value = true
+  error.value = null
+  createOrderInvalidSignatureUat.value = null
+  try {
+    const response =
+      await danaGatewayMerchantService.testCreateOrderInvalidSignature(
+        merchantId.value
+      )
+    createOrderInvalidSignatureUat.value = response.data?.data?.uat ?? null
+    if (!createOrderInvalidSignatureUat.value?.passed) {
+      const diag =
+        createOrderInvalidSignatureUat.value?.received?.response_message ||
+        'Respons DANA tidak sesuai ekspektasi UAT 4015400 (Invalid Signature).'
+      error.value = `UAT 4015400 belum terpenuhi: ${diag}`
+    }
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+  } finally {
+    runningCreateOrderInvalidSignatureUat.value = false
   }
 }
 
