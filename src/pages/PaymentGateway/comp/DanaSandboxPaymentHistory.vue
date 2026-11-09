@@ -691,43 +691,125 @@
                       />
                     </template>
                   </q-banner>
-                  <div v-else-if="webhooks.length" class="webhook-list">
-                    <article
+                  <q-list
+                    v-else-if="webhooks.length"
+                    bordered
+                    separator
+                    class="rounded-borders bg-white"
+                  >
+                    <q-item
                       v-for="(webhook, index) in webhooks"
-                      :key="index"
-                      class="webhook-row"
+                      :key="webhook.id || index"
+                      class="q-py-sm"
                     >
-                      <q-avatar
-                        :color="webhookColor(webhook)"
-                        text-color="white"
-                        size="34px"
-                      >
-                        <q-icon
-                          :name="
-                            webhook.signature_valid ? 'verified' : 'gpp_maybe'
-                          "
-                        />
-                      </q-avatar>
-                      <div class="webhook-content">
-                        <div
-                          class="row items-center justify-between q-col-gutter-sm"
+                      <q-item-section avatar top>
+                        <q-avatar
+                          :color="webhookColor(webhook)"
+                          text-color="white"
+                          size="34px"
                         >
-                          <strong>{{ webhookLabel(webhook) }}</strong>
-                          <q-badge outline :color="webhookColor(webhook)">
-                            {{
-                              webhook.signature_valid
-                                ? 'Signature valid'
-                                : 'Signature invalid'
-                            }}
-                          </q-badge>
+                          <q-icon
+                            :name="
+                              webhook.signature_valid ? 'verified' : 'gpp_maybe'
+                            "
+                          />
+                        </q-avatar>
+                      </q-item-section>
+
+                      <q-item-section>
+                        <div
+                          class="row items-center justify-between q-col-gutter-xs"
+                        >
+                          <strong class="text-subtitle2">{{
+                            webhookLabel(webhook)
+                          }}</strong>
+                          <div class="row items-center q-gutter-xs">
+                            <q-badge
+                              :color="
+                                webhook.http_status === 200
+                                  ? 'positive'
+                                  : webhook.http_status === 500
+                                    ? 'warning'
+                                    : 'negative'
+                              "
+                            >
+                              HTTP
+                              {{
+                                webhook.http_status ||
+                                (webhook.processing_status === 'processed'
+                                  ? 200
+                                  : 400)
+                              }}
+                            </q-badge>
+                            <q-badge outline :color="webhookColor(webhook)">
+                              {{
+                                webhook.signature_valid
+                                  ? 'Signature valid'
+                                  : 'Signature invalid'
+                              }}
+                            </q-badge>
+                          </div>
                         </div>
-                        <span>{{ formatDate(webhook.received_at) }}</span>
-                        <small v-if="webhook.error_code">
-                          Kode: {{ webhook.error_code }}
-                        </small>
-                      </div>
-                    </article>
-                  </div>
+
+                        <div class="text-caption text-grey-7 q-mt-xs">
+                          Diterima: {{ formatDate(webhook.received_at) }}
+                          <template v-if="webhook.processed_at">
+                            · Selesai: {{ formatDate(webhook.processed_at) }}
+                          </template>
+                          <template
+                            v-if="webhook.attempts && webhook.attempts > 1"
+                          >
+                            ·
+                            <span class="text-warning text-weight-medium"
+                              >{{ webhook.attempts }}x percobaan</span
+                            >
+                          </template>
+                        </div>
+
+                        <div
+                          class="row items-center q-gutter-x-md q-mt-xs text-caption"
+                        >
+                          <div>
+                            <span class="text-grey-7">Response Code:</span>
+                            <span class="text-weight-medium q-ml-xs">
+                              {{
+                                webhook.response_code ||
+                                (webhook.processing_status === 'processed'
+                                  ? '2005600'
+                                  : '4005600')
+                              }}
+                            </span>
+                          </div>
+                          <div v-if="webhook.provider_event_id">
+                            <span class="text-grey-7">Request ID:</span>
+                            <span class="text-weight-medium q-ml-xs">{{
+                              webhook.provider_event_id
+                            }}</span>
+                          </div>
+                          <div v-if="webhook.payload_hash">
+                            <span class="text-grey-7">Hash:</span>
+                            <code class="q-ml-xs">{{
+                              webhook.payload_hash
+                            }}</code>
+                          </div>
+                        </div>
+
+                        <div
+                          v-if="webhook.error_code"
+                          class="text-caption text-negative q-mt-xs"
+                        >
+                          Hasil: Ditolak ({{ webhook.error_code }})
+                        </div>
+                        <div
+                          v-else-if="webhook.processing_status === 'processed'"
+                          class="text-caption text-positive q-mt-xs"
+                        >
+                          Hasil: 2005600 Successful (Status pembayaran
+                          diperbarui)
+                        </div>
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
                   <div v-else class="empty-audit">
                     <q-icon name="webhook" size="22px" />
                     <span>Belum ada webhook tercatat untuk transaksi ini.</span>
@@ -1047,11 +1129,23 @@ function sourceLabel(source) {
   )
 }
 function webhookColor(webhook) {
+  if (
+    webhook.error_code === 'uat_simulated_500' ||
+    webhook.http_status === 500
+  ) {
+    return 'warning'
+  }
   return webhook.processing_status === 'processed' && webhook.signature_valid
     ? 'positive'
     : 'negative'
 }
 function webhookLabel(webhook) {
+  if (
+    webhook.error_code === 'uat_simulated_500' ||
+    webhook.http_status === 500
+  ) {
+    return 'UAT Webhook Simulasi 500 (5005601)'
+  }
   return webhook.processing_status === 'processed'
     ? 'Webhook berhasil diproses'
     : 'Webhook ditolak'
