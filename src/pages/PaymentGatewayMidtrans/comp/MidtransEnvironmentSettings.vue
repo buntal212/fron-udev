@@ -7,7 +7,8 @@
           Pengaturan Environment Midtrans Gateway
         </h2>
         <p class="text-caption text-grey-7 q-my-none">
-          Kelola mode operasional aktif (Sandbox &amp; Production), evaluasi kesiapan production, kredensial terpisah, dan mapping aplikasi.
+          Kelola mode operasional aktif (Sandbox &amp; Production), evaluasi
+          kesiapan production, kredensial terpisah, dan mapping aplikasi.
         </p>
       </div>
 
@@ -31,7 +32,8 @@
           @click="openActivateDialog"
         >
           <q-tooltip v-if="!readinessSummary.is_ready">
-            Semua syarat kesiapan (kredensial, uji koneksi, mapping aplikasi) harus terpenuhi terlebih dahulu.
+            Semua syarat kesiapan (kredensial, uji koneksi, mapping aplikasi)
+            harus terpenuhi terlebih dahulu.
           </q-tooltip>
         </q-btn>
         <q-btn
@@ -52,7 +54,9 @@
       bordered
       :class="[
         'active-env-card',
-        store.isProductionActive ? 'border-negative bg-red-1' : 'border-amber bg-amber-1'
+        store.isProductionActive
+          ? 'border-negative bg-red-1'
+          : 'border-amber bg-amber-1'
       ]"
     >
       <q-card-section>
@@ -93,14 +97,26 @@
           >
             <div>
               Diaktifkan Oleh:
-              <strong>{{ store.environmentSettings.production_settings.activated_by_name || 'Admin' }}</strong>
+              <strong>{{
+                store.environmentSettings.production_settings
+                  .activated_by_name || 'Admin'
+              }}</strong>
             </div>
             <div>
               Waktu Aktivasi:
-              <strong>{{ formatDate(store.environmentSettings.production_settings.activated_at) }}</strong>
+              <strong>{{
+                formatDate(
+                  store.environmentSettings.production_settings.activated_at
+                )
+              }}</strong>
             </div>
-            <div v-if="store.environmentSettings.production_settings.notes" class="text-italic q-mt-xs">
-              Catatan: "{{ store.environmentSettings.production_settings.notes }}"
+            <div
+              v-if="store.environmentSettings.production_settings.notes"
+              class="text-italic q-mt-xs"
+            >
+              Catatan: "{{
+                store.environmentSettings.production_settings.notes
+              }}"
             </div>
           </div>
         </div>
@@ -122,21 +138,38 @@
             :color="readinessSummary.is_ready ? 'positive' : 'warning'"
             class="text-weight-bold q-pa-xs"
           >
-            {{ readinessSummary.is_ready ? 'SIAP DIAKTIFKAN' : 'BELUM MEMENUHI SYARAT' }}
+            {{
+              readinessSummary.is_ready
+                ? 'SIAP DIAKTIFKAN'
+                : 'BELUM MEMENUHI SYARAT'
+            }}
           </q-badge>
         </div>
 
         <div class="row q-col-gutter-md">
           <!-- Item 1: Server Key & Client Key Configured -->
           <div class="col-12 col-md-4">
-            <q-card flat bordered class="q-pa-sm checklist-item" :class="{ 'item-pass': readinessSummary.credentials_pass }">
+            <q-card
+              flat
+              bordered
+              class="q-pa-sm checklist-item"
+              :class="{ 'item-pass': readinessSummary.credentials_pass }"
+            >
               <div class="row items-center q-gutter-x-sm">
                 <q-icon
-                  :name="readinessSummary.credentials_pass ? 'check_circle' : 'cancel'"
-                  :color="readinessSummary.credentials_pass ? 'positive' : 'negative'"
+                  :name="
+                    readinessSummary.credentials_pass
+                      ? 'check_circle'
+                      : 'cancel'
+                  "
+                  :color="
+                    readinessSummary.credentials_pass ? 'positive' : 'negative'
+                  "
                   size="22px"
                 />
-                <div class="text-weight-bold text-caption">1. Kredensial Production</div>
+                <div class="text-weight-bold text-caption"
+                  >1. Kredensial Production</div
+                >
               </div>
               <div class="text-caption text-grey-7 q-mt-xs">
                 {{
@@ -150,14 +183,25 @@
 
           <!-- Item 2: Connection Test Passed -->
           <div class="col-12 col-md-4">
-            <q-card flat bordered class="q-pa-sm checklist-item" :class="{ 'item-pass': readinessSummary.connection_pass }">
+            <q-card
+              flat
+              bordered
+              class="q-pa-sm checklist-item"
+              :class="{ 'item-pass': readinessSummary.connection_pass }"
+            >
               <div class="row items-center q-gutter-x-sm">
                 <q-icon
-                  :name="readinessSummary.connection_pass ? 'check_circle' : 'cancel'"
-                  :color="readinessSummary.connection_pass ? 'positive' : 'negative'"
+                  :name="
+                    readinessSummary.connection_pass ? 'check_circle' : 'cancel'
+                  "
+                  :color="
+                    readinessSummary.connection_pass ? 'positive' : 'negative'
+                  "
                   size="22px"
                 />
-                <div class="text-weight-bold text-caption">2. Uji Koneksi API Production</div>
+                <div class="text-weight-bold text-caption"
+                  >2. Uji Koneksi API Production</div
+                >
               </div>
               <div class="text-caption text-grey-7 q-mt-xs">
                 {{
@@ -171,14 +215,25 @@
 
           <!-- Item 3: Application Mapping Active -->
           <div class="col-12 col-md-4">
-            <q-card flat bordered class="q-pa-sm checklist-item" :class="{ 'item-pass': readinessSummary.mapping_pass }">
+            <q-card
+              flat
+              bordered
+              class="q-pa-sm checklist-item"
+              :class="{ 'item-pass': readinessSummary.mapping_pass }"
+            >
               <div class="row items-center q-gutter-x-sm">
                 <q-icon
-                  :name="readinessSummary.mapping_pass ? 'check_circle' : 'cancel'"
-                  :color="readinessSummary.mapping_pass ? 'positive' : 'negative'"
+                  :name="
+                    readinessSummary.mapping_pass ? 'check_circle' : 'cancel'
+                  "
+                  :color="
+                    readinessSummary.mapping_pass ? 'positive' : 'negative'
+                  "
                   size="22px"
                 />
-                <div class="text-weight-bold text-caption">3. Mapping Aplikasi Production</div>
+                <div class="text-weight-bold text-caption"
+                  >3. Mapping Aplikasi Production</div
+                >
               </div>
               <div class="text-caption text-grey-7 q-mt-xs">
                 {{
@@ -202,7 +257,8 @@
               Konfigurasi Kredensial &amp; Uji Koneksi Terpisah
             </div>
             <p class="text-caption text-grey-7 q-my-none">
-              Pilih environment untuk mengatur Server Key, Client Key, dan menjalankan uji koneksi tanpa memengaruhi environment lainnya.
+              Pilih environment untuk mengatur Server Key, Client Key, dan
+              menjalankan uji koneksi tanpa memengaruhi environment lainnya.
             </p>
           </div>
 
@@ -231,20 +287,28 @@
             <q-card flat bordered class="q-pa-md bg-grey-1">
               <div class="row items-center justify-between q-mb-md">
                 <div class="text-subtitle2 text-weight-bold">
-                  Kredensial {{ activeConfigEnv.toUpperCase() }} ({{ store.selectedMerchant }})
+                  Kredensial {{ activeConfigEnv.toUpperCase() }} ({{
+                    store.selectedMerchant
+                  }})
                 </div>
                 <q-badge
                   :color="store.config?.has_server_key ? 'positive' : 'warning'"
                   class="text-weight-bold q-pa-xs"
                 >
-                  {{ store.config?.has_server_key ? 'Server Key Terenkripsi AES-256' : 'Belum Dikonfigurasi' }}
+                  {{
+                    store.config?.has_server_key
+                      ? 'Server Key Terenkripsi AES-256'
+                      : 'Belum Dikonfigurasi'
+                  }}
                 </q-badge>
               </div>
 
               <q-form class="q-gutter-y-md" @submit="onSaveCredential">
                 <!-- Merchant Code -->
                 <div>
-                  <label class="text-caption text-weight-bold text-grey-8 q-mb-xs block">
+                  <label
+                    class="text-caption text-weight-bold text-grey-8 q-mb-xs block"
+                  >
                     Kode Merchant UDEV
                   </label>
                   <q-input
@@ -258,7 +322,9 @@
 
                 <!-- Midtrans Merchant ID -->
                 <div>
-                  <label class="text-caption text-weight-bold text-grey-8 q-mb-xs block">
+                  <label
+                    class="text-caption text-weight-bold text-grey-8 q-mb-xs block"
+                  >
                     Midtrans Merchant ID
                   </label>
                   <q-input
@@ -267,14 +333,20 @@
                     dense
                     bg-color="white"
                     placeholder="Contoh: G123456789"
-                    :error="Boolean(store.configFormErrors.midtrans_merchant_id)"
-                    :error-message="store.configFormErrors.midtrans_merchant_id?.[0]"
+                    :error="
+                      Boolean(store.configFormErrors.midtrans_merchant_id)
+                    "
+                    :error-message="
+                      store.configFormErrors.midtrans_merchant_id?.[0]
+                    "
                   />
                 </div>
 
                 <!-- Client Key -->
                 <div>
-                  <label class="text-caption text-weight-bold text-grey-8 q-mb-xs block">
+                  <label
+                    class="text-caption text-weight-bold text-grey-8 q-mb-xs block"
+                  >
                     Client Key ({{ activeConfigEnv.toUpperCase() }})
                   </label>
                   <q-input
@@ -290,8 +362,11 @@
 
                 <!-- Server Key (Encrypted Secret) -->
                 <div>
-                  <label class="text-caption text-weight-bold text-grey-8 q-mb-xs block">
-                    Server Key ({{ activeConfigEnv.toUpperCase() }}) <span class="text-negative">*</span>
+                  <label
+                    class="text-caption text-weight-bold text-grey-8 q-mb-xs block"
+                  >
+                    Server Key ({{ activeConfigEnv.toUpperCase() }})
+                    <span class="text-negative">*</span>
                   </label>
                   <q-input
                     v-model="store.configForm.server_key"
@@ -299,7 +374,11 @@
                     outlined
                     dense
                     bg-color="white"
-                    :placeholder="store.config?.has_server_key ? 'Ketik nilai baru untuk memperbarui (tersimpan aman)' : 'Contoh: Mid-server-...'"
+                    :placeholder="
+                      store.config?.has_server_key
+                        ? 'Ketik nilai baru untuk memperbarui (tersimpan aman)'
+                        : 'Contoh: Mid-server-...'
+                    "
                     :error="Boolean(store.configFormErrors.server_key)"
                     :error-message="store.configFormErrors.server_key?.[0]"
                   >
@@ -314,14 +393,22 @@
                 </div>
 
                 <!-- Active Status Toggle -->
-                <div class="row items-center justify-between q-pa-sm rounded-borders bg-white border-grey">
+                <div
+                  class="row items-center justify-between q-pa-sm rounded-borders bg-white border-grey"
+                >
                   <div>
-                    <div class="text-caption text-weight-bold">Status Kredensial Aktif</div>
+                    <div class="text-caption text-weight-bold"
+                      >Status Kredensial Aktif</div
+                    >
                     <div class="text-caption text-grey-6">
-                      Izinkan backend menggunakan kredensial ini untuk environment {{ activeConfigEnv }}
+                      Izinkan backend menggunakan kredensial ini untuk
+                      environment {{ activeConfigEnv }}
                     </div>
                   </div>
-                  <q-toggle v-model="store.configForm.is_active" color="warning" />
+                  <q-toggle
+                    v-model="store.configForm.is_active"
+                    color="warning"
+                  />
                 </div>
 
                 <!-- Action Buttons -->
@@ -371,13 +458,16 @@
                   @click="runConnectionTest"
                 >
                   <q-tooltip v-if="!store.config?.has_server_key">
-                    Simpan Server Key terlebih dahulu untuk menjalankan uji koneksi.
+                    Simpan Server Key terlebih dahulu untuk menjalankan uji
+                    koneksi.
                   </q-tooltip>
                 </q-btn>
               </div>
 
               <p class="text-caption text-grey-7">
-                Uji koneksi menjalankan probe read-only ke Core API Midtrans (GET status). Ini memverifikasi Server Key tanpa membuat transaksi finansial.
+                Uji koneksi menjalankan probe read-only ke Core API Midtrans
+                (GET status). Ini memverifikasi Server Key tanpa membuat
+                transaksi finansial.
               </p>
 
               <!-- Connection Test Result -->
@@ -385,23 +475,41 @@
                 <q-banner
                   rounded
                   dense
-                  :class="store.environmentConnectionResult.is_connected ? 'bg-positive-1 text-positive border-positive' : 'bg-red-1 text-negative border-negative'"
+                  :class="
+                    store.environmentConnectionResult.is_connected
+                      ? 'bg-positive-1 text-positive border-positive'
+                      : 'bg-red-1 text-negative border-negative'
+                  "
                   class="q-pa-sm"
                 >
                   <div class="row items-center q-gutter-x-xs">
                     <q-icon
-                      :name="store.environmentConnectionResult.is_connected ? 'check_circle' : 'error'"
+                      :name="
+                        store.environmentConnectionResult.is_connected
+                          ? 'check_circle'
+                          : 'error'
+                      "
                       size="18px"
                     />
                     <strong class="text-caption">
-                      {{ store.environmentConnectionResult.is_connected ? 'Koneksi Berhasil' : 'Koneksi Gagal' }}
+                      {{
+                        store.environmentConnectionResult.is_connected
+                          ? 'Koneksi Berhasil'
+                          : 'Koneksi Gagal'
+                      }}
                     </strong>
                   </div>
                   <div class="text-caption q-mt-xs">
                     {{ store.environmentConnectionResult.message }}
                   </div>
-                  <div v-if="store.environmentConnectionResult.latency_ms" class="text-caption text-grey-7 q-mt-xs">
-                    Latency: {{ store.environmentConnectionResult.latency_ms }} ms | Status Code: {{ store.environmentConnectionResult.http_status }}
+                  <div
+                    v-if="store.environmentConnectionResult.latency_ms"
+                    class="text-caption text-grey-7 q-mt-xs"
+                  >
+                    Latency:
+                    {{ store.environmentConnectionResult.latency_ms }} ms |
+                    Status Code:
+                    {{ store.environmentConnectionResult.http_status }}
                   </div>
                 </q-banner>
               </div>
@@ -424,15 +532,26 @@
                 />
               </div>
 
-              <div v-if="envMappings.length === 0" class="text-caption text-grey-6 q-py-sm">
-                Belum ada aplikasi yang dimapping ke Midtrans {{ activeConfigEnv }}.
+              <div
+                v-if="envMappings.length === 0"
+                class="text-caption text-grey-6 q-py-sm"
+              >
+                Belum ada aplikasi yang dimapping ke Midtrans
+                {{ activeConfigEnv }}.
               </div>
 
               <q-list v-else separator dense class="rounded-borders">
-                <q-item v-for="map in envMappings" :key="map.id" class="q-px-none">
+                <q-item
+                  v-for="map in envMappings"
+                  :key="map.id"
+                  class="q-px-none"
+                >
                   <q-item-section>
                     <q-item-label class="text-weight-bold text-caption">
-                      {{ map.application?.name || 'Aplikasi #' + map.application_id }}
+                      {{
+                        map.application?.name ||
+                        'Aplikasi #' + map.application_id
+                      }}
                     </q-item-label>
                     <q-item-label caption class="font-mono">
                       Merchant: {{ map.gateway_merchant_code }}
@@ -468,20 +587,27 @@
         </q-card-section>
 
         <q-card-section class="q-pt-md">
-          <q-banner rounded class="bg-red-1 text-negative border-negative q-mb-md">
+          <q-banner
+            rounded
+            class="bg-red-1 text-negative border-negative q-mb-md"
+          >
             <div class="text-weight-bold text-body2">
               PERINGATAN TRANSAKSI KEUANGAN NYATA:
             </div>
             <div class="text-caption q-mt-xs">
-              Mengaktifkan mode Production akan mengarahkan seluruh checkout invoice baru ke Midtrans Production API.
-              Pastikan kredensial Production telah terverifikasi dan merchant UDEV siap menerima dana riil.
+              Mengaktifkan mode Production akan mengarahkan seluruh checkout
+              invoice baru ke Midtrans Production API. Pastikan kredensial
+              Production telah terverifikasi dan merchant UDEV siap menerima
+              dana riil.
             </div>
           </q-banner>
 
           <div class="text-body2 text-grey-9 q-mb-md">
             Untuk mengonfirmasi tindakan ini, ketik kalimat konfirmasi berikut:
             <br />
-            <span class="text-weight-bolder text-negative font-mono text-subtitle2">
+            <span
+              class="text-weight-bolder text-negative font-mono text-subtitle2"
+            >
               AKTIFKAN PRODUCTION
             </span>
           </div>
@@ -493,7 +619,11 @@
               dense
               label="Ketik: AKTIFKAN PRODUCTION"
               placeholder="AKTIFKAN PRODUCTION"
-              :rules="[val => val === 'AKTIFKAN PRODUCTION' || 'Kalimat konfirmasi tidak cocok.']"
+              :rules="[
+                val =>
+                  val === 'AKTIFKAN PRODUCTION' ||
+                  'Kalimat konfirmasi tidak cocok.'
+              ]"
             />
 
             <q-input
@@ -537,8 +667,9 @@
 
         <q-card-section class="q-pt-md">
           <p class="text-body2 text-grey-8">
-            Checkout invoice baru akan kembali menggunakan simulator Midtrans Sandbox.
-            Transaksi historis dan settlement Production tetap tercatat dan aman.
+            Checkout invoice baru akan kembali menggunakan simulator Midtrans
+            Sandbox. Transaksi historis dan settlement Production tetap tercatat
+            dan aman.
           </p>
 
           <q-form class="q-gutter-y-md" @submit="confirmSwitchSandbox">
@@ -587,7 +718,8 @@ const switchSandboxDialogOpen = ref(false)
 const switchNotes = ref('')
 
 const readinessSummary = computed(() => {
-  const r = store.productionReadiness || store.environmentSettings?.readiness || {}
+  const r =
+    store.productionReadiness || store.environmentSettings?.readiness || {}
   const creds = r.checks?.credentials || {}
   const conn = r.checks?.connection || {}
   const mapping = r.checks?.application_mapping || {}
@@ -641,7 +773,10 @@ const onDeleteCredential = async () => {
 }
 
 const runConnectionTest = async () => {
-  await store.testEnvironmentConnection(store.selectedMerchant, activeConfigEnv.value)
+  await store.testEnvironmentConnection(
+    store.selectedMerchant,
+    activeConfigEnv.value
+  )
 }
 
 const openActivateDialog = () => {
@@ -651,7 +786,10 @@ const openActivateDialog = () => {
 }
 
 const confirmActivateProduction = async () => {
-  const success = await store.activateProduction(confirmationPhrase.value, activationNotes.value)
+  const success = await store.activateProduction(
+    confirmationPhrase.value,
+    activationNotes.value
+  )
   if (success) {
     activateDialogOpen.value = false
     confirmationPhrase.value = ''

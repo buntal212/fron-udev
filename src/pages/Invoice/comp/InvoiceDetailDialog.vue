@@ -851,7 +851,9 @@
                     style="line-height: 1.5"
                   >
                     <li
-                      v-for="(instruction, idx) in currentPaymentInstruction.instructions"
+                      v-for="(
+                        instruction, idx
+                      ) in currentPaymentInstruction.instructions"
                       :key="idx"
                     >
                       {{ instruction }}
@@ -880,7 +882,8 @@
                           activeTotalPayable,
                           invoice.currency
                         )
-                      }}</strong>.
+                      }}</strong
+                      >.
                     </li>
                     <li>
                       Selesaikan transaksi dan simpan struk pembayaran Indomaret

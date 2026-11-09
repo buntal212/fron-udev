@@ -12,8 +12,8 @@
           <h1>Payment Gateway Midtrans</h1>
           <p class="page-description">
             Kelola merchant Midtrans, mapping aplikasi, konfigurasi API Core
-            Sandbox &amp; Production terenkripsi, transaksi billing, simulasi pembayaran, dan
-            audit log keamanan.
+            Sandbox &amp; Production terenkripsi, transaksi billing, simulasi
+            pembayaran, dan audit log keamanan.
           </p>
         </div>
 
@@ -21,7 +21,9 @@
           <q-badge
             :color="store.isProductionActive ? 'negative' : 'amber-9'"
             :text-color="store.isProductionActive ? 'white' : 'dark'"
-            :label="store.isProductionActive ? 'PRODUCTION AKTIF' : 'SANDBOX AKTIF'"
+            :label="
+              store.isProductionActive ? 'PRODUCTION AKTIF' : 'SANDBOX AKTIF'
+            "
             class="q-px-md q-py-xs text-weight-bold"
           />
         </div>
@@ -92,11 +94,7 @@
         narrow-indicator
       >
         <q-tab name="dashboard" icon="space_dashboard" label="Dashboard" />
-        <q-tab
-          name="environment"
-          icon="tune"
-          label="Pengaturan Environment"
-        />
+        <q-tab name="environment" icon="tune" label="Pengaturan Environment" />
         <q-tab name="merchants" icon="storefront" label="Daftar Merchant" />
         <q-tab name="mappings" icon="account_tree" label="Mapping Aplikasi" />
         <q-tab name="credentials" icon="vpn_key" label="Konfigurasi API" />

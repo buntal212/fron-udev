@@ -529,8 +529,7 @@ export const dokuGatewayService = {
 export const midtransGatewayService = {
   dashboardSummary: () =>
     api.get('/v1/admin/midtrans-gateway/dashboard-summary'),
-  environment: () =>
-    api.get('/v1/admin/midtrans-gateway/environment'),
+  environment: () => api.get('/v1/admin/midtrans-gateway/environment'),
   activateProduction: payload =>
     api.post(
       '/v1/admin/midtrans-gateway/environment/activate-production',

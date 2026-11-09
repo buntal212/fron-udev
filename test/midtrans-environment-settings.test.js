@@ -83,7 +83,7 @@ test('komponen MidtransEnvironmentSettings mengimplementasikan checklist kesiapa
   assert.match(envComp, /AKTIFKAN PRODUCTION/)
   assert.match(
     envComp,
-    /val === 'AKTIFKAN PRODUCTION' \|\| 'Kalimat konfirmasi tidak cocok\.'/
+    /val === 'AKTIFKAN PRODUCTION'\s*\|\|\s*'Kalimat konfirmasi tidak cocok\.'/
   )
   assert.match(envComp, /confirmActivateProduction/)
 

@@ -19,9 +19,18 @@ test('panel menyediakan UAT PG Invalid Signature (4015400) terpisah dari Cashier
   assert.match(panel, /UAT PG Invalid Signature \(4015400\)/)
   assert.match(panel, /runCreateOrderInvalidSignatureUat/)
   assert.match(panel, /runningCreateOrderInvalidSignatureUat/)
-  assert.match(panel, /createOrderInvalidSignatureUat\.received\?\.response_code/)
-  assert.match(panel, /createOrderInvalidSignatureUat\.received\?\.response_message/)
-  assert.match(panel, /createOrderInvalidSignatureUat\.request\?\.signature_override/)
+  assert.match(
+    panel,
+    /createOrderInvalidSignatureUat\.received\?\.response_code/
+  )
+  assert.match(
+    panel,
+    /createOrderInvalidSignatureUat\.received\?\.response_message/
+  )
+  assert.match(
+    panel,
+    /createOrderInvalidSignatureUat\.request\?\.signature_override/
+  )
   assert.match(panel, /UAT 4015400 belum terpenuhi:/)
   assert.match(panel, /4015400/)
 
@@ -31,8 +40,5 @@ test('panel menyediakan UAT PG Invalid Signature (4015400) terpisah dari Cashier
 
   // Service helper
   assert.match(service, /testCreateOrderInvalidSignature/)
-  assert.match(
-    service,
-    /sandbox-tester\/uat\/create-order-invalid-signature/
-  )
+  assert.match(service, /sandbox-tester\/uat\/create-order-invalid-signature/)
 })

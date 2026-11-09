@@ -446,27 +446,34 @@
               : 'error_outline'
           "
       /></template>
-      <div class="text-weight-bold">
-        UAT PG Invalid Signature (4015400)
-      </div>
+      <div class="text-weight-bold"> UAT PG Invalid Signature (4015400) </div>
       <div>
         Hasil UAT:
         <q-badge
-          :color="createOrderInvalidSignatureUat.passed ? 'positive' : 'negative'"
+          :color="
+            createOrderInvalidSignatureUat.passed ? 'positive' : 'negative'
+          "
         >
-          {{ createOrderInvalidSignatureUat.passed ? 'Lolos (4015400)' : 'Gagal' }}
+          {{
+            createOrderInvalidSignatureUat.passed ? 'Lolos (4015400)' : 'Gagal'
+          }}
         </q-badge>
-        · DANA HTTP {{ createOrderInvalidSignatureUat.received?.http_status }} · responseCode
+        · DANA HTTP {{ createOrderInvalidSignatureUat.received?.http_status }} ·
+        responseCode
         <code>{{
-          createOrderInvalidSignatureUat.received?.response_code || 'Tidak tersedia'
+          createOrderInvalidSignatureUat.received?.response_code ||
+          'Tidak tersedia'
         }}</code>
         · {{ createOrderInvalidSignatureUat.received?.response_message }}
       </div>
       <div class="text-caption q-mt-xs">
         Override Signature:
-        <code>{{ createOrderInvalidSignatureUat.request?.signature_override }}</code>
+        <code>{{
+          createOrderInvalidSignatureUat.request?.signature_override
+        }}</code>
         <span v-if="createOrderInvalidSignatureUat.received?.request_id">
-          · Request ID: {{ createOrderInvalidSignatureUat.received.request_id }}</span
+          · Request ID:
+          {{ createOrderInvalidSignatureUat.received.request_id }}</span
         >
       </div>
     </q-banner>

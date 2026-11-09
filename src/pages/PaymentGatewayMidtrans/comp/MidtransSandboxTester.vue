@@ -683,7 +683,10 @@ function hasVaNumber(num) {
   return store.testPaymentResult.va_numbers.some(v => v.va_number === num)
 }
 
-async function copyToClipboard(text, message = 'Kode pembayaran Indomaret berhasil disalin!') {
+async function copyToClipboard(
+  text,
+  message = 'Kode pembayaran Indomaret berhasil disalin!'
+) {
   if (!text) return
   try {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
