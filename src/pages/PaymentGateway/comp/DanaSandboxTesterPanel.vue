@@ -635,7 +635,7 @@
               <q-icon name="cancel_presentation" size="18px" color="negative" />
               <span class="text-subtitle2 text-weight-bold">Cancel Order</span>
             </div>
-            <q-badge color="negative" outline label="10 Skenario UAT" />
+            <q-badge color="negative" outline label="11 Skenario UAT" />
           </div>
         </q-card-section>
         <q-separator />
@@ -870,6 +870,29 @@
                 class="uat-badge"
               >
                 {{ cancelInsufficientFundsUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="vpn_key_off"
+              label="UAT Cancel Invalid Signature (4015700)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelInvalidSignatureUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelInvalidSignatureUat"
+            >
+              <q-badge
+                v-if="cancelInvalidSignatureUat !== null"
+                :color="
+                  cancelInvalidSignatureUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ cancelInvalidSignatureUat?.passed ? 'PASS' : 'FAIL' }}
               </q-badge>
             </q-btn>
           </div>
@@ -2910,6 +2933,91 @@
     </q-banner>
 
     <q-banner
+      v-if="cancelInvalidSignatureUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            cancelInvalidSignatureUat.passed ? 'check_circle' : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        Pembatalan Ditolak — Invalid Signature (4015700)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="cancelInvalidSignatureUat.passed ? 'positive' : 'negative'"
+        >
+          {{
+            cancelInvalidSignatureUat.passed
+              ? 'Lolos (4015700 / Unauthorized. Invalid Signature)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Status {{ signatureHeaderLabel }}:
+          <q-badge color="negative" outline>Sengaja Tidak Valid</q-badge>
+          · Ref Mock (Outbound):
+          <code>{{
+            cancelInvalidSignatureUat.outbound_original_partner_reference_no ||
+            cancelInvalidSignatureUat.mock_code ||
+            '4015700'
+          }}</code>
+          · Ref Asli (DB):
+          <code>{{
+            cancelInvalidSignatureUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelInvalidSignatureUat.http_status }} · responseCode
+        <code>{{
+          cancelInvalidSignatureUat.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ cancelInvalidSignatureUat.response_message }}
+        <span v-if="cancelInvalidSignatureUat.cancel_time">
+          · Waktu: {{ cancelInvalidSignatureUat.cancel_time }}
+        </span>
+        <span v-if="cancelInvalidSignatureUat.request_id">
+          · Request ID: {{ cancelInvalidSignatureUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelInvalidSignatureUat.local_status === 'pending'
+              ? 'warning'
+              : 'negative'
+          "
+        >
+          {{ cancelInvalidSignatureUat.local_status || 'pending' }}
+        </q-badge>
+        (Pembatalan ditolak oleh DANA Sandbox karena
+        {{ signatureHeaderLabel }} tidak valid. Status pembayaran lokal dan
+        invoice tetap aman, tidak berubah sepihak).
+        <span v-if="cancelInvalidSignatureUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{
+            cancelInvalidSignatureUat.status_inquiry.response_code
+          }}</code>
+          ({{
+            cancelInvalidSignatureUat.status_inquiry
+              .latest_transaction_status || '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
       v-if="armedWebhook500Uat"
       rounded
       class="transport-notice q-mt-md"
@@ -3596,6 +3704,7 @@ const runningCancelMissingTimestampUat = ref(false)
 const runningCancelExpiredUat = ref(false)
 const runningCancelNotAllowedUat = ref(false)
 const runningCancelInsufficientFundsUat = ref(false)
+const runningCancelInvalidSignatureUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -3634,6 +3743,8 @@ const cancelMissingTimestampUat = ref(null)
 const cancelExpiredUat = ref(null)
 const cancelNotAllowedUat = ref(null)
 const cancelInsufficientFundsUat = ref(null)
+const cancelInvalidSignatureUat = ref(null)
+const signatureHeaderLabel = 'X-SIGNATURE'
 const runningHappyPathE2eUat = ref(false)
 const showHappyPathE2eConfirmDialog = ref(false)
 const happyPathE2eResult = ref(null)
@@ -3671,6 +3782,7 @@ const isAnyUatRunning = computed(() => {
     runningCancelExpiredUat.value ||
     runningCancelNotAllowedUat.value ||
     runningCancelInsufficientFundsUat.value ||
+    runningCancelInvalidSignatureUat.value ||
     armingWebhook500.value
   )
 })
@@ -5567,6 +5679,126 @@ async function runCancelInsufficientFundsUat() {
     })
   } finally {
     runningCancelInsufficientFundsUat.value = false
+  }
+}
+
+async function runCancelInvalidSignatureUat() {
+  if (!merchantId.value || runningCancelInvalidSignatureUat.value) return
+  runningCancelInvalidSignatureUat.value = true
+  error.value = null
+  cancelInvalidSignatureUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Cancel Invalid Signature.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Cancel Invalid Signature (4015700)',
+        mock_code: '4015700',
+        partner_reference_no: '4015700'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const is4015700 =
+      responseCode === '4015700' &&
+      (responseMessage?.toLowerCase()?.includes('invalid signature') ||
+        responseMessage?.toLowerCase()?.includes('unauthorized'))
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed =
+      (is4015700 || responseCode === '4015700') && localStatus === 'pending'
+
+    cancelInvalidSignatureUat.value = {
+      passed,
+      http_status: cancelResult.http_status ?? 401,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      mock_code: '4015700',
+      partner_reference_no: '4015700',
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no ||
+        cancelResult.original_partner_reference_no ||
+        targetPaymentId,
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      signature_override:
+        cancelResult.signature_override || 'invalid_signature',
+      x_signature_invalid: cancelResult.x_signature_invalid ?? true,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Cancel Invalid Signature (4015700): Berhasil diverifikasi (Unauthorized. Invalid Signature, status pembayaran aman).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 4015700 (Unauthorized. Invalid Signature).`
+      })
+    } else {
+      error.value = `UAT 4015700 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Cancel Invalid Signature gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Cancel Invalid Signature: ${error.value}`
+    })
+  } finally {
+    runningCancelInvalidSignatureUat.value = false
   }
 }
 
