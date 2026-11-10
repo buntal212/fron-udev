@@ -1384,6 +1384,62 @@
     </q-banner>
 
     <q-banner
+      v-if="cancelPaymentResult"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            cancelPaymentResult.response_code === '2005700'
+              ? 'check_circle'
+              : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        Hasil Pembatalan Transaksi DANA Sandbox (Cancel Order — 2005700)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="
+            cancelPaymentResult.response_code === '2005700'
+              ? 'positive'
+              : 'negative'
+          "
+        >
+          {{
+            cancelPaymentResult.response_code === '2005700'
+              ? 'Lolos (2005700 / Success)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref:
+          <code>{{
+            cancelPaymentResult.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelPaymentResult.http_status }} · responseCode
+        <code>{{ cancelPaymentResult.response_code || 'Tidak tersedia' }}</code>
+        · {{ cancelPaymentResult.response_message }}
+        <span v-if="cancelPaymentResult.cancel_time">
+          · Waktu Batal: {{ cancelPaymentResult.cancel_time }}
+        </span>
+        <span v-if="cancelPaymentResult.request_id">
+          · Request ID: {{ cancelPaymentResult.request_id }}
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
       v-if="armedWebhook500Uat"
       rounded
       class="transport-notice q-mt-md"
@@ -2021,6 +2077,7 @@ const debitStatusInternalServerErrorUat = ref(null)
 const debitStatusInvalidSignatureUat = ref(null)
 const debitStatusCancelledUat = ref(null)
 const armedWebhook500Uat = ref(null)
+const cancelPaymentResult = ref(null)
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
 const qrisError = ref(null)
@@ -2162,6 +2219,7 @@ function reset() {
   debitStatusInvalidSignatureUat.value = null
   debitStatusCancelledUat.value = null
   armedWebhook500Uat.value = null
+  cancelPaymentResult.value = null
   historyMeta.value = { current_page: 1, last_page: 1, per_page: 5, total: 0 }
 }
 
@@ -2935,15 +2993,25 @@ async function cancelCurrentTransaction() {
     return
   cancellingTransaction.value = true
   error.value = null
+  cancelPaymentResult.value = null
   try {
-    await danaGatewayMerchantService.cancelDanaSandboxPayment(
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
       merchantId.value,
       transaction.value.id
     )
-    $q.notify({
-      type: 'positive',
-      message: 'Transaksi DANA Sandbox berhasil dibatalkan di DANA.'
-    })
+    cancelPaymentResult.value = response.data?.data?.cancel_result ?? null
+    const result = cancelPaymentResult.value
+    if (result?.response_code === '2005700') {
+      $q.notify({
+        type: 'positive',
+        message: 'Transaksi DANA Sandbox berhasil dibatalkan di DANA (2005700).'
+      })
+    } else {
+      $q.notify({
+        type: 'warning',
+        message: `Pembatalan transaksi selesai dengan respons DANA: ${result?.response_code || 'Unknown'} - ${result?.response_message || 'Tidak tersedia'}`
+      })
+    }
     await checkDanaStatus()
     await refreshHistory()
   } catch (requestError) {

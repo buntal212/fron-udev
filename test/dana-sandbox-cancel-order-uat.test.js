@@ -1,0 +1,70 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import test from 'node:test'
+
+test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) dengan diagnostik aman', async () => {
+  const panel = await readFile(
+    new URL(
+      '../src/pages/PaymentGateway/comp/DanaSandboxTesterPanel.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+  const service = await readFile(
+    new URL('../src/services/udev-billing.js', import.meta.url),
+    'utf8'
+  )
+
+  // Tombol aksi pembatalan transaksi pending
+  assert.match(panel, /label="Batalkan Transaksi Sandbox"/)
+  assert.match(panel, /cancelCurrentTransaction/)
+  assert.match(panel, /cancellingTransaction/)
+  assert.match(panel, /cancelPaymentResult/)
+
+  // Banner hasil UAT Cancel Order
+  assert.match(
+    panel,
+    /Hasil Pembatalan Transaksi DANA Sandbox \(Cancel Order — 2005700\)/
+  )
+  assert.match(panel, /Lolos \(2005700 \/ Success\)/)
+  assert.match(panel, /\/payment-gateway\/v1\.0\/debit\/cancel\.htm/)
+  assert.match(panel, /cancelPaymentResult\.response_code/)
+  assert.match(panel, /cancelPaymentResult\.response_message/)
+  assert.match(panel, /cancelPaymentResult\.cancel_time/)
+  assert.match(panel, /cancelPaymentResult\.request_id/)
+
+  // Keamanan: tidak mengekspos credential, private key, atau token
+  const uatSection = panel.split('<div v-if="validation"')[0]
+  assert.doesNotMatch(
+    uatSection,
+    /private_key|api_key|X-SIGNATURE|client_secret/
+  )
+
+  // Service billing API helper
+  assert.match(service, /cancelDanaSandboxPayment:/)
+  assert.match(
+    service,
+    /\/v1\/admin\/dana-gateway-merchants\/\$\{merchantId\}\/sandbox-tester\/transactions\/\$\{paymentId\}\/cancel/
+  )
+})
+
+test('riwayat pembayaran DANA Sandbox menampilkan banner hasil pembatalan transaksi 2005700', async () => {
+  const history = await readFile(
+    new URL(
+      '../src/pages/PaymentGateway/comp/DanaSandboxPaymentHistory.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  assert.match(history, /cancelPayment\(payment\)/)
+  assert.match(history, /cancellingPaymentId/)
+  assert.match(history, /cancelPaymentResults/)
+  assert.match(
+    history,
+    /Hasil Pembatalan Transaksi DANA Sandbox\s*\(Cancel Order\s*—\s*2005700\)/
+  )
+  assert.match(history, /2005700/)
+  assert.match(history, /\/payment-gateway\/v1\.0\/debit\/cancel\.htm/)
+  assert.doesNotMatch(history, /private_key|api_key|client_secret/)
+})
