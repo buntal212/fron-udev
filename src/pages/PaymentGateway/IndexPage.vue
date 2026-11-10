@@ -133,6 +133,7 @@
               :rows="merchantStore.items"
               :loading="merchantStore.loading"
               :pagination="merchantStore.pagination"
+              :setting-primary-id="merchantStore.settingPrimaryMerchantId"
               @request="merchantStore.fetchMerchants"
               @detail="merchantStore.showMerchant"
               @toggle-status="merchantStore.toggleMerchantStatus"
@@ -265,6 +266,7 @@ onMounted(async () => {
   // memicu request awal; store merchant mendeduplikasi request identik agar
   // tetap hanya ada satu GET jaringan.
   await Promise.all([store.fetchMappings(), merchantStore.fetchMerchants()])
+  await merchantStore.fetchEnvironment()
 })
 
 watch([() => store.applicationId, () => store.environment], () =>

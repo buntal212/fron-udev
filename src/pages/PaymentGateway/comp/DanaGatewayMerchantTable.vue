@@ -104,7 +104,11 @@
               icon="star_outline"
               label="Jadikan Utama"
               no-caps
-              :disable="props.row.merchant_status !== 'active'"
+              :loading="settingPrimaryId === props.row.merchant_id"
+              :disable="
+                props.row.merchant_status !== 'active' ||
+                Boolean(settingPrimaryId)
+              "
               @click="confirmSetPrimary(props.row)"
             >
               <q-tooltip v-if="props.row.merchant_status !== 'active'">
@@ -157,7 +161,8 @@ const $q = useQuasar()
 defineProps({
   rows: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
-  pagination: { type: Object, required: true }
+  pagination: { type: Object, required: true },
+  settingPrimaryId: { type: [Number, String], default: null }
 })
 const emit = defineEmits([
   'request',

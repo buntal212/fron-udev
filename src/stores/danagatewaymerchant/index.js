@@ -57,7 +57,9 @@ export const useDanaGatewayMerchantStore = defineStore(
       formDialogOpen: false,
       detailDialogOpen: false,
       detailLoading: false,
-      selectedMerchant: null
+      selectedMerchant: null,
+      environmentSettings: null,
+      settingPrimaryMerchantId: null
     }),
 
     actions: {
@@ -219,23 +221,55 @@ export const useDanaGatewayMerchantStore = defineStore(
       },
 
       async setPrimaryMerchant(merchant) {
+        const merchantId =
+          typeof merchant === 'object' && merchant !== null
+            ? merchant.merchant_id
+            : merchant
+
+        if (this.settingPrimaryMerchantId) return
+
+        this.settingPrimaryMerchantId = merchantId
         try {
-          const res = await danaGatewayMerchantService.setPrimaryMerchant(
-            merchant.merchant_id
-          )
+          const res =
+            await danaGatewayMerchantService.setPrimaryMerchant(merchantId)
           Notify.create({
             type: 'positive',
             message:
-              res.data?.message || 'Merchant Utama DANA berhasil diperbarui.'
+              res.data?.message || 'Merchant Utama DANA berhasil diperbarui.',
+            position: 'top'
           })
           await this.fetchMerchants()
           await this.fetchEnvironment()
+          return res.data
         } catch (error) {
+          const validationErrors = getApiValidationErrors(error)
+          const firstKey = Object.keys(validationErrors)[0]
+          const detailedMessage =
+            firstKey &&
+            Array.isArray(validationErrors[firstKey]) &&
+            validationErrors[firstKey].length
+              ? validationErrors[firstKey].join(' ')
+              : getApiErrorMessage(error)
+
           Notify.create({
             type: 'negative',
-            message: getApiErrorMessage(error)
+            message: detailedMessage,
+            position: 'top',
+            timeout: 6000
           })
           throw error
+        } finally {
+          this.settingPrimaryMerchantId = null
+        }
+      },
+
+      async fetchEnvironment() {
+        try {
+          const res = await danaGatewayMerchantService.getEnvironment()
+          this.environmentSettings = res.data?.data ?? null
+          return this.environmentSettings
+        } catch {
+          return null
         }
       }
     }

@@ -125,12 +125,18 @@
               class="row items-center justify-between q-col-gutter-md"
             >
               <div class="col-12 col-sm">
-                <h3>Status kesiapan checkout</h3>
+                <h3>
+                  Status kesiapan checkout ({{
+                    activeEnvironmentTab === 'production'
+                      ? 'Production'
+                      : 'Sandbox'
+                  }})
+                </h3>
                 <p class="section-description">
                   Metadata ini tidak memuat credential atau API key plaintext.
                 </p>
               </div>
-              <div class="col-12 col-sm-auto">
+              <div class="col-12 col-sm-auto row items-center q-gutter-sm">
                 <q-btn
                   outline
                   color="warning"
@@ -140,13 +146,53 @@
                   :loading="managementLoading"
                   @click="refreshManagement(true)"
                 />
+                <q-btn
+                  color="warning"
+                  text-color="dark"
+                  icon="tune"
+                  :label="
+                    configurationDialogOpen
+                      ? 'Sembunyikan Form Konfigurasi'
+                      : isConfigured
+                        ? 'Ubah Konfigurasi DANA ' +
+                          (activeEnvironmentTab === 'production'
+                            ? 'Production'
+                            : 'Sandbox')
+                        : 'Tambah Konfigurasi DANA ' +
+                          (activeEnvironmentTab === 'production'
+                            ? 'Production'
+                            : 'Sandbox')
+                  "
+                  no-caps
+                  @click="toggleConfigurationPanel"
+                />
               </div>
             </q-card-section>
 
             <q-card-section v-if="managementError">
               <q-banner rounded class="error-banner">
                 <template #avatar><q-icon name="error_outline" /></template>
-                {{ managementError }}
+                <div>
+                  <div class="text-weight-bold">
+                    Status kesiapan
+                    {{
+                      activeEnvironmentTab === 'production'
+                        ? 'Production'
+                        : 'Sandbox'
+                    }}
+                    gagal dimuat
+                  </div>
+                  <div>{{ managementError }}</div>
+                  <div class="text-caption q-mt-xs">
+                    Anda tetap dapat menambah atau mengubah konfigurasi DANA
+                    {{
+                      activeEnvironmentTab === 'production'
+                        ? 'Production'
+                        : 'Sandbox'
+                    }}
+                    di bawah ini.
+                  </div>
+                </div>
                 <template #action>
                   <q-btn
                     flat
@@ -154,6 +200,15 @@
                     label="Coba lagi"
                     no-caps
                     @click="refreshManagement(true)"
+                  />
+                  <q-btn
+                    v-if="!configurationDialogOpen"
+                    color="warning"
+                    text-color="dark"
+                    label="Buka Form Konfigurasi"
+                    no-caps
+                    class="q-ml-sm"
+                    @click="toggleConfigurationPanel"
                   />
                 </template>
               </q-banner>
@@ -243,821 +298,827 @@
                   }}</div>
                 </q-banner>
               </q-card-section>
+            </template>
 
-              <q-card-section class="q-pt-none">
+            <!-- Panel Konfigurasi DANA Inline (Responsif tanpa QDialog) -->
+            <q-card
+              v-if="configurationDialogOpen"
+              flat
+              bordered
+              class="configuration-panel q-mx-md q-mb-lg bg-grey-1"
+            >
+              <q-card-section class="row items-center justify-between">
+                <div>
+                  <p class="eyebrow"
+                    >DANA {{ activeEnvironmentTab.toUpperCase() }}</p
+                  >
+                  <h2
+                    >Konfigurasi merchant
+                    {{
+                      activeEnvironmentTab === 'production'
+                        ? 'Production'
+                        : 'Sandbox'
+                    }}</h2
+                  >
+                </div>
                 <q-btn
-                  color="warning"
-                  text-color="dark"
-                  icon="tune"
-                  :label="
-                    configurationDialogOpen
-                      ? 'Sembunyikan Form Konfigurasi'
-                      : 'Konfigurasi DANA ' +
-                        (activeEnvironmentTab === 'production'
-                          ? 'Production'
-                          : 'Sandbox')
-                  "
-                  no-caps
-                  @click="toggleConfigurationPanel"
+                  flat
+                  round
+                  dense
+                  icon="close"
+                  aria-label="Tutup"
+                  @click="configurationDialogOpen = false"
                 />
               </q-card-section>
+              <q-separator />
+              <q-card-section>
+                <q-banner
+                  v-if="!isSecureFrontend"
+                  rounded
+                  class="transport-notice q-mb-md"
+                >
+                  <template #avatar><q-icon name="security" /></template>
+                  Credential dikirim ke backend UDEV melalui koneksi lokal, lalu
+                  diteruskan ke Gateway HOMELAB menggunakan HTTPS. Karena
+                  frontend lokal masih HTTP, gunakan data dummy Sandbox atau
+                  HTTPS lokal tepercaya sebelum memasukkan credential asli.
+                </q-banner>
+                <q-banner v-else rounded class="transport-notice q-mb-md">
+                  <template #avatar><q-icon name="verified_user" /></template>
+                  Credential dikirim ke backend UDEV melalui HTTPS. Nilai secret
+                  tidak ditampilkan kembali setelah disimpan.
+                </q-banner>
 
-              <!-- Panel Konfigurasi DANA Inline (Responsif tanpa QDialog) -->
-              <q-card
-                v-if="configurationDialogOpen"
-                flat
-                bordered
-                class="configuration-panel q-mx-md q-mb-lg bg-grey-1"
-              >
-                <q-card-section class="row items-center justify-between">
-                  <div>
-                    <p class="eyebrow"
-                      >DANA {{ activeEnvironmentTab.toUpperCase() }}</p
-                    >
-                    <h2
-                      >Konfigurasi merchant
+                <div class="row items-center q-col-gutter-sm q-mb-md">
+                  <div class="col-12 col-sm-auto">
+                    <q-btn
+                      outline
+                      color="warning"
+                      icon="download"
+                      label="Ambil Konfigurasi Tersimpan"
+                      no-caps
+                      :loading="storedConfigurationLoading"
+                      @click="loadStoredConfiguration"
+                    />
+                  </div>
+                  <div class="col-12 col-sm">
+                    <span class="section-description">
+                      Hanya metadata
                       {{
                         activeEnvironmentTab === 'production'
                           ? 'Production'
                           : 'Sandbox'
-                      }}</h2
-                    >
+                      }}
+                      merchant ini yang diisi. Secret tetap di Gateway dan tidak
+                      disimpan otomatis.
+                    </span>
                   </div>
-                  <q-btn
-                    flat
-                    round
-                    dense
-                    icon="close"
-                    aria-label="Tutup"
-                    @click="configurationDialogOpen = false"
-                  />
-                </q-card-section>
-                <q-separator />
-                <q-card-section>
-                  <q-banner
-                    v-if="!isSecureFrontend"
-                    rounded
-                    class="transport-notice q-mb-md"
-                  >
-                    <template #avatar><q-icon name="security" /></template>
-                    Credential dikirim ke backend UDEV melalui koneksi lokal,
-                    lalu diteruskan ke Gateway HOMELAB menggunakan HTTPS. Karena
-                    frontend lokal masih HTTP, gunakan data dummy Sandbox atau
-                    HTTPS lokal tepercaya sebelum memasukkan credential asli.
-                  </q-banner>
-                  <q-banner v-else rounded class="transport-notice q-mb-md">
-                    <template #avatar><q-icon name="verified_user" /></template>
-                    Credential dikirim ke backend UDEV melalui HTTPS. Nilai
-                    secret tidak ditampilkan kembali setelah disimpan.
-                  </q-banner>
+                </div>
 
-                  <div class="row items-center q-col-gutter-sm q-mb-md">
-                    <div class="col-12 col-sm-auto">
-                      <q-btn
-                        outline
-                        color="warning"
-                        icon="download"
-                        label="Ambil Konfigurasi Tersimpan"
-                        no-caps
-                        :loading="storedConfigurationLoading"
-                        @click="loadStoredConfiguration"
+                <q-banner
+                  v-if="confirmOverwriteStoredConfig"
+                  rounded
+                  class="warning-banner q-mb-md"
+                >
+                  <div class="text-weight-bold">Timpa perubahan manual?</div>
+                  <div>
+                    Metadata konfigurasi tersimpan akan menggantikan field yang
+                    sedang Anda isi. Private key dan webhook public key tidak
+                    akan diambil.
+                  </div>
+                  <template #action>
+                    <q-btn
+                      flat
+                      label="Batal"
+                      no-caps
+                      @click="confirmOverwriteStoredConfig = false"
+                    />
+                    <q-btn
+                      color="warning"
+                      text-color="dark"
+                      label="Ambil konfigurasi"
+                      no-caps
+                      @click="executeLoadStoredConfiguration"
+                    />
+                  </template>
+                </q-banner>
+
+                <q-banner
+                  v-if="storedConfigurationNotice"
+                  rounded
+                  class="warning-banner q-mb-md"
+                >
+                  {{ storedConfigurationNotice }}
+                </q-banner>
+
+                <q-banner
+                  v-if="storedSecretStatus"
+                  rounded
+                  class="transport-notice q-mb-md"
+                >
+                  <template #avatar><q-icon name="key" /></template>
+                  Private key:
+                  <strong>{{
+                    storedSecretStatus.private_key
+                      ? 'tersimpan'
+                      : 'belum tersedia'
+                  }}</strong
+                  >; webhook public key:
+                  <strong>{{
+                    storedSecretStatus.webhook_public_key
+                      ? 'tersimpan'
+                      : 'belum tersedia'
+                  }}</strong
+                  >. Biarkan field secret kosong untuk mempertahankan nilai yang
+                  sudah tersimpan.
+                </q-banner>
+
+                <q-form
+                  ref="configurationFormRef"
+                  class="q-gutter-y-md"
+                  @submit="askToSaveConfiguration"
+                >
+                  <q-input
+                    outlined
+                    dense
+                    readonly
+                    :model-value="activeEnvironmentTab"
+                    label="Environment"
+                    bg-color="grey-2"
+                  />
+                  <div class="row q-col-gutter-md">
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.trim="configurationForm.partner_id"
+                        outlined
+                        dense
+                        label="Partner ID"
+                        :error="Boolean(configurationErrors.partner_id)"
+                        :error-message="firstError('partner_id')"
+                        :rules="[requiredRule, maxRule(150)]"
+                        no-error-icon
                       />
                     </div>
-                    <div class="col-12 col-sm">
-                      <span class="section-description">
-                        Hanya metadata
-                        {{
-                          activeEnvironmentTab === 'production'
-                            ? 'Production'
-                            : 'Sandbox'
-                        }}
-                        merchant ini yang diisi. Secret tetap di Gateway dan
-                        tidak disimpan otomatis.
-                      </span>
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.trim="configurationForm.merchant_id"
+                        outlined
+                        dense
+                        label="Merchant ID DANA"
+                        autocomplete="off"
+                        :error="Boolean(configurationErrors.merchant_id)"
+                        :error-message="firstError('merchant_id')"
+                        :rules="[requiredRule, maxRule(150)]"
+                        no-error-icon
+                      />
                     </div>
                   </div>
-
-                  <q-banner
-                    v-if="confirmOverwriteStoredConfig"
-                    rounded
-                    class="warning-banner q-mb-md"
+                  <div class="row q-col-gutter-md">
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.trim="configurationForm.origin"
+                        outlined
+                        dense
+                        type="url"
+                        label="Origin HTTPS"
+                        placeholder="https://merchant.example"
+                        :error="Boolean(configurationErrors.origin)"
+                        :error-message="firstError('origin')"
+                        :rules="[httpsUrlRule, maxRule(255)]"
+                        no-error-icon
+                      />
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.trim="configurationForm.channel_id"
+                        outlined
+                        dense
+                        label="Channel ID"
+                        :error="Boolean(configurationErrors.channel_id)"
+                        :error-message="firstError('channel_id')"
+                        :rules="[requiredRule, maxRule(100)]"
+                        no-error-icon
+                      />
+                    </div>
+                  </div>
+                  <div class="row q-col-gutter-md">
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.trim="configurationForm.external_store_id"
+                        outlined
+                        dense
+                        :label="
+                          activeEnvironmentTab === 'production'
+                            ? 'External Store ID Production (untuk QRIS)'
+                            : 'External Store ID Sandbox (untuk QRIS)'
+                        "
+                        :hint="
+                          activeEnvironmentTab === 'production'
+                            ? 'Wajib untuk QRIS. Isi hanya ID resmi dari DANA Production, bukan nilai contoh.'
+                            : 'Wajib untuk QRIS. Isi hanya ID resmi dari DANA Sandbox, bukan nilai contoh.'
+                        "
+                        persistent-hint
+                        :error="Boolean(configurationErrors.external_store_id)"
+                        :error-message="firstError('external_store_id')"
+                        :rules="[maxRule(150)]"
+                        no-error-icon
+                      />
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.trim="configurationForm.sub_merchant_id"
+                        outlined
+                        dense
+                        :label="
+                          activeEnvironmentTab === 'production'
+                            ? 'Sub Merchant ID Production'
+                            : 'Sub Merchant ID Sandbox'
+                        "
+                        hint="Isi hanya bila merchant merupakan aggregator."
+                        persistent-hint
+                        :error="Boolean(configurationErrors.sub_merchant_id)"
+                        :error-message="firstError('sub_merchant_id')"
+                        :rules="[maxRule(150)]"
+                        no-error-icon
+                      />
+                    </div>
+                  </div>
+                  <q-input
+                    v-model.trim="configurationForm.notification_url"
+                    outlined
+                    dense
+                    type="url"
+                    label="Notification URL HTTPS"
+                    :error="Boolean(configurationErrors.notification_url)"
+                    :error-message="firstError('notification_url')"
+                    :rules="[httpsUrlRule, maxRule(2048)]"
+                    no-error-icon
+                  />
+                  <q-input
+                    v-model.trim="configurationForm.callback_url"
+                    outlined
+                    dense
+                    type="url"
+                    label="Callback URL HTTPS"
+                    :error="Boolean(configurationErrors.callback_url)"
+                    :error-message="firstError('callback_url')"
+                    :rules="[httpsUrlRule, maxRule(2048)]"
+                    no-error-icon
+                  />
+                  <div class="row q-col-gutter-md">
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.trim="configurationForm.mcc"
+                        outlined
+                        dense
+                        label="MCC"
+                        maxlength="4"
+                        :error="Boolean(configurationErrors.mcc)"
+                        :error-message="firstError('mcc')"
+                        :rules="[
+                          value =>
+                            /^\d{4}$/.test(value) ||
+                            'MCC harus terdiri dari 4 angka.'
+                        ]"
+                        no-error-icon
+                      />
+                    </div>
+                    <div class="col-12 col-md-6 flex items-center">
+                      <q-toggle
+                        v-model="configurationForm.enabled"
+                        color="warning"
+                        :label="
+                          activeEnvironmentTab === 'production'
+                            ? 'Aktifkan konfigurasi Production'
+                            : 'Aktifkan konfigurasi Sandbox'
+                        "
+                      />
+                    </div>
+                  </div>
+                  <q-input
+                    v-model="configurationForm.private_key"
+                    outlined
+                    type="textarea"
+                    autogrow
+                    :label="
+                      activeEnvironmentTab === 'production'
+                        ? 'Private key DANA Production'
+                        : 'Private key DANA Sandbox'
+                    "
+                    :hint="
+                      activeEnvironmentTab === 'production'
+                        ? 'Tempel langsung key dari Portal DANA Production: PEM lengkap atau Base64 DER. Header/footer PEM tidak perlu ditambahkan manual.'
+                        : 'Tempel langsung key dari Portal DANA Sandbox: PEM lengkap atau Base64 DER. Header/footer PEM tidak perlu ditambahkan manual.'
+                    "
+                    persistent-hint
+                    autocomplete="off"
+                    :input-class="
+                      showPrivateKey ? '' : 'masked-sensitive-input'
+                    "
+                    :error="Boolean(configurationErrors.private_key)"
+                    :error-message="firstError('private_key')"
+                    :rules="[optionalKeyMaterialRule]"
+                    no-error-icon
                   >
-                    <div class="text-weight-bold">Timpa perubahan manual?</div>
+                    <template #append>
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        :icon="showPrivateKey ? 'visibility_off' : 'visibility'"
+                        :aria-label="
+                          showPrivateKey
+                            ? 'Sembunyikan private key'
+                            : 'Tampilkan private key'
+                        "
+                        @click="showPrivateKey = !showPrivateKey"
+                      />
+                    </template>
+                  </q-input>
+                  <q-input
+                    v-model="configurationForm.dana_webhook_public_key"
+                    outlined
+                    type="textarea"
+                    autogrow
+                    :label="
+                      activeEnvironmentTab === 'production'
+                        ? 'Public key webhook DANA Production'
+                        : 'Public key webhook DANA Sandbox'
+                    "
+                    :hint="
+                      activeEnvironmentTab === 'production'
+                        ? 'Tempel langsung public key DANA dari portal Production. Jangan gunakan public key merchant untuk field ini.'
+                        : 'Tempel langsung public key DANA dari portal Sandbox. Jangan gunakan public key merchant untuk field ini.'
+                    "
+                    persistent-hint
+                    autocomplete="off"
+                    :input-class="
+                      showWebhookPublicKey ? '' : 'masked-sensitive-input'
+                    "
+                    :error="
+                      Boolean(configurationErrors.dana_webhook_public_key)
+                    "
+                    :error-message="firstError('dana_webhook_public_key')"
+                    :rules="[optionalKeyMaterialRule]"
+                    no-error-icon
+                  >
+                    <template #append>
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        :icon="
+                          showWebhookPublicKey ? 'visibility_off' : 'visibility'
+                        "
+                        :aria-label="
+                          showWebhookPublicKey
+                            ? 'Sembunyikan public key'
+                            : 'Tampilkan public key'
+                        "
+                        @click="showWebhookPublicKey = !showWebhookPublicKey"
+                      />
+                    </template>
+                  </q-input>
+                  <q-banner rounded class="transport-notice">
+                    <template #avatar><q-icon name="verified_user" /></template>
+                    Saat disimpan, Gateway memvalidasi struktur key, RSA-2048,
+                    dan kemampuan signature tanpa menampilkan isi key. Status
+                    tersimpan hanya berarti format konfigurasi diterima; gunakan
+                    status kesiapan lalu uji Sandbox terpisah untuk
+                    memverifikasi koneksi DANA.
+                  </q-banner>
+                  <q-banner
+                    v-if="configurationError"
+                    rounded
+                    class="error-banner"
+                  >
+                    <template #avatar><q-icon name="error_outline" /></template>
+                    {{ configurationError }}
+                  </q-banner>
+
+                  <!-- Konfirmasi Simpan Inline -->
+                  <q-banner
+                    v-if="saveConfirmationOpen"
+                    rounded
+                    class="warning-banner q-mt-md"
+                  >
+                    <template #avatar
+                      ><q-icon name="warning" color="warning"
+                    /></template>
+                    <div class="text-weight-bold"
+                      >Simpan konfigurasi
+                      {{
+                        activeEnvironmentTab === 'production'
+                          ? 'Production'
+                          : 'Sandbox'
+                      }}?</div
+                    >
                     <div>
-                      Metadata konfigurasi tersimpan akan menggantikan field
-                      yang sedang Anda isi. Private key dan webhook public key
-                      tidak akan diambil.
+                      Credential akan dikirim sekali ke backend UDEV dan tidak
+                      akan ditampilkan kembali oleh halaman ini.
                     </div>
                     <template #action>
                       <q-btn
                         flat
                         label="Batal"
                         no-caps
-                        @click="confirmOverwriteStoredConfig = false"
+                        :disable="configurationSaving"
+                        @click="saveConfirmationOpen = false"
                       />
                       <q-btn
                         color="warning"
                         text-color="dark"
-                        label="Ambil konfigurasi"
+                        label="Ya, simpan"
                         no-caps
-                        @click="executeLoadStoredConfiguration"
+                        :loading="configurationSaving"
+                        @click="saveConfiguration"
                       />
                     </template>
                   </q-banner>
+                </q-form>
+              </q-card-section>
+              <q-card-actions align="right" class="q-pa-md q-gutter-sm">
+                <q-btn
+                  flat
+                  label="Tutup Form"
+                  no-caps
+                  :disable="configurationSaving"
+                  @click="configurationDialogOpen = false"
+                />
+                <q-btn
+                  v-if="!saveConfirmationOpen"
+                  color="warning"
+                  text-color="dark"
+                  icon="save"
+                  label="Simpan konfigurasi"
+                  no-caps
+                  :loading="configurationSaving"
+                  @click="askToSaveConfiguration"
+                />
+              </q-card-actions>
+            </q-card>
 
-                  <q-banner
-                    v-if="storedConfigurationNotice"
-                    rounded
-                    class="warning-banner q-mb-md"
-                  >
-                    {{ storedConfigurationNotice }}
+            <!-- Panel Sandbox Tester (Khusus Environment Sandbox) -->
+            <template v-if="activeEnvironmentTab === 'sandbox'">
+              <DanaSandboxTesterPanel :merchant="merchant" />
+              <q-separator />
+            </template>
+
+            <!-- Metadata API Key & Riwayat Penerbitan -->
+            <q-card-section>
+              <h3>Metadata API key</h3>
+              <p class="section-description">
+                Prefix dan status saja. API key plaintext maupun hash tidak
+                pernah ditampilkan.
+              </p>
+
+              <!-- Konfirmasi Cabut API Key Inline -->
+              <q-card
+                v-if="revokeConfirmationOpen"
+                flat
+                bordered
+                class="confirmation-card q-my-md bg-red-1"
+              >
+                <q-card-section>
+                  <div class="text-subtitle1 text-weight-bold text-negative">
+                    Cabut API key?
+                  </div>
+                  <p class="q-mt-xs">
+                    Pencabutan key
+                    <strong>{{ apiKeyToRevoke?.key_prefix }}</strong> dapat
+                    memutus integrasi aplikasi yang masih menggunakannya.
+                    Tindakan ini diteruskan sebagai konfirmasi eksplisit ke
+                    backend.
+                  </p>
+                  <q-banner v-if="revokeError" rounded class="error-banner">
+                    <template #avatar><q-icon name="error_outline" /></template>
+                    {{ revokeError }}
                   </q-banner>
-
-                  <q-banner
-                    v-if="storedSecretStatus"
-                    rounded
-                    class="transport-notice q-mb-md"
-                  >
-                    <template #avatar><q-icon name="key" /></template>
-                    Private key:
-                    <strong>{{
-                      storedSecretStatus.private_key
-                        ? 'tersimpan'
-                        : 'belum tersedia'
-                    }}</strong
-                    >; webhook public key:
-                    <strong>{{
-                      storedSecretStatus.webhook_public_key
-                        ? 'tersimpan'
-                        : 'belum tersedia'
-                    }}</strong
-                    >. Biarkan field secret kosong untuk mempertahankan nilai
-                    yang sudah tersimpan.
-                  </q-banner>
-
-                  <q-form
-                    ref="configurationFormRef"
-                    class="q-gutter-y-md"
-                    @submit="askToSaveConfiguration"
-                  >
-                    <q-input
-                      outlined
-                      dense
-                      readonly
-                      :model-value="activeEnvironmentTab"
-                      label="Environment"
-                      bg-color="grey-2"
-                    />
-                    <div class="row q-col-gutter-md">
-                      <div class="col-12 col-md-6">
-                        <q-input
-                          v-model.trim="configurationForm.partner_id"
-                          outlined
-                          dense
-                          label="Partner ID"
-                          :error="Boolean(configurationErrors.partner_id)"
-                          :error-message="firstError('partner_id')"
-                          :rules="[requiredRule, maxRule(150)]"
-                          no-error-icon
-                        />
-                      </div>
-                      <div class="col-12 col-md-6">
-                        <q-input
-                          v-model.trim="configurationForm.merchant_id"
-                          outlined
-                          dense
-                          label="Merchant ID DANA"
-                          autocomplete="off"
-                          :error="Boolean(configurationErrors.merchant_id)"
-                          :error-message="firstError('merchant_id')"
-                          :rules="[requiredRule, maxRule(150)]"
-                          no-error-icon
-                        />
-                      </div>
-                    </div>
-                    <div class="row q-col-gutter-md">
-                      <div class="col-12 col-md-6">
-                        <q-input
-                          v-model.trim="configurationForm.origin"
-                          outlined
-                          dense
-                          type="url"
-                          label="Origin HTTPS"
-                          placeholder="https://merchant.example"
-                          :error="Boolean(configurationErrors.origin)"
-                          :error-message="firstError('origin')"
-                          :rules="[httpsUrlRule, maxRule(255)]"
-                          no-error-icon
-                        />
-                      </div>
-                      <div class="col-12 col-md-6">
-                        <q-input
-                          v-model.trim="configurationForm.channel_id"
-                          outlined
-                          dense
-                          label="Channel ID"
-                          :error="Boolean(configurationErrors.channel_id)"
-                          :error-message="firstError('channel_id')"
-                          :rules="[requiredRule, maxRule(100)]"
-                          no-error-icon
-                        />
-                      </div>
-                    </div>
-                    <div class="row q-col-gutter-md">
-                      <div class="col-12 col-md-6">
-                        <q-input
-                          v-model.trim="configurationForm.external_store_id"
-                          outlined
-                          dense
-                          label="External Store ID Sandbox (untuk QRIS)"
-                          hint="Wajib untuk QRIS. Isi hanya ID resmi dari DANA Sandbox, bukan nilai contoh."
-                          persistent-hint
-                          :error="
-                            Boolean(configurationErrors.external_store_id)
-                          "
-                          :error-message="firstError('external_store_id')"
-                          :rules="[maxRule(150)]"
-                          no-error-icon
-                        />
-                      </div>
-                      <div class="col-12 col-md-6">
-                        <q-input
-                          v-model.trim="configurationForm.sub_merchant_id"
-                          outlined
-                          dense
-                          label="Sub Merchant ID Sandbox"
-                          hint="Isi hanya bila merchant merupakan aggregator."
-                          persistent-hint
-                          :error="Boolean(configurationErrors.sub_merchant_id)"
-                          :error-message="firstError('sub_merchant_id')"
-                          :rules="[maxRule(150)]"
-                          no-error-icon
-                        />
-                      </div>
-                    </div>
-                    <q-input
-                      v-model.trim="configurationForm.notification_url"
-                      outlined
-                      dense
-                      type="url"
-                      label="Notification URL HTTPS"
-                      :error="Boolean(configurationErrors.notification_url)"
-                      :error-message="firstError('notification_url')"
-                      :rules="[httpsUrlRule, maxRule(2048)]"
-                      no-error-icon
-                    />
-                    <q-input
-                      v-model.trim="configurationForm.callback_url"
-                      outlined
-                      dense
-                      type="url"
-                      label="Callback URL HTTPS"
-                      :error="Boolean(configurationErrors.callback_url)"
-                      :error-message="firstError('callback_url')"
-                      :rules="[httpsUrlRule, maxRule(2048)]"
-                      no-error-icon
-                    />
-                    <div class="row q-col-gutter-md">
-                      <div class="col-12 col-md-6">
-                        <q-input
-                          v-model.trim="configurationForm.mcc"
-                          outlined
-                          dense
-                          label="MCC"
-                          maxlength="4"
-                          :error="Boolean(configurationErrors.mcc)"
-                          :error-message="firstError('mcc')"
-                          :rules="[
-                            value =>
-                              /^\d{4}$/.test(value) ||
-                              'MCC harus terdiri dari 4 angka.'
-                          ]"
-                          no-error-icon
-                        />
-                      </div>
-                      <div class="col-12 col-md-6 flex items-center">
-                        <q-toggle
-                          v-model="configurationForm.enabled"
-                          color="warning"
-                          label="Aktifkan konfigurasi Sandbox"
-                        />
-                      </div>
-                    </div>
-                    <q-input
-                      v-model="configurationForm.private_key"
-                      outlined
-                      type="textarea"
-                      autogrow
-                      label="Private key DANA Sandbox"
-                      hint="Tempel langsung key dari Portal DANA: PEM lengkap atau Base64 DER. Header/footer PEM tidak perlu ditambahkan manual."
-                      persistent-hint
-                      autocomplete="off"
-                      :input-class="
-                        showPrivateKey ? '' : 'masked-sensitive-input'
-                      "
-                      :error="Boolean(configurationErrors.private_key)"
-                      :error-message="firstError('private_key')"
-                      :rules="[optionalKeyMaterialRule]"
-                      no-error-icon
-                    >
-                      <template #append>
-                        <q-btn
-                          flat
-                          round
-                          dense
-                          :icon="
-                            showPrivateKey ? 'visibility_off' : 'visibility'
-                          "
-                          :aria-label="
-                            showPrivateKey
-                              ? 'Sembunyikan private key'
-                              : 'Tampilkan private key'
-                          "
-                          @click="showPrivateKey = !showPrivateKey"
-                        />
-                      </template>
-                    </q-input>
-                    <q-input
-                      v-model="configurationForm.dana_webhook_public_key"
-                      outlined
-                      type="textarea"
-                      autogrow
-                      label="Public key webhook DANA Sandbox"
-                      hint="Tempel langsung public key DANA dari portal. Jangan gunakan public key merchant untuk field ini."
-                      persistent-hint
-                      autocomplete="off"
-                      :input-class="
-                        showWebhookPublicKey ? '' : 'masked-sensitive-input'
-                      "
-                      :error="
-                        Boolean(configurationErrors.dana_webhook_public_key)
-                      "
-                      :error-message="firstError('dana_webhook_public_key')"
-                      :rules="[optionalKeyMaterialRule]"
-                      no-error-icon
-                    >
-                      <template #append>
-                        <q-btn
-                          flat
-                          round
-                          dense
-                          :icon="
-                            showWebhookPublicKey
-                              ? 'visibility_off'
-                              : 'visibility'
-                          "
-                          :aria-label="
-                            showWebhookPublicKey
-                              ? 'Sembunyikan public key'
-                              : 'Tampilkan public key'
-                          "
-                          @click="showWebhookPublicKey = !showWebhookPublicKey"
-                        />
-                      </template>
-                    </q-input>
-                    <q-banner rounded class="transport-notice">
-                      <template #avatar
-                        ><q-icon name="verified_user"
-                      /></template>
-                      Saat disimpan, Gateway memvalidasi struktur key, RSA-2048,
-                      dan kemampuan signature tanpa menampilkan isi key. Status
-                      tersimpan hanya berarti format konfigurasi diterima;
-                      gunakan status kesiapan lalu uji Sandbox terpisah untuk
-                      memverifikasi koneksi DANA.
-                    </q-banner>
-                    <q-banner
-                      v-if="configurationError"
-                      rounded
-                      class="error-banner"
-                    >
-                      <template #avatar
-                        ><q-icon name="error_outline"
-                      /></template>
-                      {{ configurationError }}
-                    </q-banner>
-
-                    <!-- Konfirmasi Simpan Inline -->
-                    <q-banner
-                      v-if="saveConfirmationOpen"
-                      rounded
-                      class="warning-banner q-mt-md"
-                    >
-                      <template #avatar
-                        ><q-icon name="warning" color="warning"
-                      /></template>
-                      <div class="text-weight-bold"
-                        >Simpan konfigurasi Sandbox?</div
-                      >
-                      <div>
-                        Credential akan dikirim sekali ke backend UDEV dan tidak
-                        akan ditampilkan kembali oleh halaman ini.
-                      </div>
-                      <template #action>
-                        <q-btn
-                          flat
-                          label="Batal"
-                          no-caps
-                          :disable="configurationSaving"
-                          @click="saveConfirmationOpen = false"
-                        />
-                        <q-btn
-                          color="warning"
-                          text-color="dark"
-                          label="Ya, simpan"
-                          no-caps
-                          :loading="configurationSaving"
-                          @click="saveConfiguration"
-                        />
-                      </template>
-                    </q-banner>
-                  </q-form>
                 </q-card-section>
                 <q-card-actions align="right" class="q-pa-md q-gutter-sm">
                   <q-btn
                     flat
-                    label="Tutup Form"
+                    label="Batal"
                     no-caps
-                    :disable="configurationSaving"
-                    @click="configurationDialogOpen = false"
+                    :disable="revoking"
+                    @click="closeRevokeDialog"
                   />
                   <q-btn
-                    v-if="!saveConfirmationOpen"
-                    color="warning"
-                    text-color="dark"
-                    icon="save"
-                    label="Simpan konfigurasi"
+                    color="negative"
+                    label="Ya, cabut key"
                     no-caps
-                    :loading="configurationSaving"
-                    @click="askToSaveConfiguration"
+                    :loading="revoking"
+                    @click="revokeApiKey"
                   />
                 </q-card-actions>
               </q-card>
 
-              <!-- Panel Sandbox Tester (Khusus Environment Sandbox) -->
-              <template v-if="activeEnvironmentTab === 'sandbox'">
-                <DanaSandboxTesterPanel :merchant="merchant" />
-                <q-separator />
-              </template>
-
-              <!-- Metadata API Key & Riwayat Penerbitan -->
-              <q-card-section>
-                <h3>Metadata API key</h3>
-                <p class="section-description">
-                  Prefix dan status saja. API key plaintext maupun hash tidak
-                  pernah ditampilkan.
-                </p>
-
-                <!-- Konfirmasi Cabut API Key Inline -->
-                <q-card
-                  v-if="revokeConfirmationOpen"
-                  flat
-                  bordered
-                  class="confirmation-card q-my-md bg-red-1"
-                >
-                  <q-card-section>
-                    <div class="text-subtitle1 text-weight-bold text-negative">
-                      Cabut API key?
+              <!-- Form Generate API Key Inline -->
+              <q-card
+                v-if="issueDialogOpen"
+                flat
+                bordered
+                class="confirmation-card q-my-md bg-amber-1"
+              >
+                <q-card-section>
+                  <div class="row items-center justify-between">
+                    <div class="text-subtitle1 text-weight-bold text-dark">
+                      Generate API Key
+                      {{
+                        activeEnvironmentTab === 'production'
+                          ? 'Production'
+                          : 'Sandbox'
+                      }}
                     </div>
-                    <p class="q-mt-xs">
-                      Pencabutan key
-                      <strong>{{ apiKeyToRevoke?.key_prefix }}</strong> dapat
-                      memutus integrasi aplikasi yang masih menggunakannya.
-                      Tindakan ini diteruskan sebagai konfirmasi eksplisit ke
-                      backend.
-                    </p>
-                    <q-banner v-if="revokeError" rounded class="error-banner">
-                      <template #avatar
-                        ><q-icon name="error_outline"
-                      /></template>
-                      {{ revokeError }}
-                    </q-banner>
-                  </q-card-section>
-                  <q-card-actions align="right" class="q-pa-md q-gutter-sm">
                     <q-btn
                       flat
-                      label="Batal"
-                      no-caps
-                      :disable="revoking"
-                      @click="closeRevokeDialog"
-                    />
-                    <q-btn
-                      color="negative"
-                      label="Ya, cabut key"
-                      no-caps
-                      :loading="revoking"
-                      @click="revokeApiKey"
-                    />
-                  </q-card-actions>
-                </q-card>
-
-                <!-- Form Generate API Key Inline -->
-                <q-card
-                  v-if="issueDialogOpen"
-                  flat
-                  bordered
-                  class="confirmation-card q-my-md bg-amber-1"
-                >
-                  <q-card-section>
-                    <div class="row items-center justify-between">
-                      <div class="text-subtitle1 text-weight-bold text-dark">
-                        Generate API Key Sandbox
-                      </div>
-                      <q-btn
-                        flat
-                        round
-                        dense
-                        icon="close"
-                        aria-label="Tutup"
-                        @click="issueDialogOpen = false"
-                      />
-                    </div>
-                    <q-input
-                      v-model.trim="issueForm.name"
-                      outlined
+                      round
                       dense
-                      label="Nama API Key"
-                      class="q-mt-md"
-                      bg-color="white"
-                    />
-                    <q-option-group
-                      v-model="issueForm.abilities"
-                      :options="abilityOptions"
-                      type="checkbox"
-                      class="q-mt-sm"
-                    />
-                    <q-input
-                      v-model="issueForm.expires_at"
-                      outlined
-                      dense
-                      type="datetime-local"
-                      label="Masa berlaku (opsional)"
-                      class="q-mt-sm"
-                      bg-color="white"
-                    />
-                    <q-banner v-if="issueError" class="error-banner q-mt-md">
-                      {{ issueError }}
-                    </q-banner>
-                  </q-card-section>
-                  <q-card-actions align="right" class="q-pa-md q-gutter-sm">
-                    <q-btn
-                      flat
-                      label="Batal"
-                      no-caps
+                      icon="close"
+                      aria-label="Tutup"
                       @click="issueDialogOpen = false"
                     />
-                    <q-btn
-                      color="warning"
-                      text-color="dark"
-                      label="Konfirmasi Generate"
-                      no-caps
-                      :loading="issuing"
-                      :disable="!issueForm.name || !issueForm.abilities.length"
-                      @click="issueApiKey"
-                    />
-                  </q-card-actions>
-                </q-card>
-
-                <q-markup-table
-                  v-if="apiKeys.length && $q.screen.gt.sm"
-                  flat
-                  bordered
-                  wrap-cells
-                  class="q-mt-sm api-key-metadata-table"
-                >
-                  <thead>
-                    <tr>
-                      <th class="text-left">ID</th>
-                      <th class="text-left">Prefix</th>
-                      <th class="text-left">Status</th>
-                      <th class="text-left">Dibuat</th>
-                      <th class="text-left">Terakhir digunakan</th>
-                      <th class="text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="apiKey in apiKeys" :key="apiKey.id">
-                      <td>{{ apiKey.id }}</td>
-                      <td>{{ apiKey.key_prefix }}</td>
-                      <td>
-                        <q-badge :color="apiKeyStatus(apiKey).color">
-                          {{ apiKeyStatus(apiKey).label }}
-                        </q-badge>
-                      </td>
-                      <td>{{ formatDate(apiKey.created_at) }}</td>
-                      <td>{{ formatDate(apiKey.last_used_at) }}</td>
-                      <td class="text-right">
-                        <q-btn
-                          v-if="canRevoke(apiKey)"
-                          flat
-                          dense
-                          color="negative"
-                          icon="delete_outline"
-                          label="Cabut"
-                          no-caps
-                          @click="askToRevoke(apiKey)"
-                        />
-                      </td>
-                    </tr>
-                  </tbody>
-                </q-markup-table>
-                <div
-                  v-else-if="apiKeys.length"
-                  class="api-key-cards q-mt-sm q-gutter-y-sm"
-                >
-                  <q-card
-                    v-for="apiKey in apiKeys"
-                    :key="apiKey.id"
+                  </div>
+                  <q-input
+                    v-model.trim="issueForm.name"
+                    outlined
+                    dense
+                    label="Nama API Key"
+                    class="q-mt-md"
+                    bg-color="white"
+                  />
+                  <q-option-group
+                    v-model="issueForm.abilities"
+                    :options="abilityOptions"
+                    type="checkbox"
+                    class="q-mt-sm"
+                  />
+                  <q-input
+                    v-model="issueForm.expires_at"
+                    outlined
+                    dense
+                    type="datetime-local"
+                    label="Masa berlaku (opsional)"
+                    class="q-mt-sm"
+                    bg-color="white"
+                  />
+                  <q-banner v-if="issueError" class="error-banner q-mt-md">
+                    {{ issueError }}
+                  </q-banner>
+                </q-card-section>
+                <q-card-actions align="right" class="q-pa-md q-gutter-sm">
+                  <q-btn
                     flat
-                    bordered
-                    class="api-key-card"
-                  >
-                    <q-card-section class="q-pa-sm">
-                      <div class="row items-start justify-between no-wrap">
-                        <div>
-                          <div class="text-caption text-grey-7">
-                            API Key #{{ apiKey.id }}
-                          </div>
-                          <div class="text-weight-medium">
-                            {{ apiKey.key_prefix }}
-                          </div>
-                        </div>
-                        <q-badge :color="apiKeyStatus(apiKey).color">
-                          {{ apiKeyStatus(apiKey).label }}
-                        </q-badge>
-                      </div>
-                      <div class="issuance-card-details q-mt-sm">
-                        <span>Dibuat</span>
-                        <strong>{{ formatDate(apiKey.created_at) }}</strong>
-                        <span>Terakhir digunakan</span>
-                        <strong>{{ formatDate(apiKey.last_used_at) }}</strong>
-                      </div>
+                    label="Batal"
+                    no-caps
+                    @click="issueDialogOpen = false"
+                  />
+                  <q-btn
+                    color="warning"
+                    text-color="dark"
+                    label="Konfirmasi Generate"
+                    no-caps
+                    :loading="issuing"
+                    :disable="!issueForm.name || !issueForm.abilities.length"
+                    @click="issueApiKey"
+                  />
+                </q-card-actions>
+              </q-card>
+
+              <q-markup-table
+                v-if="apiKeys.length && $q.screen.gt.sm"
+                flat
+                bordered
+                wrap-cells
+                class="q-mt-sm api-key-metadata-table"
+              >
+                <thead>
+                  <tr>
+                    <th class="text-left">ID</th>
+                    <th class="text-left">Prefix</th>
+                    <th class="text-left">Status</th>
+                    <th class="text-left">Dibuat</th>
+                    <th class="text-left">Terakhir digunakan</th>
+                    <th class="text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="apiKey in apiKeys" :key="apiKey.id">
+                    <td>{{ apiKey.id }}</td>
+                    <td>{{ apiKey.key_prefix }}</td>
+                    <td>
+                      <q-badge :color="apiKeyStatus(apiKey).color">
+                        {{ apiKeyStatus(apiKey).label }}
+                      </q-badge>
+                    </td>
+                    <td>{{ formatDate(apiKey.created_at) }}</td>
+                    <td>{{ formatDate(apiKey.last_used_at) }}</td>
+                    <td class="text-right">
                       <q-btn
                         v-if="canRevoke(apiKey)"
-                        class="q-mt-sm"
-                        outline
+                        flat
+                        dense
                         color="negative"
                         icon="delete_outline"
                         label="Cabut"
                         no-caps
                         @click="askToRevoke(apiKey)"
                       />
-                    </q-card-section>
-                  </q-card>
-                </div>
-                <q-banner v-else rounded class="warning-banner q-mt-sm">
-                  <template #avatar><q-icon name="key_off" /></template>
-                  Belum ada API key aktif. Merchant belum siap checkout.
-                </q-banner>
-
-                <q-btn
-                  v-if="!issueDialogOpen"
-                  class="q-mt-md"
-                  color="warning"
-                  text-color="dark"
-                  icon="key"
-                  label="Generate API Key"
-                  no-caps
-                  :disable="merchant.merchant_code === 'larissama'"
-                  @click="openIssueDialog"
-                />
-
-                <q-banner
-                  v-if="issuance"
-                  rounded
-                  class="q-mt-md warning-banner"
+                    </td>
+                  </tr>
+                </tbody>
+              </q-markup-table>
+              <div
+                v-else-if="apiKeys.length"
+                class="api-key-cards q-mt-sm q-gutter-y-sm"
+              >
+                <q-card
+                  v-for="apiKey in apiKeys"
+                  :key="apiKey.id"
+                  flat
+                  bordered
+                  class="api-key-card"
                 >
-                  Issuance #{{ issuance.id }}:
-                  <strong>{{ labelFor(issuance.status) }}</strong>
-                  <template #action>
+                  <q-card-section class="q-pa-sm">
+                    <div class="row items-start justify-between no-wrap">
+                      <div>
+                        <div class="text-caption text-grey-7">
+                          API Key #{{ apiKey.id }}
+                        </div>
+                        <div class="text-weight-medium">
+                          {{ apiKey.key_prefix }}
+                        </div>
+                      </div>
+                      <q-badge :color="apiKeyStatus(apiKey).color">
+                        {{ apiKeyStatus(apiKey).label }}
+                      </q-badge>
+                    </div>
+                    <div class="issuance-card-details q-mt-sm">
+                      <span>Dibuat</span>
+                      <strong>{{ formatDate(apiKey.created_at) }}</strong>
+                      <span>Terakhir digunakan</span>
+                      <strong>{{ formatDate(apiKey.last_used_at) }}</strong>
+                    </div>
                     <q-btn
-                      flat
-                      label="Refresh Status"
-                      no-caps
-                      @click="refreshIssuance"
-                    />
-                    <q-btn
-                      v-if="
-                        ['cancel_pending', 'manual_review'].includes(
-                          issuance.status
-                        )
-                      "
-                      flat
-                      color="negative"
-                      label="Batalkan"
-                      no-caps
-                      @click="cancelIssuance"
-                    />
-                  </template>
-                </q-banner>
-
-                <q-separator class="q-my-lg" />
-
-                <!-- Riwayat Penerbitan API Key (QList + QItem + Pagination 5 item) -->
-                <div class="row items-center justify-between q-col-gutter-sm">
-                  <div class="col-12 col-sm">
-                    <h3>Riwayat Penerbitan API Key</h3>
-                    <p class="section-description">
-                      Journal UDEV; tidak memuat API key maupun secret.
-                    </p>
-                  </div>
-                  <div class="col-12 col-sm-auto">
-                    <q-btn
+                      v-if="canRevoke(apiKey)"
+                      class="q-mt-sm"
                       outline
-                      color="warning"
-                      icon="refresh"
-                      label="Refresh riwayat"
+                      color="negative"
+                      icon="delete_outline"
+                      label="Cabut"
                       no-caps
-                      :loading="issuanceHistoryLoading"
-                      @click="refreshIssuanceHistory"
+                      @click="askToRevoke(apiKey)"
                     />
-                  </div>
-                </div>
+                  </q-card-section>
+                </q-card>
+              </div>
+              <q-banner v-else rounded class="warning-banner q-mt-sm">
+                <template #avatar><q-icon name="key_off" /></template>
+                Belum ada API key aktif. Merchant belum siap checkout.
+              </q-banner>
 
-                <q-banner
-                  v-if="issuanceHistoryError"
-                  rounded
-                  class="error-banner q-mt-sm"
-                >
-                  {{ issuanceHistoryError }}
-                </q-banner>
-                <div v-else class="issuance-history q-mt-sm">
-                  <q-inner-loading
-                    :showing="issuanceHistoryLoading"
-                    color="warning"
+              <q-btn
+                v-if="!issueDialogOpen"
+                class="q-mt-md"
+                color="warning"
+                text-color="dark"
+                icon="key"
+                label="Generate API Key"
+                no-caps
+                :disable="merchant.merchant_code === 'larissama'"
+                @click="openIssueDialog"
+              />
+
+              <q-banner v-if="issuance" rounded class="q-mt-md warning-banner">
+                Issuance #{{ issuance.id }}:
+                <strong>{{ labelFor(issuance.status) }}</strong>
+                <template #action>
+                  <q-btn
+                    flat
+                    label="Refresh Status"
+                    no-caps
+                    @click="refreshIssuance"
                   />
-                  <template v-if="issuanceHistory.length">
-                    <q-list
-                      bordered
-                      separator
-                      class="rounded-borders bg-white issuance-history-list"
-                    >
-                      <q-item
-                        v-for="record in displayedIssuanceHistory"
-                        :key="record.id"
-                        class="q-py-md"
-                      >
-                        <q-item-section avatar>
-                          <q-avatar
-                            size="36px"
-                            color="amber-1"
-                            text-color="warning"
-                            icon="key"
-                          />
-                        </q-item-section>
-                        <q-item-section>
-                          <div
-                            class="row items-center justify-between no-wrap q-col-gutter-xs"
-                          >
-                            <div class="text-weight-bold text-body2 text-dark">
-                              {{ record.key_prefix || 'Tanpa prefix' }}
-                            </div>
-                            <q-badge
-                              :color="issuanceStatusColor(record.status)"
-                            >
-                              {{ labelFor(record.status) }}
-                            </q-badge>
-                          </div>
-                          <div class="text-caption text-grey-7 q-mt-xs">
-                            Journal #{{ record.id }} · Gateway API Key ID:
-                            {{ record.gateway_api_key_id || '—' }} ·
-                            {{ formatDate(record.created_at) }}
-                          </div>
-                        </q-item-section>
-                        <q-item-section v-if="canRecoverIssuance(record)" side>
-                          <q-btn
-                            flat
-                            dense
-                            color="warning"
-                            icon="refresh"
-                            label="Pulihkan"
-                            no-caps
-                            @click="refreshIssuance(record)"
-                          />
-                        </q-item-section>
-                      </q-item>
-                    </q-list>
+                  <q-btn
+                    v-if="
+                      ['cancel_pending', 'manual_review'].includes(
+                        issuance.status
+                      )
+                    "
+                    flat
+                    color="negative"
+                    label="Batalkan"
+                    no-caps
+                    @click="cancelIssuance"
+                  />
+                </template>
+              </q-banner>
 
-                    <q-pagination
-                      v-if="issuanceHistoryMeta.last_page > 1"
-                      class="q-mt-md justify-center"
-                      color="warning"
-                      :model-value="issuanceHistoryMeta.current_page"
-                      :max="issuanceHistoryMeta.last_page"
-                      :max-pages="6"
-                      :disable="issuanceHistoryLoading"
-                      @update:model-value="refreshIssuanceHistory"
-                    />
-                  </template>
-                  <q-banner
-                    v-else-if="!issuanceHistoryLoading"
-                    rounded
-                    class="warning-banner"
-                  >
-                    Belum ada riwayat penerbitan API key untuk merchant ini.
-                  </q-banner>
+              <q-separator class="q-my-lg" />
+
+              <!-- Riwayat Penerbitan API Key (QList + QItem + Pagination 5 item) -->
+              <div class="row items-center justify-between q-col-gutter-sm">
+                <div class="col-12 col-sm">
+                  <h3>Riwayat Penerbitan API Key</h3>
+                  <p class="section-description">
+                    Journal UDEV; tidak memuat API key maupun secret.
+                  </p>
                 </div>
-              </q-card-section>
-            </template>
+                <div class="col-12 col-sm-auto">
+                  <q-btn
+                    outline
+                    color="warning"
+                    icon="refresh"
+                    label="Refresh riwayat"
+                    no-caps
+                    :loading="issuanceHistoryLoading"
+                    @click="refreshIssuanceHistory"
+                  />
+                </div>
+              </div>
+
+              <q-banner
+                v-if="issuanceHistoryError"
+                rounded
+                class="error-banner q-mt-sm"
+              >
+                {{ issuanceHistoryError }}
+              </q-banner>
+              <div v-else class="issuance-history q-mt-sm">
+                <q-inner-loading
+                  :showing="issuanceHistoryLoading"
+                  color="warning"
+                />
+                <template v-if="issuanceHistory.length">
+                  <q-list
+                    bordered
+                    separator
+                    class="rounded-borders bg-white issuance-history-list"
+                  >
+                    <q-item
+                      v-for="record in displayedIssuanceHistory"
+                      :key="record.id"
+                      class="q-py-md"
+                    >
+                      <q-item-section avatar>
+                        <q-avatar
+                          size="36px"
+                          color="amber-1"
+                          text-color="warning"
+                          icon="key"
+                        />
+                      </q-item-section>
+                      <q-item-section>
+                        <div
+                          class="row items-center justify-between no-wrap q-col-gutter-xs"
+                        >
+                          <div class="text-weight-bold text-body2 text-dark">
+                            {{ record.key_prefix || 'Tanpa prefix' }}
+                          </div>
+                          <q-badge :color="issuanceStatusColor(record.status)">
+                            {{ labelFor(record.status) }}
+                          </q-badge>
+                        </div>
+                        <div class="text-caption text-grey-7 q-mt-xs">
+                          Journal #{{ record.id }} · Gateway API Key ID:
+                          {{ record.gateway_api_key_id || '—' }} ·
+                          {{ formatDate(record.created_at) }}
+                        </div>
+                      </q-item-section>
+                      <q-item-section v-if="canRecoverIssuance(record)" side>
+                        <q-btn
+                          flat
+                          dense
+                          color="warning"
+                          icon="refresh"
+                          label="Pulihkan"
+                          no-caps
+                          @click="refreshIssuance(record)"
+                        />
+                      </q-item-section>
+                    </q-item>
+                  </q-list>
+
+                  <q-pagination
+                    v-if="issuanceHistoryMeta.last_page > 1"
+                    class="q-mt-md justify-center"
+                    color="warning"
+                    :model-value="issuanceHistoryMeta.current_page"
+                    :max="issuanceHistoryMeta.last_page"
+                    :max-pages="6"
+                    :disable="issuanceHistoryLoading"
+                    @update:model-value="refreshIssuanceHistory"
+                  />
+                </template>
+                <q-banner
+                  v-else-if="!issuanceHistoryLoading"
+                  rounded
+                  class="warning-banner"
+                >
+                  Belum ada riwayat penerbitan API key untuk merchant ini.
+                </q-banner>
+              </div>
+            </q-card-section>
           </template>
         </template>
 
@@ -1089,10 +1150,38 @@ import DanaSandboxTesterPanel from './DanaSandboxTesterPanel.vue'
 const store = useDanaGatewayMerchantStore()
 const $q = useQuasar()
 const configurationFormRef = ref(null)
-const readiness = ref(null)
-const apiKeys = ref([])
-const managementLoading = ref(false)
-const managementError = ref(null)
+const envStates = reactive({
+  sandbox: {
+    loading: false,
+    error: null,
+    readiness: null,
+    configurationExists: false,
+    apiKeys: [],
+    loadedMerchantId: null
+  },
+  production: {
+    loading: false,
+    error: null,
+    readiness: null,
+    configurationExists: false,
+    apiKeys: [],
+    loadedMerchantId: null
+  }
+})
+
+const activeEnvironmentTab = ref('sandbox')
+const currentEnvState = computed(() => envStates[activeEnvironmentTab.value])
+const managementLoading = computed(() => currentEnvState.value.loading)
+const managementError = computed(() => currentEnvState.value.error)
+const readiness = computed(() => currentEnvState.value.readiness)
+const apiKeys = computed(() => currentEnvState.value.apiKeys)
+const isConfigured = computed(() =>
+  Boolean(
+    readiness.value?.dana_configuration?.available ||
+    currentEnvState.value.configurationExists
+  )
+)
+
 const managementLoadedMerchantId = ref(null)
 const configurationDialogOpen = ref(false)
 const saveConfirmationOpen = ref(false)
@@ -1140,7 +1229,6 @@ const abilityOptions = [
   { label: 'Baca pembayaran', value: 'payments:read' }
 ]
 const merchant = computed(() => store.selectedMerchant)
-const activeEnvironmentTab = ref('sandbox')
 const isSandbox = computed(() => activeEnvironmentTab.value === 'sandbox')
 const isSecureFrontend = computed(() =>
   isSecureFrontendProtocol(globalThis.location?.protocol)
@@ -1226,6 +1314,18 @@ function canRecoverIssuance(record) {
     'manual_review'
   ].includes(record.status)
 }
+function sanitizeErrorMessage(message) {
+  if (typeof message !== 'string') return ''
+  return message
+    .replace(
+      /-----BEGIN [A-Z ]+KEY-----[\s\S]*?-----END [A-Z ]+KEY-----/gi,
+      '[REDACTED KEY]'
+    )
+    .replace(
+      /(?:private_key|service_token|api_key|secret)=([^\s&]+)/gi,
+      '$1=[REDACTED]'
+    )
+}
 function managementErrorMessage(error) {
   const status = error?.response?.status
   if (status === 429) {
@@ -1237,8 +1337,14 @@ function managementErrorMessage(error) {
   if (status === 502) {
     return 'DANA Gateway atau proxy internal mengembalikan 502. Tidak ada retry otomatis; periksa audit gateway atau log proxy.'
   }
+  if (status === 503) {
+    return 'Layanan gateway DANA tidak dapat dihubungi atau sedang offline.'
+  }
+  if (status === 404) {
+    return 'Merchant belum terdaftar pada gateway DANA untuk environment ini.'
+  }
 
-  return getApiErrorMessage(error)
+  return sanitizeErrorMessage(getApiErrorMessage(error))
 }
 async function refreshManagement(force = false) {
   const merchantId = merchant.value?.merchant_id
@@ -1249,11 +1355,12 @@ async function refreshManagement(force = false) {
   )
     return
 
-  managementLoading.value = true
-  managementError.value = null
+  const currentTab = activeEnvironmentTab.value
+  envStates[currentTab].loading = true
+  envStates[currentTab].error = null
   try {
-    const [readinessResponse, apiKeysResponse, issuanceResponse] =
-      await Promise.all([
+    const [readinessResult, apiKeysResult, issuanceResult] =
+      await Promise.allSettled([
         danaGatewayMerchantService.readiness(
           merchantId,
           activeEnvironmentTab.value
@@ -1263,20 +1370,39 @@ async function refreshManagement(force = false) {
           per_page: 5
         })
       ])
-    readiness.value = readinessResponse.data?.data ?? null
-    apiKeys.value = apiKeysResponse.data?.data ?? []
-    issuanceHistory.value = issuanceResponse.data?.data ?? []
-    issuanceHistoryMeta.value =
-      issuanceResponse.data?.meta ?? issuanceHistoryMeta.value
-    issuanceHistoryError.value = null
+
+    if (readinessResult.status === 'fulfilled') {
+      envStates[currentTab].readiness = readinessResult.value.data?.data ?? null
+      envStates[currentTab].configurationExists = Boolean(
+        readinessResult.value.data?.data?.dana_configuration?.available
+      )
+      envStates[currentTab].error = null
+    } else {
+      envStates[currentTab].readiness = null
+      envStates[currentTab].error = managementErrorMessage(
+        readinessResult.reason
+      )
+    }
+
+    if (apiKeysResult.status === 'fulfilled') {
+      envStates[currentTab].apiKeys = apiKeysResult.value.data?.data ?? []
+    } else {
+      envStates[currentTab].apiKeys = []
+    }
+
+    if (issuanceResult.status === 'fulfilled') {
+      issuanceHistory.value = issuanceResult.value.data?.data ?? []
+      issuanceHistoryMeta.value =
+        issuanceResult.value.data?.meta ?? issuanceHistoryMeta.value
+      issuanceHistoryError.value = null
+    } else {
+      issuanceHistory.value = []
+    }
+
+    envStates[currentTab].loadedMerchantId = merchantId
     managementLoadedMerchantId.value = merchantId
-  } catch (error) {
-    readiness.value = null
-    apiKeys.value = []
-    issuanceHistory.value = []
-    managementError.value = managementErrorMessage(error)
   } finally {
-    managementLoading.value = false
+    envStates[currentTab].loading = false
   }
 }
 function toggleConfigurationPanel() {
@@ -1351,13 +1477,15 @@ function applyStoredConfiguration(response) {
     webhook_public_key: values.dana_webhook_public_key_configured === true
   }
 
+  const envName =
+    activeEnvironmentTab.value === 'production' ? 'Production' : 'Sandbox'
   const labels = {
     partner_id: 'Partner ID',
     merchant_id: 'Merchant ID DANA',
     origin: 'Origin',
     channel_id: 'Channel ID',
-    external_store_id: 'External Store ID Sandbox',
-    sub_merchant_id: 'Sub Merchant ID Sandbox',
+    external_store_id: `External Store ID ${envName}`,
+    sub_merchant_id: `Sub Merchant ID ${envName}`,
     notification_url: 'Notification URL',
     callback_url: 'Callback URL',
     mcc: 'MCC'
@@ -1397,9 +1525,16 @@ async function loadStoredConfiguration() {
 }
 function resetSensitiveState() {
   resetConfigurationForm()
-  readiness.value = null
-  apiKeys.value = []
-  managementError.value = null
+  envStates.sandbox.readiness = null
+  envStates.sandbox.error = null
+  envStates.sandbox.loadedMerchantId = null
+  envStates.sandbox.apiKeys = []
+  envStates.sandbox.configurationExists = false
+  envStates.production.readiness = null
+  envStates.production.error = null
+  envStates.production.loadedMerchantId = null
+  envStates.production.apiKeys = []
+  envStates.production.configurationExists = false
   managementLoadedMerchantId.value = null
   closeRevokeDialog()
   issuance.value = null
@@ -1559,7 +1694,16 @@ async function saveConfiguration() {
     await refreshManagement(true)
   } catch (error) {
     configurationErrors.value = getApiValidationErrors(error)
-    configurationError.value = getApiErrorMessage(error)
+    const valErrors = getApiValidationErrors(error)
+    const firstKey = Object.keys(valErrors)[0]
+    const detailedMessage =
+      firstKey &&
+      Array.isArray(valErrors[firstKey]) &&
+      valErrors[firstKey].length
+        ? `${firstKey}: ${valErrors[firstKey].join(' ')}`
+        : getApiErrorMessage(error)
+
+    configurationError.value = sanitizeErrorMessage(detailedMessage)
   } finally {
     clearSensitiveFields()
     configurationSaving.value = false
