@@ -51,4 +51,8 @@ test('danaGatewayMerchantService dan store memiliki endpoint toggle status, dele
   // Store actions
   assert.match(store, /toggleMerchantStatus\(merchant,\s*isActive\)/)
   assert.match(store, /deleteMerchant\(merchant\)/)
+
+  // Pastikan penanganan kegagalan menampilkan notifikasi negative dan melempar error (tidak menganggap sukses)
+  assert.match(store, /type:\s*'negative'/)
+  assert.match(store, /throw error/)
 })
