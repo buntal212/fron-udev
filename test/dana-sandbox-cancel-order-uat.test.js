@@ -17,19 +17,34 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
 
   // Tombol aksi pembatalan transaksi pending
   assert.match(panel, /label="Batalkan Transaksi Sandbox"/)
+  assert.match(panel, /label="UAT Happy Path E2E"/)
   assert.match(panel, /label="Cancel Order Success \(2005700\)"/)
   assert.match(panel, /label="UAT Cancel in Progress \(2025700\)"/)
   assert.match(panel, /label="UAT Transaction Not Permitted \(4035705\)"/)
+  assert.match(panel, /label="UAT Merchant Status Abnormal \(4045708\)"/)
+  assert.match(panel, /label="UAT Transaction Not Found \(4045701\)"/)
+  assert.match(panel, /confirmHappyPathE2eUat/)
+  assert.match(panel, /executeHappyPathE2eUat/)
+  assert.match(panel, /runningHappyPathE2eUat/)
+  assert.match(panel, /happyPathE2eResult/)
+  assert.match(panel, /showHappyPathE2eConfirmDialog/)
+  assert.match(panel, /Konfirmasi UAT Happy Path E2E/)
   assert.match(panel, /cancelCurrentTransaction/)
   assert.match(panel, /runCancelOrderSuccessUat/)
   assert.match(panel, /runCancelOrderInProgressUat/)
   assert.match(panel, /runCancelTransactionNotPermittedUat/)
+  assert.match(panel, /runCancelMerchantStatusAbnormalUat/)
+  assert.match(panel, /runCancelTransactionNotFoundUat/)
   assert.match(panel, /cancellingTransaction/)
   assert.match(panel, /runningCancelOrderInProgressUat/)
   assert.match(panel, /runningCancelTransactionNotPermittedUat/)
+  assert.match(panel, /runningCancelMerchantStatusAbnormalUat/)
+  assert.match(panel, /runningCancelTransactionNotFoundUat/)
   assert.match(panel, /cancelPaymentResult/)
   assert.match(panel, /cancelInProgressUat/)
   assert.match(panel, /cancelTransactionNotPermittedUat/)
+  assert.match(panel, /cancelMerchantStatusAbnormalUat/)
+  assert.match(panel, /cancelTransactionNotFoundUat/)
 
   // Kelompok kategori dan grid responsif
   assert.match(panel, /Konfigurasi/)
@@ -39,6 +54,14 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /Webhook/)
   assert.match(panel, /uat-btn-grid/)
   assert.match(panel, /isAnyUatRunning/)
+
+  // Banner hasil UAT Happy Path E2E
+  assert.match(panel, /Hasil UAT DANA Sandbox Happy Path E2E/)
+  assert.match(panel, /E2E PASS/)
+  assert.match(panel, /1\. Create Order/)
+  assert.match(panel, /2\. Cancel Order/)
+  assert.match(panel, /3\. Status Inquiry/)
+  assert.match(panel, /happyPathE2eResult\.final_status/)
 
   // Banner hasil UAT Cancel Order
   assert.match(
@@ -69,6 +92,20 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
     panel,
     /Status pembayaran lokal dan\s+invoice tetap aman, tidak berubah sepihak/
   )
+
+  // Banner hasil UAT Cancel Merchant Status Abnormal (4045708)
+  assert.match(panel, /Pembatalan Ditolak — Invalid Merchant/)
+  assert.match(panel, /Lolos \(4045708 \/ Invalid Merchant\)/)
+  assert.match(panel, /cancelMerchantStatusAbnormalUat\.response_code/)
+  assert.match(panel, /cancelMerchantStatusAbnormalUat\.response_message/)
+  assert.match(panel, /cancelMerchantStatusAbnormalUat\.local_status/)
+
+  // Banner hasil UAT Cancel Transaction Not Found (4045701)
+  assert.match(panel, /Pembatalan Ditolak — Transaction Not Found/)
+  assert.match(panel, /Lolos \(4045701 \/ Transaction Not Found\)/)
+  assert.match(panel, /cancelTransactionNotFoundUat\.response_code/)
+  assert.match(panel, /cancelTransactionNotFoundUat\.response_message/)
+  assert.match(panel, /cancelTransactionNotFoundUat\.local_status/)
 
   // Keamanan: tidak mengekspos credential, private key, atau token
   const uatSection = panel.split('<div v-if="validation"')[0]

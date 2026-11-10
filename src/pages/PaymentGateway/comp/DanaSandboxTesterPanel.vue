@@ -635,12 +635,33 @@
               <q-icon name="cancel_presentation" size="18px" color="negative" />
               <span class="text-subtitle2 text-weight-bold">Cancel Order</span>
             </div>
-            <q-badge color="negative" outline label="3 Skenario UAT" />
+            <q-badge color="negative" outline label="6 Skenario UAT" />
           </div>
         </q-card-section>
         <q-separator />
         <q-card-section class="category-card-body q-pa-sm">
           <div class="uat-btn-grid">
+            <q-btn
+              outline
+              color="primary"
+              icon="alt_route"
+              label="UAT Happy Path E2E"
+              no-caps
+              class="uat-btn"
+              :loading="runningHappyPathE2eUat"
+              :disable="isAnyUatRunning"
+              @click="confirmHappyPathE2eUat"
+            >
+              <q-badge
+                v-if="happyPathE2eResult !== null"
+                :color="happyPathE2eResult?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ happyPathE2eResult?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
             <q-btn
               outline
               color="negative"
@@ -713,6 +734,54 @@
                 class="uat-badge"
               >
                 {{ cancelTransactionNotPermittedUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="domain_disabled"
+              label="UAT Merchant Status Abnormal (4045708)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelMerchantStatusAbnormalUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelMerchantStatusAbnormalUat"
+            >
+              <q-badge
+                v-if="cancelMerchantStatusAbnormalUat !== null"
+                :color="
+                  cancelMerchantStatusAbnormalUat?.passed
+                    ? 'positive'
+                    : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ cancelMerchantStatusAbnormalUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="search_off"
+              label="UAT Transaction Not Found (4045701)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelTransactionNotFoundUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelTransactionNotFoundUat"
+            >
+              <q-badge
+                v-if="cancelTransactionNotFoundUat !== null"
+                :color="
+                  cancelTransactionNotFoundUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ cancelTransactionNotFoundUat?.passed ? 'PASS' : 'FAIL' }}
               </q-badge>
             </q-btn>
           </div>
@@ -1804,6 +1873,249 @@
       </div>
     </q-banner>
 
+    <!-- Hasil UAT Happy Path E2E -->
+    <q-card
+      v-if="happyPathE2eResult"
+      flat
+      bordered
+      class="transport-notice q-mt-md"
+    >
+      <q-card-section class="q-pb-xs">
+        <div class="row items-center justify-between">
+          <div class="row items-center q-gutter-x-sm">
+            <q-icon
+              :name="happyPathE2eResult.passed ? 'task_alt' : 'error_outline'"
+              :color="happyPathE2eResult.passed ? 'positive' : 'negative'"
+              size="24px"
+            />
+            <div class="text-subtitle1 text-weight-bold">
+              Hasil UAT DANA Sandbox Happy Path E2E (Create → Cancel → Status
+              Inquiry)
+            </div>
+          </div>
+          <q-badge
+            :color="happyPathE2eResult.passed ? 'positive' : 'negative'"
+            class="text-weight-bold q-px-sm q-py-xs"
+          >
+            {{ happyPathE2eResult.passed ? 'E2E PASS' : 'E2E FAIL' }}
+          </q-badge>
+        </div>
+
+        <div class="text-caption text-grey-8 q-mt-xs">
+          Status Akhir Transaksi DANA:
+          <q-badge
+            :color="
+              happyPathE2eResult.final_status?.includes('05')
+                ? 'positive'
+                : 'warning'
+            "
+          >
+            {{ happyPathE2eResult.final_status || 'Dalam Proses' }}
+          </q-badge>
+          <span v-if="happyPathE2eResult.payment_id">
+            · Payment ID: <code>{{ happyPathE2eResult.payment_id }}</code>
+          </span>
+          <span v-if="happyPathE2eResult.partner_reference_no">
+            · Partner Ref:
+            <code>{{ happyPathE2eResult.partner_reference_no }}</code>
+          </span>
+          <span v-if="happyPathE2eResult.reference_no">
+            · DANA Ref No: <code>{{ happyPathE2eResult.reference_no }}</code>
+          </span>
+        </div>
+      </q-card-section>
+
+      <q-separator />
+
+      <q-card-section class="q-pa-sm">
+        <div class="row q-col-gutter-sm">
+          <!-- Tahap 1: Create Order -->
+          <div class="col-12 col-md-4">
+            <q-card flat bordered class="bg-grey-1 h-100">
+              <q-card-section class="q-pa-sm">
+                <div class="row items-center justify-between q-mb-xs">
+                  <span class="text-weight-bold text-caption"
+                    >1. Create Order</span
+                  >
+                  <q-badge
+                    :color="
+                      happyPathE2eResult.stages.create.status === 'succeeded'
+                        ? 'positive'
+                        : happyPathE2eResult.stages.create.status === 'failed'
+                          ? 'negative'
+                          : 'grey'
+                    "
+                  >
+                    {{
+                      happyPathE2eResult.stages.create.status === 'succeeded'
+                        ? 'PASS (2005400)'
+                        : happyPathE2eResult.stages.create.status === 'failed'
+                          ? 'FAIL'
+                          : 'PENDING'
+                    }}
+                  </q-badge>
+                </div>
+                <div class="text-caption" style="font-size: 11px">
+                  <div
+                    >Endpoint: <code>/debit/payment-host-to-host.htm</code></div
+                  >
+                  <div
+                    >HTTP:
+                    {{ happyPathE2eResult.stages.create.http_status || '-' }} ·
+                    Code:
+                    <code>{{
+                      happyPathE2eResult.stages.create.response_code || '-'
+                    }}</code></div
+                  >
+                  <div
+                    >Pesan:
+                    {{
+                      happyPathE2eResult.stages.create.response_message || '-'
+                    }}</div
+                  >
+                  <div
+                    >Waktu:
+                    {{ happyPathE2eResult.stages.create.timestamp || '-' }}</div
+                  >
+                  <div v-if="happyPathE2eResult.stages.create.external_id"
+                    >X-EXTERNAL-ID:
+                    <code>{{
+                      happyPathE2eResult.stages.create.external_id
+                    }}</code></div
+                  >
+                </div>
+              </q-card-section>
+            </q-card>
+          </div>
+
+          <!-- Tahap 2: Cancel Order -->
+          <div class="col-12 col-md-4">
+            <q-card flat bordered class="bg-grey-1 h-100">
+              <q-card-section class="q-pa-sm">
+                <div class="row items-center justify-between q-mb-xs">
+                  <span class="text-weight-bold text-caption"
+                    >2. Cancel Order</span
+                  >
+                  <q-badge
+                    :color="
+                      happyPathE2eResult.stages.cancel.status === 'succeeded'
+                        ? 'positive'
+                        : happyPathE2eResult.stages.cancel.status === 'failed'
+                          ? 'negative'
+                          : 'grey'
+                    "
+                  >
+                    {{
+                      happyPathE2eResult.stages.cancel.status === 'succeeded'
+                        ? 'PASS (2005700)'
+                        : happyPathE2eResult.stages.cancel.status === 'failed'
+                          ? 'FAIL'
+                          : 'PENDING'
+                    }}
+                  </q-badge>
+                </div>
+                <div class="text-caption" style="font-size: 11px">
+                  <div>Endpoint: <code>/debit/cancel.htm</code></div>
+                  <div
+                    >HTTP:
+                    {{ happyPathE2eResult.stages.cancel.http_status || '-' }} ·
+                    Code:
+                    <code>{{
+                      happyPathE2eResult.stages.cancel.response_code || '-'
+                    }}</code></div
+                  >
+                  <div
+                    >Pesan:
+                    {{
+                      happyPathE2eResult.stages.cancel.response_message || '-'
+                    }}</div
+                  >
+                  <div
+                    >Waktu:
+                    {{ happyPathE2eResult.stages.cancel.timestamp || '-' }}</div
+                  >
+                  <div v-if="happyPathE2eResult.stages.cancel.external_id"
+                    >X-EXTERNAL-ID:
+                    <code>{{
+                      happyPathE2eResult.stages.cancel.external_id
+                    }}</code></div
+                  >
+                </div>
+              </q-card-section>
+            </q-card>
+          </div>
+
+          <!-- Tahap 3: Status Inquiry -->
+          <div class="col-12 col-md-4">
+            <q-card flat bordered class="bg-grey-1 h-100">
+              <q-card-section class="q-pa-sm">
+                <div class="row items-center justify-between q-mb-xs">
+                  <span class="text-weight-bold text-caption"
+                    >3. Status Inquiry</span
+                  >
+                  <q-badge
+                    :color="
+                      happyPathE2eResult.stages.inquiry.status === 'succeeded'
+                        ? 'positive'
+                        : happyPathE2eResult.stages.inquiry.status === 'failed'
+                          ? 'negative'
+                          : 'grey'
+                    "
+                  >
+                    {{
+                      happyPathE2eResult.stages.inquiry.status === 'succeeded'
+                        ? 'PASS (05 Cancelled)'
+                        : happyPathE2eResult.stages.inquiry.status === 'failed'
+                          ? 'FAIL'
+                          : 'PENDING'
+                    }}
+                  </q-badge>
+                </div>
+                <div class="text-caption" style="font-size: 11px">
+                  <div>Endpoint: <code>/debit/status.htm</code></div>
+                  <div
+                    >HTTP:
+                    {{ happyPathE2eResult.stages.inquiry.http_status || '-' }} ·
+                    Code:
+                    <code>{{
+                      happyPathE2eResult.stages.inquiry.response_code || '-'
+                    }}</code></div
+                  >
+                  <div
+                    >Status DANA:
+                    <code>{{
+                      happyPathE2eResult.stages.inquiry
+                        .latest_transaction_status || '-'
+                    }}</code>
+                    (05 = Cancelled)</div
+                  >
+                  <div
+                    >Waktu:
+                    {{
+                      happyPathE2eResult.stages.inquiry.timestamp || '-'
+                    }}</div
+                  >
+                  <div v-if="happyPathE2eResult.stages.inquiry.external_id"
+                    >X-EXTERNAL-ID:
+                    <code>{{
+                      happyPathE2eResult.stages.inquiry.external_id
+                    }}</code></div
+                  >
+                </div>
+              </q-card-section>
+            </q-card>
+          </div>
+        </div>
+
+        <div
+          v-if="happyPathE2eResult.error"
+          class="text-negative text-caption q-mt-sm"
+        >
+          <q-icon name="warning" size="14px" /> {{ happyPathE2eResult.error }}
+        </div>
+      </q-card-section>
+    </q-card>
+
     <q-banner
       v-if="cancelPaymentResult"
       rounded
@@ -1883,11 +2195,17 @@
           }}
         </q-badge>
         <span>
-          · Ref:
+          · Ref Mock (Outbound):
           <code>{{
-            cancelInProgressUat.partner_reference_no ||
-            cancelInProgressUat.original_partner_reference_no ||
+            cancelInProgressUat.outbound_original_partner_reference_no ||
+            cancelInProgressUat.mock_code ||
             '2025700'
+          }}</code>
+          · Ref Asli (DB):
+          <code>{{
+            cancelInProgressUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
           }}</code>
           · Endpoint:
           <code>/payment-gateway/v1.0/debit/cancel.htm</code>
@@ -1958,11 +2276,13 @@
           }}
         </q-badge>
         <span>
-          · Ref:
+          · Ref Mock (Outbound):
           <code>{{
-            cancelTransactionNotPermittedUat.partner_reference_no || '4035705'
+            cancelTransactionNotPermittedUat.outbound_original_partner_reference_no ||
+            cancelTransactionNotPermittedUat.mock_code ||
+            '4035705'
           }}</code>
-          · Ref Asli:
+          · Ref Asli (DB):
           <code>{{
             cancelTransactionNotPermittedUat.original_partner_reference_no ||
             transaction?.id ||
@@ -2006,6 +2326,177 @@
           }}</code>
           ({{
             cancelTransactionNotPermittedUat.status_inquiry
+              .latest_transaction_status || '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="cancelMerchantStatusAbnormalUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            cancelMerchantStatusAbnormalUat.passed
+              ? 'check_circle'
+              : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        Pembatalan Ditolak — Invalid Merchant
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="
+            cancelMerchantStatusAbnormalUat.passed ? 'positive' : 'negative'
+          "
+        >
+          {{
+            cancelMerchantStatusAbnormalUat.passed
+              ? 'Lolos (4045708 / Invalid Merchant)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref Mock (Outbound):
+          <code>{{
+            cancelMerchantStatusAbnormalUat.outbound_original_partner_reference_no ||
+            cancelMerchantStatusAbnormalUat.mock_code ||
+            '4045708'
+          }}</code>
+          · Ref Asli (DB):
+          <code>{{
+            cancelMerchantStatusAbnormalUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelMerchantStatusAbnormalUat.http_status }} ·
+        responseCode
+        <code>{{
+          cancelMerchantStatusAbnormalUat.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ cancelMerchantStatusAbnormalUat.response_message }}
+        <span v-if="cancelMerchantStatusAbnormalUat.cancel_time">
+          · Waktu: {{ cancelMerchantStatusAbnormalUat.cancel_time }}
+        </span>
+        <span v-if="cancelMerchantStatusAbnormalUat.request_id">
+          · Request ID: {{ cancelMerchantStatusAbnormalUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelMerchantStatusAbnormalUat.local_status === 'pending'
+              ? 'warning'
+              : 'negative'
+          "
+        >
+          {{ cancelMerchantStatusAbnormalUat.local_status || 'pending' }}
+        </q-badge>
+        (Pembatalan ditolak oleh DANA Sandbox. Status pembayaran lokal dan
+        invoice tetap aman, tidak berubah sepihak).
+        <span v-if="cancelMerchantStatusAbnormalUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{
+            cancelMerchantStatusAbnormalUat.status_inquiry.response_code
+          }}</code>
+          ({{
+            cancelMerchantStatusAbnormalUat.status_inquiry
+              .latest_transaction_status || '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
+      v-if="cancelTransactionNotFoundUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            cancelTransactionNotFoundUat.passed
+              ? 'check_circle'
+              : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        Pembatalan Ditolak — Transaction Not Found
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="cancelTransactionNotFoundUat.passed ? 'positive' : 'negative'"
+        >
+          {{
+            cancelTransactionNotFoundUat.passed
+              ? 'Lolos (4045701 / Transaction Not Found)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref Mock (Outbound):
+          <code>{{
+            cancelTransactionNotFoundUat.outbound_original_partner_reference_no ||
+            cancelTransactionNotFoundUat.mock_code ||
+            '4045701'
+          }}</code>
+          · Ref Asli (DB):
+          <code>{{
+            cancelTransactionNotFoundUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelTransactionNotFoundUat.http_status }} · responseCode
+        <code>{{
+          cancelTransactionNotFoundUat.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ cancelTransactionNotFoundUat.response_message }}
+        <span v-if="cancelTransactionNotFoundUat.cancel_time">
+          · Waktu: {{ cancelTransactionNotFoundUat.cancel_time }}
+        </span>
+        <span v-if="cancelTransactionNotFoundUat.request_id">
+          · Request ID: {{ cancelTransactionNotFoundUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelTransactionNotFoundUat.local_status === 'pending'
+              ? 'warning'
+              : 'negative'
+          "
+        >
+          {{ cancelTransactionNotFoundUat.local_status || 'pending' }}
+        </q-badge>
+        (Pembatalan ditolak oleh DANA Sandbox karena transaksi tidak ditemukan.
+        Status pembayaran lokal dan invoice tetap aman, tidak berubah sepihak).
+        <span v-if="cancelTransactionNotFoundUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{
+            cancelTransactionNotFoundUat.status_inquiry.response_code
+          }}</code>
+          ({{
+            cancelTransactionNotFoundUat.status_inquiry
               .latest_transaction_status || '01/Pending'
           }})
         </span>
@@ -2577,6 +3068,76 @@
         />
       </q-card-actions>
     </q-card>
+
+    <!-- Konfirmasi UAT Happy Path E2E (Inline Card tanpa QDialog) -->
+    <q-card
+      v-if="showHappyPathE2eConfirmDialog"
+      flat
+      bordered
+      class="q-my-md custom-amount-card bg-blue-1"
+      style="max-width: 560px"
+    >
+      <q-card-section class="row items-center justify-between q-pb-none">
+        <div
+          class="text-subtitle1 text-weight-bold row items-center q-gutter-x-sm"
+        >
+          <q-icon name="alt_route" color="primary" size="20px" />
+          <span>Konfirmasi UAT Happy Path E2E</span>
+        </div>
+        <q-btn
+          icon="close"
+          flat
+          round
+          dense
+          size="sm"
+          @click="showHappyPathE2eConfirmDialog = false"
+        />
+      </q-card-section>
+
+      <q-card-section class="q-pt-sm">
+        <div class="text-caption text-grey-9 q-mb-xs">
+          Pengujian ini akan menjalankan satu rantai transaksi lengkap secara
+          berurutan pada DANA Sandbox:
+        </div>
+        <ol class="q-pl-md text-caption text-grey-9 q-gutter-y-xs q-my-xs">
+          <li
+            ><strong>Tahap 1: Create Order</strong> — Membuat transaksi aktif
+            (2005400).</li
+          >
+          <li
+            ><strong>Tahap 2: Cancel Order</strong> — Membatalkan transaksi
+            dengan <code>originalPartnerReferenceNo</code> asli (2005700).</li
+          >
+          <li
+            ><strong>Tahap 3: Status Inquiry</strong> — Memeriksa status akhir
+            transaksi di DANA (2005500 / Status Cancelled <code>05</code>).</li
+          >
+        </ol>
+        <div class="text-caption text-primary q-mt-xs">
+          <q-icon name="info" size="14px" /> Seluruh tahap menggunakan merchant
+          dan kredensial Sandbox yang sama. Jika transaksi berhasil dibuat
+          tetapi tahap berikutnya gagal, sistem tidak akan mengulang Create
+          Order otomatis.
+        </div>
+      </q-card-section>
+
+      <q-card-actions align="right" class="q-px-md q-pb-md">
+        <q-btn
+          flat
+          label="Batal"
+          color="grey"
+          @click="showHappyPathE2eConfirmDialog = false"
+        />
+        <q-btn
+          unelevated
+          color="primary"
+          icon="play_arrow"
+          label="Jalankan UAT E2E"
+          :loading="runningHappyPathE2eUat"
+          @click="executeHappyPathE2eUat"
+        />
+      </q-card-actions>
+    </q-card>
   </q-card-section>
 </template>
 
@@ -2623,6 +3184,8 @@ const runningDebitStatusCancelledUat = ref(false)
 const cancellingTransaction = ref(false)
 const runningCancelOrderInProgressUat = ref(false)
 const runningCancelTransactionNotPermittedUat = ref(false)
+const runningCancelMerchantStatusAbnormalUat = ref(false)
+const runningCancelTransactionNotFoundUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -2655,9 +3218,15 @@ const armedWebhook500Uat = ref(null)
 const cancelPaymentResult = ref(null)
 const cancelInProgressUat = ref(null)
 const cancelTransactionNotPermittedUat = ref(null)
+const cancelMerchantStatusAbnormalUat = ref(null)
+const cancelTransactionNotFoundUat = ref(null)
+const runningHappyPathE2eUat = ref(false)
+const showHappyPathE2eConfirmDialog = ref(false)
+const happyPathE2eResult = ref(null)
 
 const isAnyUatRunning = computed(() => {
   return (
+    runningHappyPathE2eUat.value ||
     validating.value ||
     creatingTransaction.value ||
     checkingStatus.value ||
@@ -2682,6 +3251,8 @@ const isAnyUatRunning = computed(() => {
     cancellingTransaction.value ||
     runningCancelOrderInProgressUat.value ||
     runningCancelTransactionNotPermittedUat.value ||
+    runningCancelMerchantStatusAbnormalUat.value ||
+    runningCancelTransactionNotFoundUat.value ||
     armingWebhook500.value
   )
 })
@@ -3696,6 +4267,7 @@ async function runCancelOrderInProgressUat() {
       targetPaymentId,
       {
         reason: 'UAT Cancel in Progress (2025700)',
+        mock_code: '2025700',
         partner_reference_no: '2025700'
       }
     )
@@ -3727,11 +4299,14 @@ async function runCancelOrderInProgressUat() {
 
     cancelInProgressUat.value = {
       passed,
-      http_status: cancelResult.http_status ?? 200,
+      http_status: cancelResult.http_status ?? 202,
       response_code: responseCode,
       response_message: responseMessage || 'Tidak tersedia',
       cancel_time: cancelResult.cancel_time,
+      mock_code: '2025700',
       partner_reference_no: '2025700',
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no || '2025700',
       original_partner_reference_no:
         cancelResult.original_partner_reference_no || targetPaymentId,
       request_id: cancelResult.request_id,
@@ -3807,6 +4382,7 @@ async function runCancelTransactionNotPermittedUat() {
       targetPaymentId,
       {
         reason: 'UAT Transaction Not Permitted (4035705)',
+        mock_code: '4035705',
         partner_reference_no: '4035705'
       }
     )
@@ -3842,7 +4418,10 @@ async function runCancelTransactionNotPermittedUat() {
       response_code: responseCode,
       response_message: responseMessage || 'Tidak tersedia',
       cancel_time: cancelResult.cancel_time,
+      mock_code: '4035705',
       partner_reference_no: '4035705',
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no || '4035705',
       original_partner_reference_no:
         cancelResult.original_partner_reference_no || targetPaymentId,
       request_id: cancelResult.request_id,
@@ -3878,6 +4457,544 @@ async function runCancelTransactionNotPermittedUat() {
     })
   } finally {
     runningCancelTransactionNotPermittedUat.value = false
+  }
+}
+
+async function runCancelMerchantStatusAbnormalUat() {
+  if (!merchantId.value || runningCancelMerchantStatusAbnormalUat.value) return
+  runningCancelMerchantStatusAbnormalUat.value = true
+  error.value = null
+  cancelMerchantStatusAbnormalUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Merchant Status Abnormal.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Merchant Status Abnormal (4045708)',
+        mock_code: '4045708',
+        partner_reference_no: '4045708'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const is4045708 =
+      responseCode === '4045708' &&
+      (responseMessage === 'Invalid Merchant' ||
+        responseMessage?.toLowerCase()?.includes('invalid merchant'))
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed =
+      (is4045708 || responseCode === '4045708') && localStatus === 'pending'
+
+    cancelMerchantStatusAbnormalUat.value = {
+      passed,
+      http_status: cancelResult.http_status ?? 404,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      mock_code: '4045708',
+      partner_reference_no: '4045708',
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no || '4045708',
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Merchant Status Abnormal (4045708): Berhasil diverifikasi (Invalid Merchant, status pembayaran aman).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 4045708 (Invalid Merchant).`
+      })
+    } else {
+      error.value = `UAT 4045708 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Merchant Status Abnormal gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Merchant Status Abnormal: ${error.value}`
+    })
+  } finally {
+    runningCancelMerchantStatusAbnormalUat.value = false
+  }
+}
+
+async function runCancelTransactionNotFoundUat() {
+  if (!merchantId.value || runningCancelTransactionNotFoundUat.value) return
+  runningCancelTransactionNotFoundUat.value = true
+  error.value = null
+  cancelTransactionNotFoundUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Transaction Not Found.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Transaction Not Found (4045701)',
+        mock_code: '4045701',
+        partner_reference_no: '4045701'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const is4045701 =
+      responseCode === '4045701' &&
+      (responseMessage === 'Transaction Not Found' ||
+        responseMessage?.toLowerCase()?.includes('not found'))
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed =
+      (is4045701 || responseCode === '4045701') && localStatus === 'pending'
+
+    cancelTransactionNotFoundUat.value = {
+      passed,
+      http_status: cancelResult.http_status ?? 404,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      mock_code: '4045701',
+      partner_reference_no: '4045701',
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no || '4045701',
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Transaction Not Found (4045701): Berhasil diverifikasi (Transaction Not Found, status pembayaran aman).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 4045701 (Transaction Not Found).`
+      })
+    } else {
+      error.value = `UAT 4045701 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Transaction Not Found gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Transaction Not Found: ${error.value}`
+    })
+  } finally {
+    runningCancelTransactionNotFoundUat.value = false
+  }
+}
+
+function confirmHappyPathE2eUat() {
+  if (isAnyUatRunning.value || !merchantId.value) return
+  showHappyPathE2eConfirmDialog.value = true
+}
+
+async function executeHappyPathE2eUat() {
+  showHappyPathE2eConfirmDialog.value = false
+  if (isAnyUatRunning.value || !merchantId.value) return
+
+  runningHappyPathE2eUat.value = true
+  error.value = null
+
+  happyPathE2eResult.value = {
+    passed: false,
+    stage: 'creating',
+    payment_id: null,
+    partner_reference_no: null,
+    reference_no: null,
+    stages: {
+      create: {
+        status: 'pending',
+        timestamp: null,
+        external_id: null,
+        http_status: null,
+        response_code: null,
+        response_message: null,
+        details: null,
+        error: null
+      },
+      cancel: {
+        status: 'pending',
+        timestamp: null,
+        external_id: null,
+        http_status: null,
+        response_code: null,
+        response_message: null,
+        details: null,
+        error: null
+      },
+      inquiry: {
+        status: 'pending',
+        timestamp: null,
+        external_id: null,
+        http_status: null,
+        response_code: null,
+        response_message: null,
+        latest_transaction_status: null,
+        details: null,
+        error: null
+      }
+    },
+    final_status: null,
+    error: null
+  }
+
+  let createdPaymentId = null
+  let partnerRefNo = null
+  let providerRefNo = null
+
+  try {
+    // ----------------------------------------------------
+    // TAHAP 1: CREATE ORDER (Sandbox Hosted Checkout)
+    // ----------------------------------------------------
+    happyPathE2eResult.value.stage = 'creating'
+    const idempotencyKey =
+      typeof globalThis.crypto?.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : `E2E-${Date.now()}`
+    const createPayload = {
+      amount_minor: 10000,
+      payment_method: 'dana_wallet'
+    }
+    const createReqTime = new Date().toISOString()
+
+    let createResponse
+    try {
+      createResponse =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          createPayload,
+          idempotencyKey
+        )
+    } catch (createErr) {
+      happyPathE2eResult.value.stages.create = {
+        status: 'failed',
+        timestamp: createReqTime,
+        external_id: idempotencyKey,
+        http_status: createErr?.response?.status || 500,
+        response_code: createErr?.response?.data?.code || 'ERROR',
+        response_message: getApiErrorMessage(createErr),
+        details: null,
+        error: getApiErrorMessage(createErr)
+      }
+      happyPathE2eResult.value.stage = 'failed'
+      happyPathE2eResult.value.error = `Tahap 1 (Create Order) gagal: ${getApiErrorMessage(createErr)}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT E2E Gagal di Tahap 1 (Create Order): ${happyPathE2eResult.value.error}`
+      })
+      return
+    }
+
+    const txData = createResponse.data?.data?.transaction
+    createdPaymentId = txData?.id
+    partnerRefNo = txData?.partner_reference_no || txData?.id
+    providerRefNo = txData?.reference_no || null
+
+    transaction.value = txData ?? null
+    if (createResponse.data?.data?.result_context) {
+      sandboxResultContext.value = createResponse.data.data.result_context
+    }
+
+    happyPathE2eResult.value.payment_id = createdPaymentId
+    happyPathE2eResult.value.partner_reference_no = partnerRefNo
+    happyPathE2eResult.value.reference_no = providerRefNo
+
+    happyPathE2eResult.value.stages.create = {
+      status: 'succeeded',
+      timestamp: txData?.created_at || createReqTime,
+      external_id: createdPaymentId,
+      http_status: createResponse.status || 201,
+      response_code: '2005400',
+      response_message: 'Successful',
+      details: {
+        partner_reference_no: partnerRefNo,
+        reference_no: providerRefNo,
+        checkout_available: txData?.checkout_available,
+        status: txData?.status
+      },
+      error: null
+    }
+
+    // ----------------------------------------------------
+    // TAHAP 2: CANCEL ORDER (Pembatalan Transaksi Asli)
+    // ----------------------------------------------------
+    happyPathE2eResult.value.stage = 'cancelling'
+    const cancelReqTime = new Date().toISOString()
+
+    let cancelResponse
+    try {
+      cancelResponse =
+        await danaGatewayMerchantService.cancelDanaSandboxPayment(
+          merchantId.value,
+          createdPaymentId,
+          {
+            reason: 'UAT Happy Path E2E'
+          }
+        )
+    } catch (cancelErr) {
+      happyPathE2eResult.value.stages.cancel = {
+        status: 'failed',
+        timestamp: cancelReqTime,
+        external_id: partnerRefNo || createdPaymentId,
+        http_status: cancelErr?.response?.status || 500,
+        response_code: cancelErr?.response?.data?.code || 'ERROR',
+        response_message: getApiErrorMessage(cancelErr),
+        details: null,
+        error: getApiErrorMessage(cancelErr)
+      }
+      happyPathE2eResult.value.stage = 'failed'
+      happyPathE2eResult.value.error = `Tahap 2 (Cancel Order) gagal: ${getApiErrorMessage(cancelErr)}. Create Order tidak diulang otomatis.`
+      $q.notify({
+        type: 'negative',
+        message: `UAT E2E Gagal di Tahap 2 (Cancel Order): ${happyPathE2eResult.value.error}`
+      })
+      return
+    }
+
+    const cancelResData = cancelResponse.data?.data?.cancel_result
+    cancelPaymentResult.value = cancelResData ?? null
+
+    const cancelCode = cancelResData?.response_code
+    const cancelMsg = cancelResData?.response_message
+    const cancelPassed = cancelCode === '2005700'
+
+    happyPathE2eResult.value.stages.cancel = {
+      status: cancelPassed ? 'succeeded' : 'failed',
+      timestamp: cancelResData?.cancel_time || cancelReqTime,
+      external_id:
+        cancelResData?.outbound_original_partner_reference_no ||
+        partnerRefNo ||
+        createdPaymentId,
+      http_status: cancelResData?.http_status || cancelResponse.status || 200,
+      response_code: cancelCode,
+      response_message: cancelMsg,
+      details: {
+        original_partner_reference_no:
+          cancelResData?.original_partner_reference_no,
+        outbound_original_partner_reference_no:
+          cancelResData?.outbound_original_partner_reference_no,
+        cancel_time: cancelResData?.cancel_time,
+        request_id: cancelResData?.request_id
+      },
+      error: cancelPassed
+        ? null
+        : `Kode respons cancel tidak sesuai expected 2005700: ${cancelCode}`
+    }
+
+    if (!cancelPassed) {
+      happyPathE2eResult.value.stage = 'failed'
+      happyPathE2eResult.value.error = `Tahap 2 (Cancel Order) tidak mengembalikan 2005700: ${cancelCode} - ${cancelMsg}`
+      $q.notify({
+        type: 'negative',
+        message: `Tahap 2 (Cancel Order) tidak sukses: ${cancelCode}`
+      })
+      return
+    }
+
+    // ----------------------------------------------------
+    // TAHAP 3: STATUS INQUIRY (Verifikasi Status Akhir 05)
+    // ----------------------------------------------------
+    happyPathE2eResult.value.stage = 'inquiring'
+    const inquiryReqTime = new Date().toISOString()
+
+    let inquiryResponse
+    try {
+      inquiryResponse =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          createdPaymentId
+        )
+    } catch (inquiryErr) {
+      happyPathE2eResult.value.stages.inquiry = {
+        status: 'failed',
+        timestamp: inquiryReqTime,
+        external_id: partnerRefNo || createdPaymentId,
+        http_status: inquiryErr?.response?.status || 500,
+        response_code: inquiryErr?.response?.data?.code || 'ERROR',
+        response_message: getApiErrorMessage(inquiryErr),
+        latest_transaction_status: null,
+        details: null,
+        error: getApiErrorMessage(inquiryErr)
+      }
+      happyPathE2eResult.value.stage = 'failed'
+      happyPathE2eResult.value.error = `Tahap 3 (Status Inquiry) gagal: ${getApiErrorMessage(inquiryErr)}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT E2E Gagal di Tahap 3 (Status Inquiry): ${happyPathE2eResult.value.error}`
+      })
+      return
+    }
+
+    const inquiryData = inquiryResponse.data?.data
+    const danaStatusData = inquiryData?.dana_status
+    danaPaymentStatusResult.value = danaStatusData ?? null
+
+    const inquiryCode = danaStatusData?.response_code
+    const inquiryMsg = danaStatusData?.response_message
+    const latestTxStatus = danaStatusData?.latest_transaction_status
+    const inquiryPassed = inquiryCode === '2005500' && latestTxStatus === '05'
+
+    happyPathE2eResult.value.stages.inquiry = {
+      status: inquiryPassed ? 'succeeded' : 'failed',
+      timestamp: inquiryReqTime,
+      external_id: partnerRefNo || createdPaymentId,
+      http_status: danaStatusData?.http_status || inquiryResponse.status || 200,
+      response_code: inquiryCode,
+      response_message: inquiryMsg,
+      latest_transaction_status: latestTxStatus,
+      details: {
+        local_status: inquiryData?.local_status,
+        latest_transaction_status: latestTxStatus,
+        request_id: danaStatusData?.request_id
+      },
+      error: inquiryPassed
+        ? null
+        : `Status transaksi DANA bukan 05 (Cancelled): ${latestTxStatus}`
+    }
+
+    // ----------------------------------------------------
+    // REKAPITULASI HASIL E2E
+    // ----------------------------------------------------
+    happyPathE2eResult.value.passed = cancelPassed && inquiryPassed
+    happyPathE2eResult.value.stage = happyPathE2eResult.value.passed
+      ? 'completed'
+      : 'failed'
+    happyPathE2eResult.value.final_status =
+      latestTxStatus === '05'
+        ? '05 (Cancelled / Expired)'
+        : latestTxStatus || 'Unknown'
+
+    if (happyPathE2eResult.value.passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Happy Path E2E Berhasil: Create (2005400) → Cancel (2005700) → Inquiry (05)',
+        position: 'top'
+      })
+    } else {
+      $q.notify({
+        type: 'warning',
+        message:
+          'UAT Happy Path E2E selesai dengan catatan: periksa detail status transaksi.',
+        position: 'top'
+      })
+    }
+    await refreshHistory()
+  } catch (err) {
+    error.value = getApiErrorMessage(err)
+    if (happyPathE2eResult.value) {
+      happyPathE2eResult.value.stage = 'failed'
+      happyPathE2eResult.value.error = getApiErrorMessage(err)
+    }
+  } finally {
+    runningHappyPathE2eUat.value = false
   }
 }
 
