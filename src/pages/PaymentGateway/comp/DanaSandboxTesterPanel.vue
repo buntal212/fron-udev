@@ -635,7 +635,7 @@
               <q-icon name="cancel_presentation" size="18px" color="negative" />
               <span class="text-subtitle2 text-weight-bold">Cancel Order</span>
             </div>
-            <q-badge color="negative" outline label="6 Skenario UAT" />
+            <q-badge color="negative" outline label="7 Skenario UAT" />
           </div>
         </q-card-section>
         <q-separator />
@@ -782,6 +782,29 @@
                 class="uat-badge"
               >
                 {{ cancelTransactionNotFoundUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="timer_off"
+              label="UAT Cancel Missing Timestamp (4005702)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelMissingTimestampUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelMissingTimestampUat"
+            >
+              <q-badge
+                v-if="cancelMissingTimestampUat !== null"
+                :color="
+                  cancelMissingTimestampUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ cancelMissingTimestampUat?.passed ? 'PASS' : 'FAIL' }}
               </q-badge>
             </q-btn>
           </div>
@@ -2504,6 +2527,97 @@
     </q-banner>
 
     <q-banner
+      v-if="cancelMissingTimestampUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            cancelMissingTimestampUat.passed ? 'check_circle' : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        Pembatalan Ditolak — Missing Mandatory Field (4005702)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="cancelMissingTimestampUat.passed ? 'positive' : 'negative'"
+        >
+          {{
+            cancelMissingTimestampUat.passed
+              ? 'Lolos (4005702 / Missing Mandatory Field)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref Asli (DB):
+          <code>{{
+            cancelMissingTimestampUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Header X-TIMESTAMP:
+          <q-badge
+            :color="
+              !cancelMissingTimestampUat.x_timestamp_sent
+                ? 'positive'
+                : 'negative'
+            "
+          >
+            {{
+              !cancelMissingTimestampUat.x_timestamp_sent
+                ? 'Tidak Dikirim (BENAR)'
+                : 'Terkirim (SALAH)'
+            }}
+          </q-badge>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelMissingTimestampUat.http_status }} · responseCode
+        <code>{{
+          cancelMissingTimestampUat.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ cancelMissingTimestampUat.response_message }}
+        <span v-if="cancelMissingTimestampUat.cancel_time">
+          · Waktu: {{ cancelMissingTimestampUat.cancel_time }}
+        </span>
+        <span v-if="cancelMissingTimestampUat.request_id">
+          · Request ID: {{ cancelMissingTimestampUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelMissingTimestampUat.local_status === 'pending'
+              ? 'warning'
+              : 'negative'
+          "
+        >
+          {{ cancelMissingTimestampUat.local_status || 'pending' }}
+        </q-badge>
+        (Permintaan pembatalan ditolak oleh DANA Sandbox karena header
+        X-TIMESTAMP sengaja dihilangkan. Status pembayaran lokal dan invoice
+        tetap aman, tidak berubah sepihak).
+        <span v-if="cancelMissingTimestampUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{
+            cancelMissingTimestampUat.status_inquiry.response_code
+          }}</code>
+          ({{
+            cancelMissingTimestampUat.status_inquiry
+              .latest_transaction_status || '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
       v-if="armedWebhook500Uat"
       rounded
       class="transport-notice q-mt-md"
@@ -3186,6 +3300,7 @@ const runningCancelOrderInProgressUat = ref(false)
 const runningCancelTransactionNotPermittedUat = ref(false)
 const runningCancelMerchantStatusAbnormalUat = ref(false)
 const runningCancelTransactionNotFoundUat = ref(false)
+const runningCancelMissingTimestampUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -3220,6 +3335,7 @@ const cancelInProgressUat = ref(null)
 const cancelTransactionNotPermittedUat = ref(null)
 const cancelMerchantStatusAbnormalUat = ref(null)
 const cancelTransactionNotFoundUat = ref(null)
+const cancelMissingTimestampUat = ref(null)
 const runningHappyPathE2eUat = ref(false)
 const showHappyPathE2eConfirmDialog = ref(false)
 const happyPathE2eResult = ref(null)
@@ -3253,6 +3369,7 @@ const isAnyUatRunning = computed(() => {
     runningCancelTransactionNotPermittedUat.value ||
     runningCancelMerchantStatusAbnormalUat.value ||
     runningCancelTransactionNotFoundUat.value ||
+    runningCancelMissingTimestampUat.value ||
     armingWebhook500.value
   )
 })
@@ -4687,6 +4804,123 @@ async function runCancelTransactionNotFoundUat() {
     })
   } finally {
     runningCancelTransactionNotFoundUat.value = false
+  }
+}
+
+async function runCancelMissingTimestampUat() {
+  if (!merchantId.value || runningCancelMissingTimestampUat.value) return
+  runningCancelMissingTimestampUat.value = true
+  error.value = null
+  cancelMissingTimestampUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Cancel Missing Timestamp.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Cancel Missing Mandatory Field (4005702)',
+        mock_code: '4005702',
+        partner_reference_no: '4005702'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const httpStatus = cancelResult.http_status ?? 400
+    const xTimestampSent = cancelResult.x_timestamp_sent ?? false
+
+    const is4005702 =
+      responseCode === '4005702' &&
+      httpStatus === 400 &&
+      xTimestampSent === false
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed = is4005702 && localStatus === 'pending'
+
+    cancelMissingTimestampUat.value = {
+      passed,
+      http_status: httpStatus,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      mock_code: '4005702',
+      x_timestamp_sent: xTimestampSent,
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no || targetPaymentId,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Cancel Missing Timestamp (4005702): Berhasil diverifikasi (Missing Mandatory Field, status pembayaran aman).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 4005702 (Missing Mandatory Field).`
+      })
+    } else {
+      error.value = `UAT 4005702 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Cancel Missing Timestamp gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Cancel Missing Timestamp: ${error.value}`
+    })
+  } finally {
+    runningCancelMissingTimestampUat.value = false
   }
 }
 
