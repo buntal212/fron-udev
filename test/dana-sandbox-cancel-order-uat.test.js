@@ -26,6 +26,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /label="UAT Cancel Missing Timestamp \(4005702\)"/)
   assert.match(panel, /label="UAT Cancel Expired \(4035700\)"/)
   assert.match(panel, /label="UAT Cancel Not Allowed \(4035715\)"/)
+  assert.match(panel, /label="UAT Cancel Insufficient Funds \(4035714\)"/)
   assert.match(panel, /confirmHappyPathE2eUat/)
   assert.match(panel, /executeHappyPathE2eUat/)
   assert.match(panel, /runningHappyPathE2eUat/)
@@ -41,6 +42,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /runCancelMissingTimestampUat/)
   assert.match(panel, /runCancelExpiredUat/)
   assert.match(panel, /runCancelNotAllowedUat/)
+  assert.match(panel, /runCancelInsufficientFundsUat/)
   assert.match(panel, /cancellingTransaction/)
   assert.match(panel, /runningCancelOrderInProgressUat/)
   assert.match(panel, /runningCancelTransactionNotPermittedUat/)
@@ -49,6 +51,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /runningCancelMissingTimestampUat/)
   assert.match(panel, /runningCancelExpiredUat/)
   assert.match(panel, /runningCancelNotAllowedUat/)
+  assert.match(panel, /runningCancelInsufficientFundsUat/)
   assert.match(panel, /cancelPaymentResult/)
   assert.match(panel, /cancelInProgressUat/)
   assert.match(panel, /cancelTransactionNotPermittedUat/)
@@ -57,6 +60,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /cancelMissingTimestampUat/)
   assert.match(panel, /cancelExpiredUat/)
   assert.match(panel, /cancelNotAllowedUat/)
+  assert.match(panel, /cancelInsufficientFundsUat/)
 
   // Kelompok kategori dan grid responsif
   assert.match(panel, /Konfigurasi/)
@@ -146,6 +150,13 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /cancelNotAllowedUat\.response_code/)
   assert.match(panel, /cancelNotAllowedUat\.response_message/)
   assert.match(panel, /cancelNotAllowedUat\.local_status/)
+
+  // Banner hasil UAT Cancel Insufficient Funds (4035714)
+  assert.match(panel, /Pembatalan Ditolak — Insufficient Funds \(4035714\)/)
+  assert.match(panel, /Lolos \(4035714 \/ Insufficient Funds\)/)
+  assert.match(panel, /cancelInsufficientFundsUat\.response_code/)
+  assert.match(panel, /cancelInsufficientFundsUat\.response_message/)
+  assert.match(panel, /cancelInsufficientFundsUat\.local_status/)
 
   // Keamanan: tidak mengekspos credential, private key, atau token
   const uatSection = panel.split('<div v-if="validation"')[0]

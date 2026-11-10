@@ -635,7 +635,7 @@
               <q-icon name="cancel_presentation" size="18px" color="negative" />
               <span class="text-subtitle2 text-weight-bold">Cancel Order</span>
             </div>
-            <q-badge color="negative" outline label="9 Skenario UAT" />
+            <q-badge color="negative" outline label="10 Skenario UAT" />
           </div>
         </q-card-section>
         <q-separator />
@@ -847,6 +847,29 @@
                 class="uat-badge"
               >
                 {{ cancelNotAllowedUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="account_balance_wallet"
+              label="UAT Cancel Insufficient Funds (4035714)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelInsufficientFundsUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelInsufficientFundsUat"
+            >
+              <q-badge
+                v-if="cancelInsufficientFundsUat !== null"
+                :color="
+                  cancelInsufficientFundsUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ cancelInsufficientFundsUat?.passed ? 'PASS' : 'FAIL' }}
               </q-badge>
             </q-btn>
           </div>
@@ -2804,6 +2827,89 @@
     </q-banner>
 
     <q-banner
+      v-if="cancelInsufficientFundsUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            cancelInsufficientFundsUat.passed ? 'check_circle' : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        Pembatalan Ditolak — Insufficient Funds (4035714)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="cancelInsufficientFundsUat.passed ? 'positive' : 'negative'"
+        >
+          {{
+            cancelInsufficientFundsUat.passed
+              ? 'Lolos (4035714 / Insufficient Funds)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref Mock (Outbound):
+          <code>{{
+            cancelInsufficientFundsUat.outbound_original_partner_reference_no ||
+            cancelInsufficientFundsUat.mock_code ||
+            '4035714'
+          }}</code>
+          · Ref Asli (DB):
+          <code>{{
+            cancelInsufficientFundsUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelInsufficientFundsUat.http_status }} · responseCode
+        <code>{{
+          cancelInsufficientFundsUat.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ cancelInsufficientFundsUat.response_message }}
+        <span v-if="cancelInsufficientFundsUat.cancel_time">
+          · Waktu: {{ cancelInsufficientFundsUat.cancel_time }}
+        </span>
+        <span v-if="cancelInsufficientFundsUat.request_id">
+          · Request ID: {{ cancelInsufficientFundsUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelInsufficientFundsUat.local_status === 'pending'
+              ? 'warning'
+              : 'negative'
+          "
+        >
+          {{ cancelInsufficientFundsUat.local_status || 'pending' }}
+        </q-badge>
+        (Pembatalan ditolak oleh DANA Sandbox karena saldo merchant tidak
+        mencukupi. Status pembayaran lokal dan invoice tetap aman, tidak berubah
+        sepihak).
+        <span v-if="cancelInsufficientFundsUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{
+            cancelInsufficientFundsUat.status_inquiry.response_code
+          }}</code>
+          ({{
+            cancelInsufficientFundsUat.status_inquiry
+              .latest_transaction_status || '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
       v-if="armedWebhook500Uat"
       rounded
       class="transport-notice q-mt-md"
@@ -3489,6 +3595,7 @@ const runningCancelTransactionNotFoundUat = ref(false)
 const runningCancelMissingTimestampUat = ref(false)
 const runningCancelExpiredUat = ref(false)
 const runningCancelNotAllowedUat = ref(false)
+const runningCancelInsufficientFundsUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -3526,6 +3633,7 @@ const cancelTransactionNotFoundUat = ref(null)
 const cancelMissingTimestampUat = ref(null)
 const cancelExpiredUat = ref(null)
 const cancelNotAllowedUat = ref(null)
+const cancelInsufficientFundsUat = ref(null)
 const runningHappyPathE2eUat = ref(false)
 const showHappyPathE2eConfirmDialog = ref(false)
 const happyPathE2eResult = ref(null)
@@ -3562,6 +3670,7 @@ const isAnyUatRunning = computed(() => {
     runningCancelMissingTimestampUat.value ||
     runningCancelExpiredUat.value ||
     runningCancelNotAllowedUat.value ||
+    runningCancelInsufficientFundsUat.value ||
     armingWebhook500.value
   )
 })
@@ -5343,6 +5452,121 @@ async function runCancelNotAllowedUat() {
     })
   } finally {
     runningCancelNotAllowedUat.value = false
+  }
+}
+
+async function runCancelInsufficientFundsUat() {
+  if (!merchantId.value || runningCancelInsufficientFundsUat.value) return
+  runningCancelInsufficientFundsUat.value = true
+  error.value = null
+  cancelInsufficientFundsUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Cancel Insufficient Funds.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Cancel Insufficient Funds (4035714)',
+        mock_code: '4035714',
+        partner_reference_no: '4035714'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const is4035714 =
+      responseCode === '4035714' &&
+      (responseMessage === 'Insufficient Funds' ||
+        responseMessage?.toLowerCase()?.includes('insufficient'))
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed =
+      (is4035714 || responseCode === '4035714') && localStatus === 'pending'
+
+    cancelInsufficientFundsUat.value = {
+      passed,
+      http_status: cancelResult.http_status ?? 403,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      mock_code: '4035714',
+      partner_reference_no: '4035714',
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no || '4035714',
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Cancel Insufficient Funds (4035714): Berhasil diverifikasi (Insufficient Funds, status pembayaran aman).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 4035714 (Insufficient Funds).`
+      })
+    } else {
+      error.value = `UAT 4035714 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Cancel Insufficient Funds gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Cancel Insufficient Funds: ${error.value}`
+    })
+  } finally {
+    runningCancelInsufficientFundsUat.value = false
   }
 }
 
