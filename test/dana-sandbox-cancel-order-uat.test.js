@@ -28,6 +28,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /label="UAT Cancel Not Allowed \(4035715\)"/)
   assert.match(panel, /label="UAT Cancel Insufficient Funds \(4035714\)"/)
   assert.match(panel, /label="UAT Cancel Invalid Signature \(4015700\)"/)
+  assert.match(panel, /label="UAT Cancel Timeout \(5005701\)"/)
   assert.match(panel, /confirmHappyPathE2eUat/)
   assert.match(panel, /executeHappyPathE2eUat/)
   assert.match(panel, /runningHappyPathE2eUat/)
@@ -45,6 +46,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /runCancelNotAllowedUat/)
   assert.match(panel, /runCancelInsufficientFundsUat/)
   assert.match(panel, /runCancelInvalidSignatureUat/)
+  assert.match(panel, /runCancelTimeoutUat/)
   assert.match(panel, /cancellingTransaction/)
   assert.match(panel, /runningCancelOrderInProgressUat/)
   assert.match(panel, /runningCancelTransactionNotPermittedUat/)
@@ -55,6 +57,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /runningCancelNotAllowedUat/)
   assert.match(panel, /runningCancelInsufficientFundsUat/)
   assert.match(panel, /runningCancelInvalidSignatureUat/)
+  assert.match(panel, /runningCancelTimeoutUat/)
   assert.match(panel, /cancelPaymentResult/)
   assert.match(panel, /cancelInProgressUat/)
   assert.match(panel, /cancelTransactionNotPermittedUat/)
@@ -65,6 +68,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /cancelNotAllowedUat/)
   assert.match(panel, /cancelInsufficientFundsUat/)
   assert.match(panel, /cancelInvalidSignatureUat/)
+  assert.match(panel, /cancelTimeoutUat/)
 
   // Kelompok kategori dan grid responsif
   assert.match(panel, /Konfigurasi/)
@@ -169,6 +173,16 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /cancelInvalidSignatureUat\.response_code/)
   assert.match(panel, /cancelInvalidSignatureUat\.response_message/)
   assert.match(panel, /cancelInvalidSignatureUat\.local_status/)
+
+  // Banner hasil UAT Cancel Timeout (5005701)
+  assert.match(
+    panel,
+    /Pembatalan Ditolak — Internal Server Error \/ Timeout \(5005701\)/
+  )
+  assert.match(panel, /Lolos \(5005701 \/ Internal Server Error\)/)
+  assert.match(panel, /cancelTimeoutUat\.response_code/)
+  assert.match(panel, /cancelTimeoutUat\.response_message/)
+  assert.match(panel, /cancelTimeoutUat\.local_status/)
 
   // Keamanan: tidak mengekspos credential, private key, atau token
   const uatSection = panel.split('<div v-if="validation"')[0]

@@ -635,7 +635,7 @@
               <q-icon name="cancel_presentation" size="18px" color="negative" />
               <span class="text-subtitle2 text-weight-bold">Cancel Order</span>
             </div>
-            <q-badge color="negative" outline label="11 Skenario UAT" />
+            <q-badge color="negative" outline label="12 Skenario UAT" />
           </div>
         </q-card-section>
         <q-separator />
@@ -893,6 +893,27 @@
                 class="uat-badge"
               >
                 {{ cancelInvalidSignatureUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="hourglass_empty"
+              label="UAT Cancel Timeout (5005701)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelTimeoutUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelTimeoutUat"
+            >
+              <q-badge
+                v-if="cancelTimeoutUat !== null"
+                :color="cancelTimeoutUat?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ cancelTimeoutUat?.passed ? 'PASS' : 'FAIL' }}
               </q-badge>
             </q-btn>
           </div>
@@ -2563,7 +2584,7 @@
           <code>{{
             cancelTransactionNotFoundUat.outbound_original_partner_reference_no ||
             cancelTransactionNotFoundUat.mock_code ||
-            '4045701'
+            '12345678'
           }}</code>
           · Ref Asli (DB):
           <code>{{
@@ -3012,6 +3033,75 @@
           ({{
             cancelInvalidSignatureUat.status_inquiry
               .latest_transaction_status || '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner v-if="cancelTimeoutUat" rounded class="transport-notice q-mt-md">
+      <template #avatar>
+        <q-icon
+          :name="cancelTimeoutUat.passed ? 'check_circle' : 'error_outline'"
+        />
+      </template>
+      <div class="text-weight-bold">
+        Pembatalan Ditolak — Internal Server Error / Timeout (5005701)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge :color="cancelTimeoutUat.passed ? 'positive' : 'negative'">
+          {{
+            cancelTimeoutUat.passed
+              ? 'Lolos (5005701 / Internal Server Error)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref Mock (Outbound):
+          <code>{{
+            cancelTimeoutUat.outbound_original_partner_reference_no ||
+            cancelTimeoutUat.mock_code ||
+            '5005701'
+          }}</code>
+          · Ref Asli (DB):
+          <code>{{
+            cancelTimeoutUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelTimeoutUat.http_status }} · responseCode
+        <code>{{ cancelTimeoutUat.response_code || 'Tidak tersedia' }}</code>
+        · {{ cancelTimeoutUat.response_message }}
+        <span v-if="cancelTimeoutUat.cancel_time">
+          · Waktu: {{ cancelTimeoutUat.cancel_time }}
+        </span>
+        <span v-if="cancelTimeoutUat.request_id">
+          · Request ID: {{ cancelTimeoutUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelTimeoutUat.local_status === 'pending' ? 'warning' : 'negative'
+          "
+        >
+          {{ cancelTimeoutUat.local_status || 'pending' }}
+        </q-badge>
+        (Pembatalan mengembalikan HTTP 500 dari gateway DANA Sandbox, bukan
+        network timeout lokal. Status pembayaran lokal dan invoice tetap aman,
+        tidak berubah sepihak).
+        <span v-if="cancelTimeoutUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{ cancelTimeoutUat.status_inquiry.response_code }}</code>
+          ({{
+            cancelTimeoutUat.status_inquiry.latest_transaction_status ||
+            '01/Pending'
           }})
         </span>
       </div>
@@ -3705,6 +3795,7 @@ const runningCancelExpiredUat = ref(false)
 const runningCancelNotAllowedUat = ref(false)
 const runningCancelInsufficientFundsUat = ref(false)
 const runningCancelInvalidSignatureUat = ref(false)
+const runningCancelTimeoutUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -3744,6 +3835,7 @@ const cancelExpiredUat = ref(null)
 const cancelNotAllowedUat = ref(null)
 const cancelInsufficientFundsUat = ref(null)
 const cancelInvalidSignatureUat = ref(null)
+const cancelTimeoutUat = ref(null)
 const signatureHeaderLabel = 'X-SIGNATURE'
 const runningHappyPathE2eUat = ref(false)
 const showHappyPathE2eConfirmDialog = ref(false)
@@ -3783,6 +3875,7 @@ const isAnyUatRunning = computed(() => {
     runningCancelNotAllowedUat.value ||
     runningCancelInsufficientFundsUat.value ||
     runningCancelInvalidSignatureUat.value ||
+    runningCancelTimeoutUat.value ||
     armingWebhook500.value
   )
 })
@@ -5143,7 +5236,7 @@ async function runCancelTransactionNotFoundUat() {
       {
         reason: 'UAT Transaction Not Found (4045701)',
         mock_code: '4045701',
-        partner_reference_no: '4045701'
+        partner_reference_no: '12345678'
       }
     )
 
@@ -5179,9 +5272,9 @@ async function runCancelTransactionNotFoundUat() {
       response_message: responseMessage || 'Tidak tersedia',
       cancel_time: cancelResult.cancel_time,
       mock_code: '4045701',
-      partner_reference_no: '4045701',
+      partner_reference_no: '12345678',
       outbound_original_partner_reference_no:
-        cancelResult.outbound_original_partner_reference_no || '4045701',
+        cancelResult.outbound_original_partner_reference_no || '12345678',
       original_partner_reference_no:
         cancelResult.original_partner_reference_no || targetPaymentId,
       request_id: cancelResult.request_id,
@@ -5799,6 +5892,122 @@ async function runCancelInvalidSignatureUat() {
     })
   } finally {
     runningCancelInvalidSignatureUat.value = false
+  }
+}
+
+async function runCancelTimeoutUat() {
+  if (!merchantId.value || runningCancelTimeoutUat.value) return
+  runningCancelTimeoutUat.value = true
+  error.value = null
+  cancelTimeoutUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Cancel Timeout.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Cancel Timeout (5005701)',
+        mock_code: '5005701',
+        partner_reference_no: '5005701'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const is5005701 =
+      responseCode === '5005701' &&
+      (responseMessage?.toLowerCase()?.includes('internal server error') ||
+        responseMessage?.toLowerCase()?.includes('timeout') ||
+        cancelResult.http_status === 500)
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed =
+      (is5005701 || responseCode === '5005701') && localStatus === 'pending'
+
+    cancelTimeoutUat.value = {
+      passed,
+      http_status: cancelResult.http_status ?? 500,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      mock_code: '5005701',
+      partner_reference_no: '5005701',
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no || '5005701',
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Cancel Timeout (5005701): Berhasil diverifikasi (5005701 / Internal Server Error, status pembayaran aman).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 5005701 (Internal Server Error).`
+      })
+    } else {
+      error.value = `UAT 5005701 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Cancel Timeout gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Cancel Timeout: ${error.value}`
+    })
+  } finally {
+    runningCancelTimeoutUat.value = false
   }
 }
 
