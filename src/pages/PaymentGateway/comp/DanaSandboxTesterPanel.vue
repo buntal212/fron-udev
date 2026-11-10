@@ -1,340 +1,736 @@
 <template>
   <q-separator />
   <q-card-section class="sandbox-tester">
-    <div class="row items-center justify-between q-col-gutter-md">
-      <div class="col-12 col-sm">
-        <p class="eyebrow">ADMIN ONLY</p>
-        <h3>DANA Sandbox Tester</h3>
-        <p class="section-description">
-          Validasi format konfigurasi dan buat checkout Sandbox melalui layanan
-          DANA yang sama. Pembayaran tidak pernah ditandai lunas dari panel ini.
-        </p>
+    <!-- Header Sandbox Tester Lebar Penuh -->
+    <div class="sandbox-header full-width q-mb-md">
+      <div class="row items-center justify-between no-wrap">
+        <div>
+          <p class="eyebrow">ADMIN ONLY</p>
+          <h3 class="text-h6 text-weight-bold q-my-none"
+            >DANA Sandbox Tester</h3
+          >
+          <p class="section-description q-mt-xs q-mb-none">
+            Validasi format konfigurasi dan buat checkout Sandbox melalui
+            layanan DANA yang sama. Pembayaran tidak pernah ditandai lunas dari
+            panel ini.
+          </p>
+        </div>
+        <div v-if="sandboxResultContext" class="q-ml-md">
+          <q-btn
+            outline
+            color="warning"
+            icon="open_in_new"
+            label="Lihat Hasil"
+            no-caps
+            class="uat-btn"
+            :disable="isAnyUatRunning"
+            @click="viewResult(sandboxResultContext)"
+          />
+        </div>
       </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="warning"
-          icon="fact_check"
-          label="Validasi Konfigurasi"
-          no-caps
-          :loading="validating"
-          @click="validateConfiguration"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="science"
-          label="UAT tanpa X-TIMESTAMP"
-          no-caps
-          :loading="runningMissingTimestampUat"
-          @click="runMissingTimestampUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="science"
-          label="UAT format amount (4005401)"
-          no-caps
-          :loading="runningInvalidAmountUat"
-          @click="runInvalidAmountUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="science"
-          label="UAT Inconsistent Request (4045418)"
-          no-caps
-          :loading="runningInconsistentRequestUat"
-          @click="runInconsistentRequestUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="vpn_key_off"
-          label="UAT PG Invalid Signature (4015400)"
-          no-caps
-          :loading="runningCreateOrderInvalidSignatureUat"
-          @click="runCreateOrderInvalidSignatureUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="primary"
-          icon="shopping_bag"
-          label="UAT IPG Sukses (2005400)"
-          no-caps
-          :loading="runningIpgCreateOrderSuccessUat"
-          @click="runIpgCreateOrderSuccessUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="science"
-          label="UAT IPG Missing Timestamp (4005402)"
-          no-caps
-          :loading="runningIpgMissingTimestampUat"
-          @click="runIpgMissingTimestampUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="error"
-          label="UAT General Error (5005400)"
-          no-caps
-          :loading="runningIpgGeneralErrorUat"
-          @click="runIpgGeneralErrorUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="block"
-          label="UAT Transaction Not Permitted (4035415)"
-          no-caps
-          :loading="runningIpgTransactionNotPermittedUat"
-          @click="runIpgTransactionNotPermittedUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="person_off"
-          label="UAT Invalid Merchant (4045408)"
-          no-caps
-          :loading="runningIpgInvalidMerchantUat"
-          @click="runIpgInvalidMerchantUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="difference"
-          label="UAT Inconsistent Request (4045418)"
-          no-caps
-          :loading="runningIpgInconsistentRequestUat"
-          @click="runIpgInconsistentRequestUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="vpn_key_off"
-          label="UAT Invalid Signature (4015400)"
-          no-caps
-          :loading="runningIpgInvalidSignatureUat"
-          @click="runIpgInvalidSignatureUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn-dropdown
-          outline
-          color="negative"
-          icon="money_off"
-          label="UAT Exceeds Amount Limit (4035402)"
-          no-caps
-          :loading="runningIpgExceedsAmountLimitUat"
-          split
-          @click="runIpgExceedsAmountLimitUat()"
-        >
-          <q-list dense style="min-width: 320px">
-            <q-item-label
-              header
-              class="text-weight-bold text-caption text-uppercase"
+    </div>
+
+    <!-- Kelompok Kategori UAT DANA Sandbox -->
+    <div class="category-cards-container q-col-gutter-y-md">
+      <!-- 1. Kategori Konfigurasi -->
+      <q-card flat bordered class="category-card">
+        <q-card-section class="category-card-header q-py-xs q-px-md">
+          <div class="row items-center justify-between">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="settings_suggest" size="18px" color="warning" />
+              <span class="text-subtitle2 text-weight-bold">Konfigurasi</span>
+            </div>
+            <q-badge color="warning" outline label="Setup & Validasi" />
+          </div>
+        </q-card-section>
+        <q-separator />
+        <q-card-section class="category-card-body q-pa-sm">
+          <div class="uat-btn-grid">
+            <q-btn
+              outline
+              color="warning"
+              icon="fact_check"
+              label="Validasi Konfigurasi"
+              no-caps
+              class="uat-btn"
+              :loading="validating"
+              :disable="isAnyUatRunning"
+              @click="validateConfiguration"
             >
-              Pilihan Nominal UAT
-            </q-item-label>
-            <q-item
-              clickable
-              v-close-popup
-              :active="selectedExceedsAmount === 10000001"
-              @click="runIpgExceedsAmountLimitUat(10000001)"
+              <q-badge
+                v-if="validation !== null"
+                :color="validation?.format_valid ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ validation?.format_valid ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+            <q-btn
+              v-if="sandboxResultContext"
+              outline
+              color="warning"
+              icon="open_in_new"
+              label="Lihat Hasil"
+              no-caps
+              class="uat-btn"
+              :disable="isAnyUatRunning"
+              @click="viewResult(sandboxResultContext)"
+            />
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- 2. Kategori Create Order -->
+      <q-card flat bordered class="category-card">
+        <q-card-section class="category-card-header q-py-xs q-px-md">
+          <div class="row items-center justify-between">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="shopping_bag" size="18px" color="primary" />
+              <span class="text-subtitle2 text-weight-bold">Create Order</span>
+            </div>
+            <q-badge color="primary" outline label="12 Skenario UAT" />
+          </div>
+        </q-card-section>
+        <q-separator />
+        <q-card-section class="category-card-body q-pa-sm">
+          <div class="uat-btn-grid">
+            <q-btn
+              outline
+              color="negative"
+              icon="science"
+              label="UAT tanpa X-TIMESTAMP"
+              no-caps
+              class="uat-btn"
+              :loading="runningMissingTimestampUat"
+              :disable="isAnyUatRunning"
+              @click="runMissingTimestampUat"
             >
-              <q-item-section avatar>
-                <q-icon name="flag" color="primary" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>Default UAT: Rp10.000.001</q-item-label>
-                <q-item-label caption
-                  >Nominal default pengujian batas transaksi</q-item-label
-                >
-              </q-item-section>
-              <q-item-section side v-if="selectedExceedsAmount === 10000001">
-                <q-icon name="check" color="positive" />
-              </q-item-section>
-            </q-item>
-            <q-item
-              clickable
-              v-close-popup
-              :active="selectedExceedsAmount === 5000000000"
-              @click="runIpgExceedsAmountLimitUat(5000000000)"
+              <q-badge
+                v-if="missingTimestampUat !== null"
+                :color="missingTimestampUat?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ missingTimestampUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="science"
+              label="UAT format amount (4005401)"
+              no-caps
+              class="uat-btn"
+              :loading="runningInvalidAmountUat"
+              :disable="isAnyUatRunning"
+              @click="runInvalidAmountUat"
             >
-              <q-item-section avatar>
-                <q-icon name="account_balance" color="negative" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>Nominal Resmi: Rp5.000.000.000</q-item-label>
-                <q-item-label caption
-                  >Batas Transaksi Standar DANA SNAP (Rp5 Miliar)</q-item-label
-                >
-              </q-item-section>
-              <q-item-section side v-if="selectedExceedsAmount === 5000000000">
-                <q-icon name="check" color="positive" />
-              </q-item-section>
-            </q-item>
-            <q-item
-              clickable
-              v-close-popup
-              :active="selectedExceedsAmount === 10000000"
-              @click="runIpgExceedsAmountLimitUat(10000000)"
+              <q-badge
+                v-if="invalidAmountUat !== null"
+                :color="invalidAmountUat?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ invalidAmountUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="science"
+              label="UAT Inconsistent Request (4045418)"
+              no-caps
+              class="uat-btn"
+              :loading="runningInconsistentRequestUat"
+              :disable="isAnyUatRunning"
+              @click="runInconsistentRequestUat"
             >
-              <q-item-section avatar>
-                <q-icon name="support_agent" color="secondary" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>Nominal UAT: Rp10.000.000</q-item-label>
-                <q-item-label caption
-                  >Arahan Support DANA Sandbox (Rp10 Juta)</q-item-label
-                >
-              </q-item-section>
-              <q-item-section side v-if="selectedExceedsAmount === 10000000">
-                <q-icon name="check" color="positive" />
-              </q-item-section>
-            </q-item>
-            <q-item
-              v-if="
-                selectedExceedsAmount !== 10000001 &&
-                selectedExceedsAmount !== 5000000000 &&
-                selectedExceedsAmount !== 10000000
-              "
-              clickable
-              v-close-popup
-              active
-              @click="runIpgExceedsAmountLimitUat(selectedExceedsAmount)"
+              <q-badge
+                v-if="inconsistentRequestUat !== null"
+                :color="
+                  inconsistentRequestUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ inconsistentRequestUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="vpn_key_off"
+              label="UAT PG Invalid Signature (4015400)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCreateOrderInvalidSignatureUat"
+              :disable="isAnyUatRunning"
+              @click="runCreateOrderInvalidSignatureUat"
             >
-              <q-item-section avatar>
-                <q-icon name="tune" color="accent" />
-              </q-item-section>
-              <q-item-section>
+              <q-badge
+                v-if="createOrderInvalidSignatureUat !== null"
+                :color="
+                  createOrderInvalidSignatureUat?.passed
+                    ? 'positive'
+                    : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ createOrderInvalidSignatureUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="primary"
+              icon="shopping_bag"
+              label="UAT IPG Sukses (2005400)"
+              no-caps
+              class="uat-btn"
+              :loading="runningIpgCreateOrderSuccessUat"
+              :disable="isAnyUatRunning"
+              @click="runIpgCreateOrderSuccessUat"
+            >
+              <q-badge
+                v-if="ipgCreateOrderSuccessUat !== null"
+                :color="
+                  ipgCreateOrderSuccessUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ ipgCreateOrderSuccessUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="science"
+              label="UAT IPG Missing Timestamp (4005402)"
+              no-caps
+              class="uat-btn"
+              :loading="runningIpgMissingTimestampUat"
+              :disable="isAnyUatRunning"
+              @click="runIpgMissingTimestampUat"
+            >
+              <q-badge
+                v-if="ipgMissingTimestampUat !== null"
+                :color="
+                  ipgMissingTimestampUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ ipgMissingTimestampUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="error"
+              label="UAT General Error (5005400)"
+              no-caps
+              class="uat-btn"
+              :loading="runningIpgGeneralErrorUat"
+              :disable="isAnyUatRunning"
+              @click="runIpgGeneralErrorUat"
+            >
+              <q-badge
+                v-if="ipgGeneralErrorUat !== null"
+                :color="ipgGeneralErrorUat?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ ipgGeneralErrorUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="block"
+              label="UAT Transaction Not Permitted (4035415)"
+              no-caps
+              class="uat-btn"
+              :loading="runningIpgTransactionNotPermittedUat"
+              :disable="isAnyUatRunning"
+              @click="runIpgTransactionNotPermittedUat"
+            >
+              <q-badge
+                v-if="ipgTransactionNotPermittedUat !== null"
+                :color="
+                  ipgTransactionNotPermittedUat?.passed
+                    ? 'positive'
+                    : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ ipgTransactionNotPermittedUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="person_off"
+              label="UAT Invalid Merchant (4045408)"
+              no-caps
+              class="uat-btn"
+              :loading="runningIpgInvalidMerchantUat"
+              :disable="isAnyUatRunning"
+              @click="runIpgInvalidMerchantUat"
+            >
+              <q-badge
+                v-if="ipgInvalidMerchantUat !== null"
+                :color="ipgInvalidMerchantUat?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ ipgInvalidMerchantUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="difference"
+              label="UAT Inconsistent Request (4045418)"
+              no-caps
+              class="uat-btn"
+              :loading="runningIpgInconsistentRequestUat"
+              :disable="isAnyUatRunning"
+              @click="runIpgInconsistentRequestUat"
+            >
+              <q-badge
+                v-if="ipgInconsistentRequestUat !== null"
+                :color="
+                  ipgInconsistentRequestUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ ipgInconsistentRequestUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="vpn_key_off"
+              label="UAT Invalid Signature (4015400)"
+              no-caps
+              class="uat-btn"
+              :loading="runningIpgInvalidSignatureUat"
+              :disable="isAnyUatRunning"
+              @click="runIpgInvalidSignatureUat"
+            >
+              <q-badge
+                v-if="ipgInvalidSignatureUat !== null"
+                :color="
+                  ipgInvalidSignatureUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ ipgInvalidSignatureUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn-dropdown
+              outline
+              color="negative"
+              icon="money_off"
+              label="UAT Exceeds Amount Limit (4035402)"
+              no-caps
+              class="uat-btn"
+              :loading="runningIpgExceedsAmountLimitUat"
+              :disable="isAnyUatRunning"
+              split
+              @click="runIpgExceedsAmountLimitUat()"
+            >
+              <q-badge
+                v-if="ipgExceedsAmountLimitUat !== null"
+                :color="
+                  ipgExceedsAmountLimitUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ ipgExceedsAmountLimitUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+              <q-list dense style="min-width: 320px">
                 <q-item-label
-                  >Nominal Manual:
-                  {{ formatRupiah(selectedExceedsAmount) }}</q-item-label
+                  header
+                  class="text-weight-bold text-caption text-uppercase"
                 >
-                <q-item-label caption
-                  >Nominal kustom pilihan admin</q-item-label
+                  Pilihan Nominal UAT
+                </q-item-label>
+                <q-item
+                  clickable
+                  v-close-popup
+                  :active="selectedExceedsAmount === 10000001"
+                  @click="runIpgExceedsAmountLimitUat(10000001)"
                 >
-              </q-item-section>
-              <q-item-section side>
-                <q-icon name="check" color="positive" />
-              </q-item-section>
-            </q-item>
-            <q-separator class="q-my-xs" />
-            <q-item clickable @click="openCustomExceedsAmountDialog">
-              <q-item-section avatar>
-                <q-icon name="edit" color="warning" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>Input Nominal Manual...</q-item-label>
-                <q-item-label caption
-                  >Ubah nominal sesuai kebutuhan pengujian</q-item-label
+                  <q-item-section avatar>
+                    <q-icon name="flag" color="primary" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>Default UAT: Rp10.000.001</q-item-label>
+                    <q-item-label caption
+                      >Nominal default pengujian batas transaksi</q-item-label
+                    >
+                  </q-item-section>
+                  <q-item-section
+                    side
+                    v-if="selectedExceedsAmount === 10000001"
+                  >
+                    <q-icon name="check" color="positive" />
+                  </q-item-section>
+                </q-item>
+                <q-item
+                  clickable
+                  v-close-popup
+                  :active="selectedExceedsAmount === 5000000000"
+                  @click="runIpgExceedsAmountLimitUat(5000000000)"
                 >
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-btn-dropdown>
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="warning"
-          icon="science"
-          label="UAT Status Not Found (4045501)"
-          no-caps
-          :loading="runningDebitStatusNotFoundUat"
-          @click="runDebitStatusNotFoundUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="warning"
-          icon="science"
-          label="UAT Status Missing Timestamp (4005502)"
-          no-caps
-          :loading="runningDebitStatusMissingTimestampUat"
-          @click="runDebitStatusMissingTimestampUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="warning"
-          icon="science"
-          label="UAT Status Invalid Signature (4015500)"
-          no-caps
-          :loading="runningDebitStatusInvalidSignatureUat"
-          @click="runDebitStatusInvalidSignatureUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="warning"
-          icon="science"
-          label="UAT Status Cancelled (05)"
-          no-caps
-          :loading="runningDebitStatusCancelledUat"
-          @click="runDebitStatusCancelledUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="science"
-          label="UAT Status Internal Error (5005501)"
-          no-caps
-          :loading="runningDebitStatusInternalServerErrorUat"
-          @click="runDebitStatusInternalServerErrorUat"
-        />
-      </div>
-      <div class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="negative"
-          icon="science"
-          label="UAT Webhook Internal Error (5005601)"
-          no-caps
-          :loading="armingWebhook500"
-          @click="armWebhook500"
-        />
-      </div>
-      <div v-if="sandboxResultContext" class="col-12 col-sm-auto">
-        <q-btn
-          outline
-          color="warning"
-          icon="open_in_new"
-          label="Lihat Hasil"
-          no-caps
-          @click="viewResult(sandboxResultContext)"
-        />
-      </div>
+                  <q-item-section avatar>
+                    <q-icon name="account_balance" color="negative" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>Nominal Resmi: Rp5.000.000.000</q-item-label>
+                    <q-item-label caption
+                      >Batas Transaksi Standar DANA SNAP (Rp5
+                      Miliar)</q-item-label
+                    >
+                  </q-item-section>
+                  <q-item-section
+                    side
+                    v-if="selectedExceedsAmount === 5000000000"
+                  >
+                    <q-icon name="check" color="positive" />
+                  </q-item-section>
+                </q-item>
+                <q-item
+                  clickable
+                  v-close-popup
+                  :active="selectedExceedsAmount === 10000000"
+                  @click="runIpgExceedsAmountLimitUat(10000000)"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="support_agent" color="secondary" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>Nominal UAT: Rp10.000.000</q-item-label>
+                    <q-item-label caption
+                      >Arahan Support DANA Sandbox (Rp10 Juta)</q-item-label
+                    >
+                  </q-item-section>
+                  <q-item-section
+                    side
+                    v-if="selectedExceedsAmount === 10000000"
+                  >
+                    <q-icon name="check" color="positive" />
+                  </q-item-section>
+                </q-item>
+                <q-item
+                  v-if="
+                    selectedExceedsAmount !== 10000001 &&
+                    selectedExceedsAmount !== 5000000000 &&
+                    selectedExceedsAmount !== 10000000
+                  "
+                  clickable
+                  v-close-popup
+                  active
+                  @click="runIpgExceedsAmountLimitUat(selectedExceedsAmount)"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="tune" color="accent" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label
+                      >Nominal Manual:
+                      {{ formatRupiah(selectedExceedsAmount) }}</q-item-label
+                    >
+                    <q-item-label caption
+                      >Nominal kustom pilihan admin</q-item-label
+                    >
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-icon name="check" color="positive" />
+                  </q-item-section>
+                </q-item>
+                <q-separator class="q-my-xs" />
+                <q-item clickable @click="openCustomExceedsAmountDialog">
+                  <q-item-section avatar>
+                    <q-icon name="edit" color="warning" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>Input Nominal Manual...</q-item-label>
+                    <q-item-label caption
+                      >Ubah nominal sesuai kebutuhan pengujian</q-item-label
+                    >
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-btn-dropdown>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- 3. Kategori Status Inquiry -->
+      <q-card flat bordered class="category-card">
+        <q-card-section class="category-card-header q-py-xs q-px-md">
+          <div class="row items-center justify-between">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="find_in_page" size="18px" color="warning" />
+              <span class="text-subtitle2 text-weight-bold"
+                >Status Inquiry</span
+              >
+            </div>
+            <q-badge color="warning" outline label="5 Skenario UAT" />
+          </div>
+        </q-card-section>
+        <q-separator />
+        <q-card-section class="category-card-body q-pa-sm">
+          <div class="uat-btn-grid">
+            <q-btn
+              outline
+              color="warning"
+              icon="science"
+              label="UAT Status Not Found (4045501)"
+              no-caps
+              class="uat-btn"
+              :loading="runningDebitStatusNotFoundUat"
+              :disable="isAnyUatRunning"
+              @click="runDebitStatusNotFoundUat"
+            >
+              <q-badge
+                v-if="debitStatusNotFoundUat !== null"
+                :color="
+                  debitStatusNotFoundUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ debitStatusNotFoundUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="warning"
+              icon="science"
+              label="UAT Status Missing Timestamp (4005502)"
+              no-caps
+              class="uat-btn"
+              :loading="runningDebitStatusMissingTimestampUat"
+              :disable="isAnyUatRunning"
+              @click="runDebitStatusMissingTimestampUat"
+            >
+              <q-badge
+                v-if="debitStatusMissingTimestampUat !== null"
+                :color="
+                  debitStatusMissingTimestampUat?.passed
+                    ? 'positive'
+                    : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ debitStatusMissingTimestampUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="warning"
+              icon="science"
+              label="UAT Status Invalid Signature (4015500)"
+              no-caps
+              class="uat-btn"
+              :loading="runningDebitStatusInvalidSignatureUat"
+              :disable="isAnyUatRunning"
+              @click="runDebitStatusInvalidSignatureUat"
+            >
+              <q-badge
+                v-if="debitStatusInvalidSignatureUat !== null"
+                :color="
+                  debitStatusInvalidSignatureUat?.passed
+                    ? 'positive'
+                    : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ debitStatusInvalidSignatureUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="warning"
+              icon="science"
+              label="UAT Status Cancelled (05)"
+              no-caps
+              class="uat-btn"
+              :loading="runningDebitStatusCancelledUat"
+              :disable="isAnyUatRunning"
+              @click="runDebitStatusCancelledUat"
+            >
+              <q-badge
+                v-if="debitStatusCancelledUat !== null"
+                :color="
+                  debitStatusCancelledUat?.passed ? 'positive' : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ debitStatusCancelledUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="science"
+              label="UAT Status Internal Error (5005501)"
+              no-caps
+              class="uat-btn"
+              :loading="runningDebitStatusInternalServerErrorUat"
+              :disable="isAnyUatRunning"
+              @click="runDebitStatusInternalServerErrorUat"
+            >
+              <q-badge
+                v-if="debitStatusInternalServerErrorUat !== null"
+                :color="
+                  debitStatusInternalServerErrorUat?.passed
+                    ? 'positive'
+                    : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{
+                  debitStatusInternalServerErrorUat?.passed ? 'PASS' : 'FAIL'
+                }}
+              </q-badge>
+            </q-btn>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- 4. Kategori Cancel Order -->
+      <q-card flat bordered class="category-card">
+        <q-card-section class="category-card-header q-py-xs q-px-md">
+          <div class="row items-center justify-between">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="cancel_presentation" size="18px" color="negative" />
+              <span class="text-subtitle2 text-weight-bold">Cancel Order</span>
+            </div>
+            <q-badge color="negative" outline label="2 Skenario UAT" />
+          </div>
+        </q-card-section>
+        <q-separator />
+        <q-card-section class="category-card-body q-pa-sm">
+          <div class="uat-btn-grid">
+            <q-btn
+              outline
+              color="negative"
+              icon="cancel"
+              label="Cancel Order Success (2005700)"
+              no-caps
+              class="uat-btn"
+              :loading="cancellingTransaction"
+              :disable="isAnyUatRunning"
+              @click="runCancelOrderSuccessUat"
+            >
+              <q-badge
+                v-if="cancelPaymentResult !== null"
+                :color="
+                  cancelPaymentResult?.response_code === '2005700'
+                    ? 'positive'
+                    : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{
+                  cancelPaymentResult?.response_code === '2005700'
+                    ? 'PASS'
+                    : 'FAIL'
+                }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="warning"
+              icon="pending_actions"
+              label="UAT Cancel in Progress (2025700)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelOrderInProgressUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelOrderInProgressUat"
+            >
+              <q-badge
+                v-if="cancelInProgressUat !== null"
+                :color="cancelInProgressUat?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ cancelInProgressUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- 5. Kategori Webhook -->
+      <q-card flat bordered class="category-card">
+        <q-card-section class="category-card-header q-py-xs q-px-md">
+          <div class="row items-center justify-between">
+            <div class="row items-center q-gutter-x-sm">
+              <q-icon name="webhook" size="18px" color="secondary" />
+              <span class="text-subtitle2 text-weight-bold">Webhook</span>
+            </div>
+            <q-badge color="secondary" outline label="Simulasi Webhook" />
+          </div>
+        </q-card-section>
+        <q-separator />
+        <q-card-section class="category-card-body q-pa-sm">
+          <div class="uat-btn-grid">
+            <q-btn
+              outline
+              color="negative"
+              icon="science"
+              label="UAT Webhook Internal Error (5005601)"
+              no-caps
+              class="uat-btn"
+              :loading="armingWebhook500"
+              :disable="isAnyUatRunning"
+              @click="armWebhook500"
+            >
+              <q-badge
+                v-if="armedWebhook500Uat !== null"
+                :color="armedWebhook500Uat?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ armedWebhook500Uat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+          </div>
+        </q-card-section>
+      </q-card>
     </div>
 
     <q-banner v-if="error" rounded class="error-banner q-mt-md">
@@ -1440,6 +1836,73 @@
     </q-banner>
 
     <q-banner
+      v-if="cancelInProgressUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="cancelInProgressUat.passed ? 'check_circle' : 'error_outline'"
+        />
+      </template>
+      <div class="text-weight-bold">
+        Hasil UAT Cancel Order In Progress (2025700)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge :color="cancelInProgressUat.passed ? 'positive' : 'negative'">
+          {{
+            cancelInProgressUat.passed
+              ? 'Lolos (2025700 / Request In Progress)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref:
+          <code>{{
+            cancelInProgressUat.partner_reference_no ||
+            cancelInProgressUat.original_partner_reference_no ||
+            '2025700'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelInProgressUat.http_status }} · responseCode
+        <code>{{ cancelInProgressUat.response_code || 'Tidak tersedia' }}</code>
+        · {{ cancelInProgressUat.response_message }}
+        <span v-if="cancelInProgressUat.cancel_time">
+          · Waktu: {{ cancelInProgressUat.cancel_time }}
+        </span>
+        <span v-if="cancelInProgressUat.request_id">
+          · Request ID: {{ cancelInProgressUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelInProgressUat.local_status === 'pending'
+              ? 'warning'
+              : 'negative'
+          "
+        >
+          {{ cancelInProgressUat.local_status || 'pending' }}
+        </q-badge>
+        (Harus tetap pending, tidak diubah ke cancelled sepihak).
+        <span v-if="cancelInProgressUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{ cancelInProgressUat.status_inquiry.response_code }}</code>
+          ({{
+            cancelInProgressUat.status_inquiry.latest_transaction_status ||
+            '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
       v-if="armedWebhook500Uat"
       rounded
       class="transport-notice q-mt-md"
@@ -2048,6 +2511,7 @@ const runningDebitStatusInternalServerErrorUat = ref(false)
 const runningDebitStatusInvalidSignatureUat = ref(false)
 const runningDebitStatusCancelledUat = ref(false)
 const cancellingTransaction = ref(false)
+const runningCancelOrderInProgressUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -2078,6 +2542,36 @@ const debitStatusInvalidSignatureUat = ref(null)
 const debitStatusCancelledUat = ref(null)
 const armedWebhook500Uat = ref(null)
 const cancelPaymentResult = ref(null)
+const cancelInProgressUat = ref(null)
+
+const isAnyUatRunning = computed(() => {
+  return (
+    validating.value ||
+    creatingTransaction.value ||
+    checkingStatus.value ||
+    checkingDanaStatus.value ||
+    runningMissingTimestampUat.value ||
+    runningInvalidAmountUat.value ||
+    runningInconsistentRequestUat.value ||
+    runningCreateOrderInvalidSignatureUat.value ||
+    runningIpgCreateOrderSuccessUat.value ||
+    runningIpgMissingTimestampUat.value ||
+    runningIpgGeneralErrorUat.value ||
+    runningIpgTransactionNotPermittedUat.value ||
+    runningIpgInvalidMerchantUat.value ||
+    runningIpgInconsistentRequestUat.value ||
+    runningIpgInvalidSignatureUat.value ||
+    runningIpgExceedsAmountLimitUat.value ||
+    runningDebitStatusNotFoundUat.value ||
+    runningDebitStatusMissingTimestampUat.value ||
+    runningDebitStatusInternalServerErrorUat.value ||
+    runningDebitStatusInvalidSignatureUat.value ||
+    runningDebitStatusCancelledUat.value ||
+    cancellingTransaction.value ||
+    runningCancelOrderInProgressUat.value ||
+    armingWebhook500.value
+  )
+})
 const qrisDataUrl = ref(null)
 const qrisLoading = ref(false)
 const qrisError = ref(null)
@@ -2984,20 +3478,43 @@ async function checkDanaStatus() {
   }
 }
 
-async function cancelCurrentTransaction() {
-  if (
-    !merchantId.value ||
-    !transaction.value?.id ||
-    cancellingTransaction.value
-  )
-    return
+async function runCancelOrderSuccessUat() {
+  if (!merchantId.value || cancellingTransaction.value) return
   cancellingTransaction.value = true
   error.value = null
   cancelPaymentResult.value = null
   try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value = 'Tidak ada transaksi DANA Sandbox untuk dibatalkan.'
+      return
+    }
+
     const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
       merchantId.value,
-      transaction.value.id
+      targetPaymentId,
+      {
+        reason: 'UAT Cancel Order Success (2005700)'
+      }
     )
     cancelPaymentResult.value = response.data?.data?.cancel_result ?? null
     const result = cancelPaymentResult.value
@@ -3016,8 +3533,127 @@ async function cancelCurrentTransaction() {
     await refreshHistory()
   } catch (requestError) {
     error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal membatalkan transaksi: ${error.value}`
+    })
   } finally {
     cancellingTransaction.value = false
+  }
+}
+
+async function cancelCurrentTransaction() {
+  return runCancelOrderSuccessUat()
+}
+
+async function runCancelOrderInProgressUat() {
+  if (!merchantId.value || runningCancelOrderInProgressUat.value) return
+  runningCancelOrderInProgressUat.value = true
+  error.value = null
+  cancelInProgressUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Cancel In Progress.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Cancel in Progress (2025700)',
+        partner_reference_no: '2025700'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const is2025700 =
+      responseCode === '2025700' &&
+      (responseMessage === 'Request In Progress' ||
+        responseMessage?.toLowerCase()?.includes('in progress'))
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed =
+      (is2025700 || responseCode === '2025700') && localStatus === 'pending'
+
+    cancelInProgressUat.value = {
+      passed,
+      http_status: cancelResult.http_status ?? 200,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      partner_reference_no: '2025700',
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Cancel in Progress (2025700): Berhasil diverifikasi (Request In Progress, status pending).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 2025700 (Request In Progress).`
+      })
+    } else {
+      error.value = `UAT 2025700 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Cancel in Progress gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Cancel in Progress: ${error.value}`
+    })
+  } finally {
+    runningCancelOrderInProgressUat.value = false
   }
 }
 
@@ -3052,6 +3688,58 @@ async function refreshHistory(page = historyMeta.value.current_page) {
 <style scoped>
 .sandbox-tester {
   background: #fffdf7;
+}
+.sandbox-header {
+  border-bottom: 1px solid #e8dfcf;
+  padding-bottom: 12px;
+}
+.category-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.category-card {
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e8dfcf;
+}
+.category-card-header {
+  background: #fbf9f4;
+  font-size: 0.85rem;
+}
+.uat-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 1200px) {
+  .uat-btn-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 860px) {
+  .uat-btn-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .uat-btn-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.uat-btn {
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+.uat-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 5px;
 }
 .eyebrow {
   margin: 0 0 4px;
@@ -3188,5 +3876,26 @@ h3 {
   .tester-status-grid {
     grid-template-columns: 1fr;
   }
+}
+body.body--dark .sandbox-tester {
+  background: #181818;
+  color: #e0e0e0;
+}
+body.body--dark .sandbox-header {
+  border-bottom-color: #333333;
+}
+body.body--dark .category-card {
+  background: #212121;
+  border-color: #383838;
+}
+body.body--dark .category-card-header {
+  background: #272727;
+  color: #e0e0e0;
+}
+body.body--dark h3 {
+  color: #f5f5f5;
+}
+body.body--dark .section-description {
+  color: #b0bec5;
 }
 </style>

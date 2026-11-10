@@ -17,9 +17,24 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
 
   // Tombol aksi pembatalan transaksi pending
   assert.match(panel, /label="Batalkan Transaksi Sandbox"/)
+  assert.match(panel, /label="Cancel Order Success \(2005700\)"/)
+  assert.match(panel, /label="UAT Cancel in Progress \(2025700\)"/)
   assert.match(panel, /cancelCurrentTransaction/)
+  assert.match(panel, /runCancelOrderSuccessUat/)
+  assert.match(panel, /runCancelOrderInProgressUat/)
   assert.match(panel, /cancellingTransaction/)
+  assert.match(panel, /runningCancelOrderInProgressUat/)
   assert.match(panel, /cancelPaymentResult/)
+  assert.match(panel, /cancelInProgressUat/)
+
+  // Kelompok kategori dan grid responsif
+  assert.match(panel, /Konfigurasi/)
+  assert.match(panel, /Create Order/)
+  assert.match(panel, /Status Inquiry/)
+  assert.match(panel, /Cancel Order/)
+  assert.match(panel, /Webhook/)
+  assert.match(panel, /uat-btn-grid/)
+  assert.match(panel, /isAnyUatRunning/)
 
   // Banner hasil UAT Cancel Order
   assert.match(
@@ -32,6 +47,13 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /cancelPaymentResult\.response_message/)
   assert.match(panel, /cancelPaymentResult\.cancel_time/)
   assert.match(panel, /cancelPaymentResult\.request_id/)
+
+  // Banner hasil UAT Cancel In Progress (2025700)
+  assert.match(panel, /Hasil UAT Cancel Order In Progress \(2025700\)/)
+  assert.match(panel, /Lolos \(2025700 \/ Request In Progress\)/)
+  assert.match(panel, /cancelInProgressUat\.response_code/)
+  assert.match(panel, /cancelInProgressUat\.response_message/)
+  assert.match(panel, /cancelInProgressUat\.local_status/)
 
   // Keamanan: tidak mengekspos credential, private key, atau token
   const uatSection = panel.split('<div v-if="validation"')[0]
