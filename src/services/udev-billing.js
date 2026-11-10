@@ -163,6 +163,10 @@ export const invoiceService = {
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     ),
+  cancelCheckout: (id, payload = {}) =>
+    api.post(`/v1/admin/invoices/${id}/cancel-checkout`, payload, {
+      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+    }),
   simulateSandboxPayment: (id, payload) =>
     api.post(`/v1/admin/invoices/${id}/sandbox-simulate-payment`, payload, {
       headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
@@ -207,6 +211,16 @@ export const paymentAttemptService = {
   reconcile: id =>
     api.post(
       `/v1/admin/payment-attempts/${id}/reconcile`,
+      {},
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  cancel: (id, payload = {}) =>
+    api.post(`/v1/admin/payment-attempts/${id}/cancel`, payload, {
+      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+    }),
+  inquiry: id =>
+    api.post(
+      `/v1/admin/payment-attempts/${id}/inquiry`,
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
     )
@@ -609,4 +623,17 @@ export const midtransGatewayService = {
   deleteFee: id => api.delete(`/v1/admin/midtrans-gateway/fees/${id}`),
   calculateFee: payload =>
     api.post('/v1/admin/midtrans-gateway/calculate-fee', payload)
+}
+
+export const danaFeeService = {
+  calculateFee: params =>
+    api.get('/v1/admin/payment-gateways/dana/fee', {
+      params,
+      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+    }),
+  listFees: params =>
+    api.get('/v1/admin/payment-gateways/dana/fees', {
+      params,
+      headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
+    })
 }

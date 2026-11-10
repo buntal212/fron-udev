@@ -338,7 +338,11 @@
                 </div>
                 <div class="row justify-between text-body2">
                   <span class="text-muted">
-                    Biaya Admin {{ activeFeeLabel }}
+                    {{
+                      isMidtrans
+                        ? `Biaya Admin ${activeFeeLabel}`
+                        : 'Biaya Layanan Pelanggan'
+                    }}
                   </span>
                   <span
                     :class="
@@ -352,6 +356,22 @@
                         ? `+ ${formatSubscriptionPrice(activeAdminFee, invoice.currency)}`
                         : 'Rp 0'
                     }}
+                  </span>
+                </div>
+                <div
+                  v-if="!isMidtrans"
+                  class="text-caption text-grey-5"
+                  style="font-size: 11px; margin-top: -2px"
+                >
+                  <span v-if="currentAttemptMethod === 'qris'">
+                    * MDR QRIS 0,7% ditanggung sepenuhnya oleh merchant
+                    (Pelanggan Bebas Biaya).
+                  </span>
+                  <span v-else-if="currentAttemptMethod === 'dana_wallet'">
+                    * Bebas biaya surcharge pelanggan (Rp 0).
+                  </span>
+                  <span v-else>
+                    * Biaya gateway ditanggung merchant (Pelanggan Bebas Biaya).
                   </span>
                 </div>
               </div>
@@ -381,6 +401,9 @@
                       formatSubscriptionPrice(activeAdminFee, invoice.currency)
                     }}
                   </div>
+                  <div v-else-if="!isMidtrans" class="text-caption text-grey-4">
+                    Bebas biaya admin pelanggan (Rp 0)
+                  </div>
                 </div>
                 <q-badge
                   rounded
@@ -388,6 +411,76 @@
                   :label="getInvoiceStatus(invoice.status).label"
                   class="q-px-sm q-py-xs"
                 />
+              </div>
+
+              <!-- Estimasi Settlement Gateway Merchant (Transparansi Biaya DANA) -->
+              <div
+                v-if="
+                  !isMidtrans ||
+                  latestAttempt?.fee_breakdown?.estimated_merchant_fee
+                "
+                class="q-mt-sm q-pa-sm"
+                style="
+                  background: rgba(224, 195, 124, 0.06);
+                  border: 1px dashed rgba(224, 195, 124, 0.3);
+                  border-radius: 8px;
+                "
+              >
+                <div
+                  class="row items-center justify-between text-caption text-weight-bold text-gold q-mb-xs"
+                >
+                  <div class="row items-center q-gutter-xs">
+                    <q-icon
+                      name="account_balance"
+                      size="14px"
+                      color="warning"
+                    />
+                    <span>Estimasi Settlement Merchant (DANA)</span>
+                  </div>
+                  <q-badge
+                    dense
+                    color="dark"
+                    text-color="warning"
+                    :label="
+                      merchantFeeRateLabel
+                        ? `MDR ${merchantFeeRateLabel}`
+                        : 'MDR Ditanggung'
+                    "
+                  />
+                </div>
+                <div class="column q-gutter-y-xs text-caption">
+                  <div class="row justify-between">
+                    <span class="text-muted"
+                      >Estimasi Biaya Gateway (MDR):</span
+                    >
+                    <span class="text-negative font-weight-medium">
+                      -
+                      {{
+                        formatSubscriptionPrice(
+                          estimatedMerchantFee,
+                          invoice.currency
+                        )
+                      }}
+                    </span>
+                  </div>
+                  <div
+                    class="row justify-between text-weight-bold"
+                    style="
+                      border-top: 1px solid rgba(224, 195, 124, 0.15);
+                      padding-top: 2px;
+                    "
+                  >
+                    <span class="text-sand">Estimasi Net Settlement:</span>
+                    <span class="text-positive">
+                      {{
+                        formatSubscriptionPrice(
+                          estimatedNetSettlement,
+                          invoice.currency
+                        )
+                      }}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -494,22 +587,26 @@
                   :icon="
                     store.checkoutPaymentMethod === 'qris'
                       ? 'qr_code_2'
-                      : isVirtualAccountMethod(store.checkoutPaymentMethod)
-                        ? 'account_balance'
-                        : store.checkoutPaymentMethod === 'indomaret' ||
-                            store.checkoutPaymentMethod === 'cstore'
-                          ? 'storefront'
-                          : 'payments'
+                      : store.checkoutPaymentMethod === 'dana_wallet'
+                        ? 'account_balance_wallet'
+                        : isVirtualAccountMethod(store.checkoutPaymentMethod)
+                          ? 'account_balance'
+                          : store.checkoutPaymentMethod === 'indomaret' ||
+                              store.checkoutPaymentMethod === 'cstore'
+                            ? 'storefront'
+                            : 'payments'
                   "
                   :label="
                     store.checkoutPaymentMethod === 'qris'
                       ? `Bayar dengan QRIS ${isMidtrans ? 'Midtrans' : 'DANA'}`
-                      : isVirtualAccountMethod(store.checkoutPaymentMethod)
-                        ? `Dapatkan ${paymentMethodLabel(store.checkoutPaymentMethod)}`
-                        : store.checkoutPaymentMethod === 'indomaret' ||
-                            store.checkoutPaymentMethod === 'cstore'
-                          ? 'Dapatkan Kode Bayar Indomaret'
-                          : `Lanjut ke ${paymentMethodLabel(store.checkoutPaymentMethod)}`
+                      : store.checkoutPaymentMethod === 'dana_wallet'
+                        ? 'Bayar dengan DANA Wallet (Cashier Pay)'
+                        : isVirtualAccountMethod(store.checkoutPaymentMethod)
+                          ? `Dapatkan ${paymentMethodLabel(store.checkoutPaymentMethod)}`
+                          : store.checkoutPaymentMethod === 'indomaret' ||
+                              store.checkoutPaymentMethod === 'cstore'
+                            ? 'Dapatkan Kode Bayar Indomaret'
+                            : `Lanjut ke ${paymentMethodLabel(store.checkoutPaymentMethod)}`
                   "
                   @click="onStartCheckout()"
                 />
@@ -893,6 +990,95 @@
                 </div>
               </div>
 
+              <!-- DANA Wallet Display Box -->
+              <div
+                v-if="isCurrentAttemptDanaWallet"
+                class="va-presentation-box q-pa-md text-center q-mb-sm"
+              >
+                <div
+                  class="row items-center justify-center q-gutter-xs q-mb-xs"
+                >
+                  <q-icon
+                    name="account_balance_wallet"
+                    color="info"
+                    size="20px"
+                  />
+                  <span class="text-caption text-weight-bold text-sand"
+                    >DANA Wallet (Cashier Pay)</span
+                  >
+                </div>
+                <div class="text-caption text-grey-4">
+                  Selesaikan pembayaran langsung melalui antarmuka resmi DANA
+                  Sandbox.
+                </div>
+                <div
+                  v-if="activeDanaCheckoutUrl"
+                  class="row justify-center q-gutter-xs q-mt-sm"
+                >
+                  <q-btn
+                    unelevated
+                    no-caps
+                    color="info"
+                    text-color="white"
+                    icon="open_in_new"
+                    label="Buka Halaman Checkout DANA"
+                    class="font-weight-bold"
+                    :href="activeDanaCheckoutUrl"
+                    target="_blank"
+                  />
+                  <q-btn
+                    outline
+                    dense
+                    no-caps
+                    color="warning"
+                    icon="content_copy"
+                    label="Salin Tautan"
+                    @click="
+                      copyPayload(activeDanaCheckoutUrl, 'Tautan DANA disalin!')
+                    "
+                  />
+                </div>
+                <div v-else class="text-caption text-warning q-mt-sm">
+                  Menyiapkan tautan checkout dari DANA Sandbox...
+                </div>
+              </div>
+
+              <!-- Active Actions: Cancel Order & Inquiry -->
+              <div
+                v-if="
+                  isCurrentAttemptActive &&
+                  invoice.status === 'pending' &&
+                  !isCheckoutExpired
+                "
+                class="row q-gutter-xs q-mb-sm"
+              >
+                <q-btn
+                  outline
+                  dense
+                  no-caps
+                  color="negative"
+                  icon="cancel"
+                  label="Batalkan Checkout (Cancel Order)"
+                  class="col font-weight-medium"
+                  :loading="store.cancelLoading"
+                  :disable="store.cancelLoading"
+                  @click="openCancelConfirmDialog()"
+                />
+                <q-btn
+                  v-if="!isMidtrans && latestAttempt?.id"
+                  outline
+                  dense
+                  no-caps
+                  color="warning"
+                  icon="sync"
+                  label="Inquiry Status DANA"
+                  class="col font-weight-medium"
+                  :loading="store.inquiryLoading"
+                  :disable="store.inquiryLoading"
+                  @click="handleInquiryStatus(latestAttempt.id)"
+                />
+              </div>
+
               <!-- Retry Checkout action when expired / failed -->
               <div
                 v-if="
@@ -967,6 +1153,37 @@
                   @click="store.simulateSandboxPayment('failed')"
                 />
                 <q-btn
+                  v-if="
+                    invoice.status === 'pending' &&
+                    !isMidtrans &&
+                    !isCheckoutExpired &&
+                    isCurrentAttemptActive
+                  "
+                  dense
+                  outline
+                  no-caps
+                  color="negative"
+                  icon="cancel"
+                  label="Cancel Order (SNAP 57)"
+                  class="q-px-sm"
+                  :loading="store.cancelLoading"
+                  :disable="store.cancelLoading"
+                  @click="openCancelConfirmDialog()"
+                />
+                <q-btn
+                  v-if="!isMidtrans && latestAttempt?.id"
+                  dense
+                  outline
+                  no-caps
+                  color="warning"
+                  icon="sync"
+                  label="Query Status SNAP"
+                  class="q-px-sm"
+                  :loading="store.inquiryLoading"
+                  :disable="store.inquiryLoading"
+                  @click="handleInquiryStatus(latestAttempt.id)"
+                />
+                <q-btn
                   v-if="store.checkoutUrl && !isCheckoutExpired"
                   dense
                   outline
@@ -980,6 +1197,14 @@
                 />
               </div>
               <q-banner
+                v-if="store.cancelSuccessMessage"
+                rounded
+                dense
+                class="bg-info text-white q-mt-xs text-caption"
+              >
+                {{ store.cancelSuccessMessage }}
+              </q-banner>
+              <q-banner
                 v-if="store.simulateMessage"
                 rounded
                 dense
@@ -988,12 +1213,22 @@
                 {{ store.simulateMessage }}
               </q-banner>
               <q-banner
-                v-if="store.simulateError || store.reconcileError"
+                v-if="
+                  store.simulateError ||
+                  store.reconcileError ||
+                  store.cancelError ||
+                  store.inquiryError
+                "
                 rounded
                 dense
                 class="bg-negative text-white q-mt-xs text-caption"
               >
-                {{ store.simulateError || store.reconcileError }}
+                {{
+                  store.cancelError ||
+                  store.inquiryError ||
+                  store.simulateError ||
+                  store.reconcileError
+                }}
               </q-banner>
             </div>
           </div>
@@ -1246,17 +1481,18 @@
                               paymentMethodLabel(attemptPaymentMethod(attempt))
                             }}
                           </div>
-                          <div class="col-6 text-muted">Biaya Admin:</div>
+                          <div class="col-6 text-muted">Biaya Pelanggan:</div>
                           <div class="col-6 text-right text-warning">
-                            +{{
-                              formatSubscriptionPrice(
-                                attempt.fee_breakdown.fee_amount,
-                                attempt.currency
-                              )
+                            {{
+                              (attempt.fee_breakdown.customer_fee ??
+                                attempt.fee_breakdown.fee_amount) > 0
+                                ? `+ ${formatSubscriptionPrice(attempt.fee_breakdown.customer_fee ?? attempt.fee_breakdown.fee_amount, attempt.currency)}`
+                                : 'Rp 0'
                             }}
                             <span
                               v-if="
-                                attempt.fee_breakdown.fee_type === 'percent'
+                                attempt.fee_breakdown.fee_type === 'percent' &&
+                                attempt.fee_breakdown.fee_rate > 0
                               "
                               class="text-grey-5"
                             >
@@ -1285,7 +1521,79 @@
                               )
                             }}
                           </div>
+                          <!-- Merchant Settlement Snapshot -->
+                          <template
+                            v-if="
+                              attempt.fee_breakdown.estimated_merchant_fee !==
+                              undefined
+                            "
+                          >
+                            <div
+                              class="col-6 text-muted q-pt-xs"
+                              style="
+                                border-top: 1px dashed rgba(224, 195, 124, 0.15);
+                              "
+                            >
+                              Biaya Merchant (MDR):
+                            </div>
+                            <div
+                              class="col-6 text-right text-negative q-pt-xs"
+                              style="
+                                border-top: 1px dashed rgba(224, 195, 124, 0.15);
+                              "
+                            >
+                              -
+                              {{
+                                formatSubscriptionPrice(
+                                  attempt.fee_breakdown.estimated_merchant_fee,
+                                  attempt.currency
+                                )
+                              }}
+                              <span
+                                v-if="attempt.fee_breakdown.merchant_fee_rate"
+                                class="text-grey-5"
+                              >
+                                ({{ attempt.fee_breakdown.merchant_fee_rate }}%)
+                              </span>
+                            </div>
+                            <div class="col-6 text-weight-bold text-sand">
+                              Net Settlement:
+                            </div>
+                            <div
+                              class="col-6 text-right text-weight-bold text-positive"
+                            >
+                              {{
+                                formatSubscriptionPrice(
+                                  attempt.fee_breakdown
+                                    .estimated_net_settlement,
+                                  attempt.currency
+                                )
+                              }}
+                            </div>
+                          </template>
                         </div>
+                      </div>
+
+                      <!-- Action Button per Attempt -->
+                      <div
+                        v-if="
+                          attempt.status === 'pending' &&
+                          attempt.provider === 'dana'
+                        "
+                        class="col-12 row q-gutter-xs q-mt-xs"
+                      >
+                        <q-btn
+                          dense
+                          outline
+                          size="sm"
+                          no-caps
+                          color="warning"
+                          icon="sync"
+                          label="Inquiry Status SNAP"
+                          :loading="store.inquiryLoading"
+                          :disable="store.inquiryLoading"
+                          @click="handleInquiryStatus(attempt.id)"
+                        />
                       </div>
                     </div>
                   </div>
@@ -1358,13 +1666,68 @@
       </q-card-section>
     </q-card>
   </q-dialog>
+
+  <!-- Modal Konfirmasi Cancel Order (SNAP 57) -->
+  <q-dialog v-model="confirmCancelDialog" persistent>
+    <q-card
+      class="bg-dark text-sand gold-border"
+      style="min-width: 360px; max-width: 480px"
+    >
+      <q-card-section class="row items-center q-pb-none">
+        <q-avatar
+          icon="warning"
+          color="negative"
+          text-color="white"
+          size="36px"
+        />
+        <div class="text-subtitle1 text-weight-bold text-white q-ml-sm">
+          Konfirmasi Pembatalan Checkout
+        </div>
+      </q-card-section>
+
+      <q-card-section class="q-pt-sm">
+        <p class="text-body2 text-grey-3 q-mb-xs">
+          Apakah Anda yakin ingin membatalkan instruksi pembayaran aktif ini?
+        </p>
+        <p v-if="!isMidtrans" class="text-caption text-warning q-mb-none">
+          Request <code>Cancel Order (SNAP 57)</code> akan dikirimkan langsung
+          ke gateway DANA Sandbox. Setelah dibatalkan, instruksi pembayaran ini
+          tidak dapat digunakan lagi.
+        </p>
+      </q-card-section>
+
+      <q-card-actions align="right" class="q-px-md q-pb-md">
+        <q-btn
+          flat
+          no-caps
+          label="Batal"
+          color="grey-5"
+          v-close-popup
+          :disable="store.cancelLoading"
+        />
+        <q-btn
+          unelevated
+          no-caps
+          color="negative"
+          icon="cancel"
+          label="Ya, Batalkan Checkout"
+          :loading="store.cancelLoading"
+          @click="handleExecuteCancel()"
+        />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useQuasar } from 'quasar'
 import { useInvoiceStore } from '@/stores/invoice'
-import { midtransGatewayService } from '@/services/udev-billing'
+import {
+  midtransGatewayService,
+  danaFeeService,
+  paymentAttemptService
+} from '@/services/udev-billing'
 import {
   formatSubscriptionDate,
   formatSubscriptionPrice,
@@ -1381,6 +1744,7 @@ const qrImageLoading = ref(false)
 const proxyBlobUrl = ref(null)
 const currentAttemptId = ref(null)
 const proxyFetchFailed = ref(false)
+const confirmCancelDialog = ref(false)
 
 const onQrImageLoad = () => {
   qrImageLoading.value = false
@@ -1483,6 +1847,7 @@ const isMidtrans = computed(() => {
 })
 
 const activeFeeRule = ref(null)
+const activeDanaFeeRule = ref(null)
 const feeCalculating = ref(false)
 
 const currentSubtotal = computed(() => {
@@ -1492,12 +1857,19 @@ const currentSubtotal = computed(() => {
 })
 
 const activeAdminFee = computed(() => {
-  if (latestAttempt.value?.fee_breakdown?.fee_amount !== undefined) {
-    return Number(latestAttempt.value.fee_breakdown.fee_amount)
+  if (latestAttempt.value?.fee_breakdown) {
+    const fb = latestAttempt.value.fee_breakdown
+    if (fb.customer_fee !== undefined) {
+      return Number(fb.customer_fee)
+    }
+    if (fb.fee_amount !== undefined && isMidtrans.value) {
+      return Number(fb.fee_amount)
+    }
   }
   if (
     latestAttempt.value?.admin_fee !== undefined &&
-    latestAttempt.value?.admin_fee > 0
+    latestAttempt.value?.admin_fee > 0 &&
+    isMidtrans.value
   ) {
     return Number(latestAttempt.value.admin_fee)
   }
@@ -1522,7 +1894,62 @@ const activeAdminFee = computed(() => {
     }
   }
 
+  // DANA Sandbox: Pelanggan Bebas Biaya (Rp 0)
   return 0
+})
+
+const estimatedMerchantFee = computed(() => {
+  if (
+    latestAttempt.value?.fee_breakdown?.estimated_merchant_fee !== undefined
+  ) {
+    return Number(latestAttempt.value.fee_breakdown.estimated_merchant_fee)
+  }
+  if (activeDanaFeeRule.value?.estimated_merchant_fee !== undefined) {
+    return Number(activeDanaFeeRule.value.estimated_merchant_fee)
+  }
+  const method = store.checkoutPaymentMethod
+  const subtotal = currentSubtotal.value
+  if (method === 'qris') {
+    return Math.round(subtotal * 0.007)
+  }
+  if (method === 'dana_wallet') {
+    return Math.round(subtotal * 0.015)
+  }
+  if (method?.startsWith('va_')) {
+    return 4000
+  }
+  return 0
+})
+
+const estimatedNetSettlement = computed(() => {
+  if (
+    latestAttempt.value?.fee_breakdown?.estimated_net_settlement !== undefined
+  ) {
+    return Number(latestAttempt.value.fee_breakdown.estimated_net_settlement)
+  }
+  if (activeDanaFeeRule.value?.estimated_net_settlement !== undefined) {
+    return Number(activeDanaFeeRule.value.estimated_net_settlement)
+  }
+  return Math.max(0, currentSubtotal.value - estimatedMerchantFee.value)
+})
+
+const merchantFeeRateLabel = computed(() => {
+  if (latestAttempt.value?.fee_breakdown) {
+    const fb = latestAttempt.value.fee_breakdown
+    if (fb.merchant_fee_rate) return `${fb.merchant_fee_rate}%`
+    if (fb.merchant_fixed_amount) return `Rp ${fb.merchant_fixed_amount}`
+  }
+  if (activeDanaFeeRule.value) {
+    if (activeDanaFeeRule.value.merchant_fee_type === 'percent') {
+      return `${activeDanaFeeRule.value.merchant_fee_rate}%`
+    }
+    return `Rp ${activeDanaFeeRule.value.merchant_fixed_amount}`
+  }
+  const method = store.checkoutPaymentMethod
+  if (method === 'qris') return '0,7%'
+  if (method === 'dana_wallet') return '1,5%'
+  if (method?.startsWith('va_')) return 'Rp 4.000'
+  return ''
 })
 
 const activeTotalPayable = computed(() => {
@@ -1555,22 +1982,36 @@ const activeFeeLabel = computed(() => {
 })
 
 async function recalculateAdminFee() {
-  if (!isMidtrans.value || currentSubtotal.value <= 0) {
+  if (currentSubtotal.value <= 0) {
     activeFeeRule.value = null
+    activeDanaFeeRule.value = null
     return
   }
   feeCalculating.value = true
   try {
-    const resp = await midtransGatewayService.calculateFee({
-      merchant_code: 'udev-central',
-      payment_method: store.checkoutPaymentMethod,
-      amount: currentSubtotal.value
-    })
-    if (resp.data?.data) {
-      activeFeeRule.value = resp.data.data
+    if (isMidtrans.value) {
+      activeDanaFeeRule.value = null
+      const resp = await midtransGatewayService.calculateFee({
+        merchant_code: 'udev-central',
+        payment_method: store.checkoutPaymentMethod,
+        amount: currentSubtotal.value
+      })
+      if (resp.data?.data) {
+        activeFeeRule.value = resp.data.data
+      }
+    } else {
+      activeFeeRule.value = null
+      const resp = await danaFeeService.calculateFee({
+        merchant_code: 'udev-central',
+        payment_method: store.checkoutPaymentMethod,
+        amount: currentSubtotal.value
+      })
+      if (resp.data?.data) {
+        activeDanaFeeRule.value = resp.data.data
+      }
     }
   } catch (err) {
-    console.warn('Gagal memuat kalkulasi biaya admin dari gateway:', err)
+    console.warn('Gagal memuat kalkulasi biaya dari gateway:', err)
   } finally {
     feeCalculating.value = false
   }
@@ -1715,7 +2156,9 @@ const isCurrentAttemptActive = computed(() => {
     Boolean(store.checkoutQrPayload) ||
     Boolean(store.checkoutQrDataUrl) ||
     Boolean(store.checkoutQrUrl) ||
-    Boolean(store.checkoutPaymentCode)
+    Boolean(store.checkoutPaymentCode) ||
+    Boolean(store.checkoutUrl) ||
+    Boolean(latestAttempt.value?.checkout_url)
   )
 })
 
@@ -1724,6 +2167,74 @@ const isCurrentAttemptVirtualAccount = computed(
     isVirtualAccountMethod(currentAttemptMethod.value) &&
     Boolean(currentPaymentCode.value)
 )
+
+const isCurrentAttemptDanaWallet = computed(() => {
+  const method = currentAttemptMethod.value
+  return (
+    method === 'dana_wallet' &&
+    Boolean(
+      store.checkoutUrl ||
+      latestAttempt.value?.checkout_url ||
+      latestAttempt.value?.metadata?.checkout_url ||
+      currentPaymentInstruction.value?.checkout_url ||
+      store.checkoutLoading ||
+      latestAttempt.value?.status === 'pending'
+    )
+  )
+})
+
+const activeDanaCheckoutUrl = computed(() => {
+  return (
+    store.checkoutUrl ||
+    latestAttempt.value?.checkout_url ||
+    latestAttempt.value?.metadata?.checkout_url ||
+    currentPaymentInstruction.value?.checkout_url ||
+    ''
+  )
+})
+
+const openCancelConfirmDialog = () => {
+  confirmCancelDialog.value = true
+}
+
+const handleExecuteCancel = async () => {
+  const ok = await store.cancelCheckout('Dibatalkan oleh operator dari Invoice')
+  confirmCancelDialog.value = false
+  if (ok) {
+    $q.notify({
+      type: 'positive',
+      message: 'Instruksi pembayaran berhasil dibatalkan di gateway DANA.',
+      position: 'top',
+      timeout: 3000
+    })
+  } else if (store.cancelError) {
+    $q.notify({
+      type: 'negative',
+      message: store.cancelError,
+      position: 'top',
+      timeout: 4000
+    })
+  }
+}
+
+const handleInquiryStatus = async attemptId => {
+  const result = await store.inquiryPaymentAttempt(attemptId)
+  if (result) {
+    $q.notify({
+      type: 'positive',
+      message: `Inquiry SNAP: Status ${result.status || 'Berhasil disinkronkan'}`,
+      position: 'top',
+      timeout: 3000
+    })
+  } else if (store.inquiryError) {
+    $q.notify({
+      type: 'negative',
+      message: store.inquiryError,
+      position: 'top',
+      timeout: 4000
+    })
+  }
+}
 
 const isCurrentAttemptGopay = computed(() => {
   const method = currentAttemptMethod.value

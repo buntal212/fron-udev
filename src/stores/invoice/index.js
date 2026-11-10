@@ -152,6 +152,12 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutPollAttemptId: null,
     reconcileLoading: false,
     reconcileError: '',
+    cancelLoading: false,
+    cancelError: '',
+    cancelSuccessMessage: '',
+    inquiryLoading: false,
+    inquiryError: '',
+    inquiryResult: null,
     simulateLoading: false,
     simulateError: '',
     simulateMessage: ''
@@ -1408,6 +1414,64 @@ export const useInvoiceStore = defineStore('invoice', {
         this.simulateError = getApiErrorMessage(error)
       } finally {
         this.simulateLoading = false
+      }
+    },
+
+    async cancelCheckout(reason = 'Dibatalkan oleh pengguna') {
+      if (!this.selectedInvoice?.id || this.cancelLoading) return false
+
+      this.cancelLoading = true
+      this.cancelError = ''
+      this.cancelSuccessMessage = ''
+
+      try {
+        const response = await invoiceService.cancelCheckout(
+          this.selectedInvoice.id,
+          { reason }
+        )
+        this.selectedInvoice = response.data.data
+        const index = this.items.findIndex(
+          item => item.id === this.selectedInvoice.id
+        )
+        if (index !== -1) {
+          this.items[index] = response.data.data
+        }
+
+        this.stopCheckoutSession()
+        this.checkoutUrl = null
+        this.checkoutQrDataUrl = null
+        this.checkoutQrPayload = null
+        this.checkoutPaymentCode = null
+        this.checkoutAttempt = null
+        this.cancelSuccessMessage = 'Instruksi pembayaran berhasil dibatalkan.'
+        return true
+      } catch (error) {
+        this.cancelError = getApiErrorMessage(error)
+        return false
+      } finally {
+        this.cancelLoading = false
+      }
+    },
+
+    async inquiryPaymentAttempt(attemptId) {
+      if (!attemptId || this.inquiryLoading) return null
+
+      this.inquiryLoading = true
+      this.inquiryError = ''
+      this.inquiryResult = null
+
+      try {
+        const response = await paymentAttemptService.inquiry(attemptId)
+        if (this.selectedInvoice?.id) {
+          await this.reconcileInvoice(this.selectedInvoice.id)
+        }
+        this.inquiryResult = response.data?.data || null
+        return response.data?.data || null
+      } catch (error) {
+        this.inquiryError = getApiErrorMessage(error)
+        return null
+      } finally {
+        this.inquiryLoading = false
       }
     }
   }
