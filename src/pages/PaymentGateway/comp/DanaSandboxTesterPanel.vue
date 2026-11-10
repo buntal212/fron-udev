@@ -635,7 +635,7 @@
               <q-icon name="cancel_presentation" size="18px" color="negative" />
               <span class="text-subtitle2 text-weight-bold">Cancel Order</span>
             </div>
-            <q-badge color="negative" outline label="7 Skenario UAT" />
+            <q-badge color="negative" outline label="8 Skenario UAT" />
           </div>
         </q-card-section>
         <q-separator />
@@ -805,6 +805,27 @@
                 class="uat-badge"
               >
                 {{ cancelMissingTimestampUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="history_toggle_off"
+              label="UAT Cancel Expired (4035700)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelExpiredUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelExpiredUat"
+            >
+              <q-badge
+                v-if="cancelExpiredUat !== null"
+                :color="cancelExpiredUat?.passed ? 'positive' : 'negative'"
+                floating
+                class="uat-badge"
+              >
+                {{ cancelExpiredUat?.passed ? 'PASS' : 'FAIL' }}
               </q-badge>
             </q-btn>
           </div>
@@ -2617,6 +2638,75 @@
       </div>
     </q-banner>
 
+    <q-banner v-if="cancelExpiredUat" rounded class="transport-notice q-mt-md">
+      <template #avatar>
+        <q-icon
+          :name="cancelExpiredUat.passed ? 'check_circle' : 'error_outline'"
+        />
+      </template>
+      <div class="text-weight-bold">
+        Pembatalan Ditolak — Transaction Expired (4035700)
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge :color="cancelExpiredUat.passed ? 'positive' : 'negative'">
+          {{
+            cancelExpiredUat.passed
+              ? 'Lolos (4035700 / Transaction Expired)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref Mock (Outbound):
+          <code>{{
+            cancelExpiredUat.outbound_original_partner_reference_no ||
+            cancelExpiredUat.mock_code ||
+            '4035700'
+          }}</code>
+          · Ref Asli (DB):
+          <code>{{
+            cancelExpiredUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelExpiredUat.http_status }} · responseCode
+        <code>{{ cancelExpiredUat.response_code || 'Tidak tersedia' }}</code>
+        · {{ cancelExpiredUat.response_message }}
+        <span v-if="cancelExpiredUat.cancel_time">
+          · Waktu: {{ cancelExpiredUat.cancel_time }}
+        </span>
+        <span v-if="cancelExpiredUat.request_id">
+          · Request ID: {{ cancelExpiredUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelExpiredUat.local_status === 'pending' ? 'warning' : 'negative'
+          "
+        >
+          {{ cancelExpiredUat.local_status || 'pending' }}
+        </q-badge>
+        (Pembatalan ditolak oleh DANA Sandbox karena batas waktu pembatalan
+        telah kedaluwarsa. Status pembayaran lokal dan invoice tetap aman, tidak
+        berubah sepihak).
+        <span v-if="cancelExpiredUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{ cancelExpiredUat.status_inquiry.response_code }}</code>
+          ({{
+            cancelExpiredUat.status_inquiry.latest_transaction_status ||
+            '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
     <q-banner
       v-if="armedWebhook500Uat"
       rounded
@@ -3301,6 +3391,7 @@ const runningCancelTransactionNotPermittedUat = ref(false)
 const runningCancelMerchantStatusAbnormalUat = ref(false)
 const runningCancelTransactionNotFoundUat = ref(false)
 const runningCancelMissingTimestampUat = ref(false)
+const runningCancelExpiredUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -3336,6 +3427,7 @@ const cancelTransactionNotPermittedUat = ref(null)
 const cancelMerchantStatusAbnormalUat = ref(null)
 const cancelTransactionNotFoundUat = ref(null)
 const cancelMissingTimestampUat = ref(null)
+const cancelExpiredUat = ref(null)
 const runningHappyPathE2eUat = ref(false)
 const showHappyPathE2eConfirmDialog = ref(false)
 const happyPathE2eResult = ref(null)
@@ -3370,6 +3462,7 @@ const isAnyUatRunning = computed(() => {
     runningCancelMerchantStatusAbnormalUat.value ||
     runningCancelTransactionNotFoundUat.value ||
     runningCancelMissingTimestampUat.value ||
+    runningCancelExpiredUat.value ||
     armingWebhook500.value
   )
 })
@@ -4921,6 +5014,121 @@ async function runCancelMissingTimestampUat() {
     })
   } finally {
     runningCancelMissingTimestampUat.value = false
+  }
+}
+
+async function runCancelExpiredUat() {
+  if (!merchantId.value || runningCancelExpiredUat.value) return
+  runningCancelExpiredUat.value = true
+  error.value = null
+  cancelExpiredUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Cancel Expired.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Cancel Expired (4035700)',
+        mock_code: '4035700',
+        partner_reference_no: '4035700'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const is4035700 =
+      responseCode === '4035700' &&
+      (responseMessage === 'Transaction Expired' ||
+        responseMessage?.toLowerCase()?.includes('expired'))
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed =
+      (is4035700 || responseCode === '4035700') && localStatus === 'pending'
+
+    cancelExpiredUat.value = {
+      passed,
+      http_status: cancelResult.http_status ?? 403,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      mock_code: '4035700',
+      partner_reference_no: '4035700',
+      outbound_original_partner_reference_no:
+        cancelResult.outbound_original_partner_reference_no || '4035700',
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Cancel Expired (4035700): Berhasil diverifikasi (Transaction Expired, status pembayaran aman).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 4035700 (Transaction Expired).`
+      })
+    } else {
+      error.value = `UAT 4035700 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Cancel Expired gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Cancel Expired: ${error.value}`
+    })
+  } finally {
+    runningCancelExpiredUat.value = false
   }
 }
 

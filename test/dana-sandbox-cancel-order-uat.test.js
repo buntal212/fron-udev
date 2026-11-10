@@ -24,6 +24,7 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /label="UAT Merchant Status Abnormal \(4045708\)"/)
   assert.match(panel, /label="UAT Transaction Not Found \(4045701\)"/)
   assert.match(panel, /label="UAT Cancel Missing Timestamp \(4005702\)"/)
+  assert.match(panel, /label="UAT Cancel Expired \(4035700\)"/)
   assert.match(panel, /confirmHappyPathE2eUat/)
   assert.match(panel, /executeHappyPathE2eUat/)
   assert.match(panel, /runningHappyPathE2eUat/)
@@ -37,18 +38,21 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /runCancelMerchantStatusAbnormalUat/)
   assert.match(panel, /runCancelTransactionNotFoundUat/)
   assert.match(panel, /runCancelMissingTimestampUat/)
+  assert.match(panel, /runCancelExpiredUat/)
   assert.match(panel, /cancellingTransaction/)
   assert.match(panel, /runningCancelOrderInProgressUat/)
   assert.match(panel, /runningCancelTransactionNotPermittedUat/)
   assert.match(panel, /runningCancelMerchantStatusAbnormalUat/)
   assert.match(panel, /runningCancelTransactionNotFoundUat/)
   assert.match(panel, /runningCancelMissingTimestampUat/)
+  assert.match(panel, /runningCancelExpiredUat/)
   assert.match(panel, /cancelPaymentResult/)
   assert.match(panel, /cancelInProgressUat/)
   assert.match(panel, /cancelTransactionNotPermittedUat/)
   assert.match(panel, /cancelMerchantStatusAbnormalUat/)
   assert.match(panel, /cancelTransactionNotFoundUat/)
   assert.match(panel, /cancelMissingTimestampUat/)
+  assert.match(panel, /cancelExpiredUat/)
 
   // Kelompok kategori dan grid responsif
   assert.match(panel, /Konfigurasi/)
@@ -121,6 +125,13 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /cancelMissingTimestampUat\.response_message/)
   assert.match(panel, /cancelMissingTimestampUat\.local_status/)
   assert.match(panel, /cancelMissingTimestampUat\.x_timestamp_sent/)
+
+  // Banner hasil UAT Cancel Expired (4035700)
+  assert.match(panel, /Pembatalan Ditolak — Transaction Expired \(4035700\)/)
+  assert.match(panel, /Lolos \(4035700 \/ Transaction Expired\)/)
+  assert.match(panel, /cancelExpiredUat\.response_code/)
+  assert.match(panel, /cancelExpiredUat\.response_message/)
+  assert.match(panel, /cancelExpiredUat\.local_status/)
 
   // Keamanan: tidak mengekspos credential, private key, atau token
   const uatSection = panel.split('<div v-if="validation"')[0]
