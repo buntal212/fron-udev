@@ -19,13 +19,17 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /label="Batalkan Transaksi Sandbox"/)
   assert.match(panel, /label="Cancel Order Success \(2005700\)"/)
   assert.match(panel, /label="UAT Cancel in Progress \(2025700\)"/)
+  assert.match(panel, /label="UAT Transaction Not Permitted \(4035705\)"/)
   assert.match(panel, /cancelCurrentTransaction/)
   assert.match(panel, /runCancelOrderSuccessUat/)
   assert.match(panel, /runCancelOrderInProgressUat/)
+  assert.match(panel, /runCancelTransactionNotPermittedUat/)
   assert.match(panel, /cancellingTransaction/)
   assert.match(panel, /runningCancelOrderInProgressUat/)
+  assert.match(panel, /runningCancelTransactionNotPermittedUat/)
   assert.match(panel, /cancelPaymentResult/)
   assert.match(panel, /cancelInProgressUat/)
+  assert.match(panel, /cancelTransactionNotPermittedUat/)
 
   // Kelompok kategori dan grid responsif
   assert.match(panel, /Konfigurasi/)
@@ -54,6 +58,17 @@ test('panel tester DANA Sandbox menampilkan hasil UAT Cancel Order (2005700) den
   assert.match(panel, /cancelInProgressUat\.response_code/)
   assert.match(panel, /cancelInProgressUat\.response_message/)
   assert.match(panel, /cancelInProgressUat\.local_status/)
+
+  // Banner hasil UAT Cancel Transaction Not Permitted (4035705)
+  assert.match(panel, /Pembatalan Ditolak DANA — Do Not Honor/)
+  assert.match(panel, /Lolos \(4035705 \/ Do Not Honor\)/)
+  assert.match(panel, /cancelTransactionNotPermittedUat\.response_code/)
+  assert.match(panel, /cancelTransactionNotPermittedUat\.response_message/)
+  assert.match(panel, /cancelTransactionNotPermittedUat\.local_status/)
+  assert.match(
+    panel,
+    /Status pembayaran lokal dan\s+invoice tetap aman, tidak berubah sepihak/
+  )
 
   // Keamanan: tidak mengekspos credential, private key, atau token
   const uatSection = panel.split('<div v-if="validation"')[0]

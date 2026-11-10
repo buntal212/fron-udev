@@ -635,7 +635,7 @@
               <q-icon name="cancel_presentation" size="18px" color="negative" />
               <span class="text-subtitle2 text-weight-bold">Cancel Order</span>
             </div>
-            <q-badge color="negative" outline label="2 Skenario UAT" />
+            <q-badge color="negative" outline label="3 Skenario UAT" />
           </div>
         </q-card-section>
         <q-separator />
@@ -688,6 +688,31 @@
                 class="uat-badge"
               >
                 {{ cancelInProgressUat?.passed ? 'PASS' : 'FAIL' }}
+              </q-badge>
+            </q-btn>
+
+            <q-btn
+              outline
+              color="negative"
+              icon="block"
+              label="UAT Transaction Not Permitted (4035705)"
+              no-caps
+              class="uat-btn"
+              :loading="runningCancelTransactionNotPermittedUat"
+              :disable="isAnyUatRunning"
+              @click="runCancelTransactionNotPermittedUat"
+            >
+              <q-badge
+                v-if="cancelTransactionNotPermittedUat !== null"
+                :color="
+                  cancelTransactionNotPermittedUat?.passed
+                    ? 'positive'
+                    : 'negative'
+                "
+                floating
+                class="uat-badge"
+              >
+                {{ cancelTransactionNotPermittedUat?.passed ? 'PASS' : 'FAIL' }}
               </q-badge>
             </q-btn>
           </div>
@@ -1903,6 +1928,91 @@
     </q-banner>
 
     <q-banner
+      v-if="cancelTransactionNotPermittedUat"
+      rounded
+      class="transport-notice q-mt-md"
+    >
+      <template #avatar>
+        <q-icon
+          :name="
+            cancelTransactionNotPermittedUat.passed
+              ? 'check_circle'
+              : 'error_outline'
+          "
+        />
+      </template>
+      <div class="text-weight-bold">
+        Pembatalan Ditolak DANA — Do Not Honor
+      </div>
+      <div>
+        Hasil UAT:
+        <q-badge
+          :color="
+            cancelTransactionNotPermittedUat.passed ? 'positive' : 'negative'
+          "
+        >
+          {{
+            cancelTransactionNotPermittedUat.passed
+              ? 'Lolos (4035705 / Do Not Honor)'
+              : 'Gagal'
+          }}
+        </q-badge>
+        <span>
+          · Ref:
+          <code>{{
+            cancelTransactionNotPermittedUat.partner_reference_no || '4035705'
+          }}</code>
+          · Ref Asli:
+          <code>{{
+            cancelTransactionNotPermittedUat.original_partner_reference_no ||
+            transaction?.id ||
+            '-'
+          }}</code>
+          · Endpoint:
+          <code>/payment-gateway/v1.0/debit/cancel.htm</code>
+        </span>
+      </div>
+      <div class="q-mt-xs">
+        DANA HTTP {{ cancelTransactionNotPermittedUat.http_status }} ·
+        responseCode
+        <code>{{
+          cancelTransactionNotPermittedUat.response_code || 'Tidak tersedia'
+        }}</code>
+        · {{ cancelTransactionNotPermittedUat.response_message }}
+        <span v-if="cancelTransactionNotPermittedUat.cancel_time">
+          · Waktu: {{ cancelTransactionNotPermittedUat.cancel_time }}
+        </span>
+        <span v-if="cancelTransactionNotPermittedUat.request_id">
+          · Request ID: {{ cancelTransactionNotPermittedUat.request_id }}
+        </span>
+      </div>
+      <div class="text-caption q-mt-xs">
+        Status Lokal Pembayaran:
+        <q-badge
+          :color="
+            cancelTransactionNotPermittedUat.local_status === 'pending'
+              ? 'warning'
+              : 'negative'
+          "
+        >
+          {{ cancelTransactionNotPermittedUat.local_status || 'pending' }}
+        </q-badge>
+        (Pembatalan ditolak oleh DANA Sandbox. Status pembayaran lokal dan
+        invoice tetap aman, tidak berubah sepihak).
+        <span v-if="cancelTransactionNotPermittedUat.status_inquiry">
+          · Status DANA Inquiry:
+          <code>{{
+            cancelTransactionNotPermittedUat.status_inquiry.response_code
+          }}</code>
+          ({{
+            cancelTransactionNotPermittedUat.status_inquiry
+              .latest_transaction_status || '01/Pending'
+          }})
+        </span>
+      </div>
+    </q-banner>
+
+    <q-banner
       v-if="armedWebhook500Uat"
       rounded
       class="transport-notice q-mt-md"
@@ -2512,6 +2622,7 @@ const runningDebitStatusInvalidSignatureUat = ref(false)
 const runningDebitStatusCancelledUat = ref(false)
 const cancellingTransaction = ref(false)
 const runningCancelOrderInProgressUat = ref(false)
+const runningCancelTransactionNotPermittedUat = ref(false)
 const armingWebhook500 = ref(false)
 const historyLoading = ref(false)
 const validation = ref(null)
@@ -2543,6 +2654,7 @@ const debitStatusCancelledUat = ref(null)
 const armedWebhook500Uat = ref(null)
 const cancelPaymentResult = ref(null)
 const cancelInProgressUat = ref(null)
+const cancelTransactionNotPermittedUat = ref(null)
 
 const isAnyUatRunning = computed(() => {
   return (
@@ -2569,6 +2681,7 @@ const isAnyUatRunning = computed(() => {
     runningDebitStatusCancelledUat.value ||
     cancellingTransaction.value ||
     runningCancelOrderInProgressUat.value ||
+    runningCancelTransactionNotPermittedUat.value ||
     armingWebhook500.value
   )
 })
@@ -3654,6 +3767,117 @@ async function runCancelOrderInProgressUat() {
     })
   } finally {
     runningCancelOrderInProgressUat.value = false
+  }
+}
+
+async function runCancelTransactionNotPermittedUat() {
+  if (!merchantId.value || runningCancelTransactionNotPermittedUat.value) return
+  runningCancelTransactionNotPermittedUat.value = true
+  error.value = null
+  cancelTransactionNotPermittedUat.value = null
+  try {
+    let targetPaymentId = transaction.value?.id
+    if (!targetPaymentId && history.value?.length > 0) {
+      targetPaymentId = history.value[0]?.payment_id
+    }
+    if (!targetPaymentId) {
+      const createRes =
+        await danaGatewayMerchantService.createSandboxTestTransaction(
+          merchantId.value,
+          {
+            amount_minor: 10000,
+            payment_method: 'dana_wallet'
+          },
+          typeof globalThis.crypto?.randomUUID === 'function'
+            ? globalThis.crypto.randomUUID()
+            : String(Date.now())
+        )
+      transaction.value = createRes.data?.data?.transaction ?? null
+      targetPaymentId = transaction.value?.id
+    }
+
+    if (!targetPaymentId) {
+      error.value =
+        'Tidak ada transaksi DANA Sandbox untuk menjalankan UAT Transaction Not Permitted.'
+      return
+    }
+
+    const response = await danaGatewayMerchantService.cancelDanaSandboxPayment(
+      merchantId.value,
+      targetPaymentId,
+      {
+        reason: 'UAT Transaction Not Permitted (4035705)',
+        partner_reference_no: '4035705'
+      }
+    )
+
+    const cancelResult = response.data?.data?.cancel_result ?? {}
+    const responseCode = cancelResult.response_code
+    const responseMessage = cancelResult.response_message
+    const is4035705 =
+      responseCode === '4035705' &&
+      (responseMessage === 'Do Not Honor' ||
+        responseMessage?.toLowerCase()?.includes('do not honor'))
+
+    let inquiryData = null
+    try {
+      const inquiryRes =
+        await danaGatewayMerchantService.queryDanaSandboxPaymentStatus(
+          merchantId.value,
+          targetPaymentId
+        )
+      inquiryData = inquiryRes.data?.data ?? null
+    } catch {
+      // inquiry fallback
+    }
+
+    const localStatus =
+      inquiryData?.local_status || transaction.value?.status || 'pending'
+    const passed =
+      (is4035705 || responseCode === '4035705') && localStatus === 'pending'
+
+    cancelTransactionNotPermittedUat.value = {
+      passed,
+      http_status: cancelResult.http_status ?? 403,
+      response_code: responseCode,
+      response_message: responseMessage || 'Tidak tersedia',
+      cancel_time: cancelResult.cancel_time,
+      partner_reference_no: '4035705',
+      original_partner_reference_no:
+        cancelResult.original_partner_reference_no || targetPaymentId,
+      request_id: cancelResult.request_id,
+      local_status: localStatus,
+      status_inquiry: inquiryData?.dana_status ?? null,
+      raw_response: cancelResult.raw_response ?? cancelResult
+    }
+
+    if (passed) {
+      $q.notify({
+        type: 'positive',
+        message:
+          'UAT Transaction Not Permitted (4035705): Berhasil diverifikasi (Do Not Honor, status pembayaran aman).'
+      })
+    } else if (responseCode === '2005700') {
+      $q.notify({
+        type: 'warning',
+        message: `Respons DANA Sandbox: ${responseCode} - ${responseMessage}. Ekspektasi skenario UAT adalah 4035705 (Do Not Honor).`
+      })
+    } else {
+      error.value = `UAT 4035705 belum terpenuhi: Respons DANA ${responseCode || 'Unknown'} - ${responseMessage || 'Tidak tersedia'}`
+      $q.notify({
+        type: 'negative',
+        message: `UAT Transaction Not Permitted gagal: ${responseCode} - ${responseMessage}`
+      })
+    }
+    await refreshHistory()
+  } catch (requestError) {
+    error.value = getApiErrorMessage(requestError)
+    $q.notify({
+      type: 'negative',
+      message: `Gagal menjalankan UAT Transaction Not Permitted: ${error.value}`
+    })
+  } finally {
+    runningCancelTransactionNotPermittedUat.value = false
   }
 }
 
