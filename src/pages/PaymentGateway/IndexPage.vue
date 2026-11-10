@@ -135,6 +135,8 @@
               :pagination="merchantStore.pagination"
               @request="merchantStore.fetchMerchants"
               @detail="merchantStore.showMerchant"
+              @toggle-status="merchantStore.toggleMerchantStatus"
+              @delete="merchantStore.deleteMerchant"
             />
           </div>
           <div v-else>

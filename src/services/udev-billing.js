@@ -254,6 +254,23 @@ export const danaGatewayMerchantService = {
   list: params => getList('/v1/admin/dana-gateway-merchants', params),
   get: merchantId => api.get(`/v1/admin/dana-gateway-merchants/${merchantId}`),
   create: payload => api.post('/v1/admin/dana-gateway-merchants', payload),
+  toggleStatus: (merchantId, isActive) =>
+    api.patch(`/v1/admin/dana-gateway-merchants/${merchantId}/status`, {
+      is_active: isActive
+    }),
+  delete: merchantId =>
+    api.delete(`/v1/admin/dana-gateway-merchants/${merchantId}`),
+  getEnvironment: () => api.get('/v1/admin/dana-gateway-merchants/environment'),
+  activateProduction: payload =>
+    api.post(
+      '/v1/admin/dana-gateway-merchants/environment/activate-production',
+      payload
+    ),
+  switchSandbox: payload =>
+    api.post(
+      '/v1/admin/dana-gateway-merchants/environment/switch-sandbox',
+      payload
+    ),
   readiness: merchantId =>
     api.get(`/v1/admin/dana-gateway-merchants/${merchantId}/readiness`, {
       headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }

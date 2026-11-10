@@ -39,6 +39,17 @@
           </q-badge>
         </q-td>
       </template>
+      <template #body-cell-status="props">
+        <q-td :props="props">
+          <q-badge
+            :color="
+              props.row.merchant_status === 'active' ? 'positive' : 'grey-7'
+            "
+          >
+            {{ props.row.merchant_status === 'active' ? 'Aktif' : 'Nonaktif' }}
+          </q-badge>
+        </q-td>
+      </template>
       <template #body-cell-provisioning_status="props">
         <q-td :props="props">
           <q-badge color="positive">{{ labelFor(props.value) }}</q-badge>
@@ -55,7 +66,7 @@
         <q-td :props="props">{{ formatDate(props.value) }}</q-td>
       </template>
       <template #body-cell-actions="props">
-        <q-td :props="props" class="text-right">
+        <q-td :props="props" class="text-right q-gutter-xs">
           <q-btn
             flat
             dense
@@ -65,6 +76,45 @@
             no-caps
             @click="$emit('detail', props.row.merchant_id)"
           />
+          <template v-if="props.row.merchant_code !== 'udev-central'">
+            <q-btn
+              flat
+              dense
+              :color="
+                props.row.merchant_status === 'active'
+                  ? 'blue-grey-7'
+                  : 'positive'
+              "
+              :icon="
+                props.row.merchant_status === 'active'
+                  ? 'pause_circle'
+                  : 'play_circle'
+              "
+              :label="
+                props.row.merchant_status === 'active'
+                  ? 'Nonaktifkan'
+                  : 'Aktifkan'
+              "
+              no-caps
+              @click="confirmToggleStatus(props.row)"
+            />
+            <q-btn
+              flat
+              dense
+              color="negative"
+              icon="delete_outline"
+              label="Hapus"
+              no-caps
+              @click="confirmDelete(props.row)"
+            />
+          </template>
+          <q-badge
+            v-else
+            color="amber-2"
+            text-color="brown-9"
+            label="Merchant Sistem Pusat"
+            class="q-pa-xs"
+          />
         </q-td>
       </template>
     </q-table>
@@ -72,14 +122,46 @@
 </template>
 
 <script setup>
+import { useQuasar } from 'quasar'
 import EmptyState from '@/components/EmptyState.vue'
+
+const $q = useQuasar()
 
 defineProps({
   rows: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   pagination: { type: Object, required: true }
 })
-defineEmits(['request', 'detail'])
+const emit = defineEmits(['request', 'detail', 'toggle-status', 'delete'])
+
+function confirmToggleStatus(row) {
+  const isCurrentlyActive = row.merchant_status === 'active'
+  const actionLabel = isCurrentlyActive ? 'menonaktifkan' : 'mengaktifkan'
+  $q.dialog({
+    title: `Konfirmasi ${isCurrentlyActive ? 'Nonaktifkan' : 'Aktifkan'} Merchant`,
+    message: `Apakah Anda yakin ingin ${actionLabel} merchant "${row.merchant_name}" (${row.merchant_code})?`,
+    cancel: { label: 'Batal', flat: true },
+    ok: {
+      label: isCurrentlyActive ? 'Nonaktifkan' : 'Aktifkan',
+      color: isCurrentlyActive ? 'warning' : 'positive'
+    },
+    persistent: true
+  }).onOk(() => {
+    emit('toggle-status', row, !isCurrentlyActive)
+  })
+}
+
+function confirmDelete(row) {
+  $q.dialog({
+    title: 'Hapus Merchant DANA',
+    message: `Apakah Anda yakin ingin menghapus merchant "${row.merchant_name}" (${row.merchant_code})? Tindakan ini tidak dapat dibatalkan.`,
+    cancel: { label: 'Batal', flat: true },
+    ok: { label: 'Hapus', color: 'negative' },
+    persistent: true
+  }).onOk(() => {
+    emit('delete', row)
+  })
+}
 
 const columns = [
   {
@@ -92,6 +174,12 @@ const columns = [
     name: 'environment',
     label: 'Environment',
     field: 'environment',
+    align: 'left'
+  },
+  {
+    name: 'status',
+    label: 'Status',
+    field: 'merchant_status',
     align: 'left'
   },
   {

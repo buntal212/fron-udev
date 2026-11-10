@@ -179,6 +179,45 @@ export const useDanaGatewayMerchantStore = defineStore(
         } finally {
           this.detailLoading = false
         }
+      },
+
+      async toggleMerchantStatus(merchant, isActive) {
+        try {
+          const res = await danaGatewayMerchantService.toggleStatus(
+            merchant.merchant_id,
+            isActive
+          )
+          Notify.create({
+            type: 'positive',
+            message: res.data?.message || 'Status merchant berhasil diperbarui.'
+          })
+          await this.fetchMerchants()
+        } catch (error) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(error)
+          })
+          throw error
+        }
+      },
+
+      async deleteMerchant(merchant) {
+        try {
+          const res = await danaGatewayMerchantService.delete(
+            merchant.merchant_id
+          )
+          Notify.create({
+            type: 'positive',
+            message: res.data?.message || 'Merchant berhasil dihapus.'
+          })
+          await this.fetchMerchants()
+        } catch (error) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(error)
+          })
+          throw error
+        }
       }
     }
   }
