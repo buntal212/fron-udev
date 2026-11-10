@@ -683,7 +683,11 @@
                 >
                   <q-spinner-tail color="primary" size="42px" />
                   <div class="text-caption text-grey-8 q-mt-xs">
-                    Menghubungi Midtrans Sandbox untuk QRIS resmi...
+                    {{
+                      isMidtrans
+                        ? 'Menghubungi Midtrans Sandbox untuk QRIS resmi...'
+                        : 'Menyiapkan QRIS DANA...'
+                    }}
                   </div>
                 </div>
 
@@ -2287,13 +2291,18 @@ const rawMidtransQrUrl = computed(() => {
 })
 
 const emvcoPayload = computed(() => {
+  const attempt = latestAttempt.value
+  const instruction = currentPaymentInstruction.value
   return (
+    attempt?.qr_string ||
+    attempt?.qr_content ||
+    attempt?.metadata?.qr_content ||
+    instruction?.qr_content ||
+    (store.checkoutQrPayloadAttemptId === attempt?.id
+      ? store.checkoutQrPayload
+      : null) ||
     store.checkoutQrPayload ||
     store.checkoutQrString ||
-    latestAttempt.value?.qr_string ||
-    latestAttempt.value?.qr_content ||
-    latestAttempt.value?.metadata?.qr_content ||
-    currentPaymentInstruction.value?.qr_content ||
     null
   )
 })
@@ -2318,6 +2327,12 @@ const cleanupProxyBlobUrl = () => {
 }
 
 const loadProxyQrBlob = async () => {
+  if (!isMidtrans.value) {
+    // DANA QRIS menggunakan client-side canvas render dari EMVCo payload (qr_content).
+    // Jangan panggil endpoint qr-image untuk DANA.
+    return null
+  }
+
   if (isCheckoutExpired.value) {
     cleanupProxyBlobUrl()
     return null
@@ -2531,7 +2546,7 @@ const downloadQrisPng = async () => {
 
   const attemptId = latestAttempt.value?.id || store.checkoutAttempt?.id
   const proxyTarget = proxyQrUrl.value || attemptId
-  if (proxyTarget) {
+  if (isMidtrans.value && proxyTarget) {
     try {
       const blobUrl =
         proxyBlobUrl.value || (await store.fetchProxyQrBlob(proxyTarget))
@@ -2598,6 +2613,13 @@ watch(
       qrImageLoadFailed.value = false
       proxyFetchFailed.value = false
       cleanupProxyBlobUrl()
+      if (
+        store.checkoutQrDataUrlAttemptId &&
+        store.checkoutQrDataUrlAttemptId !== attemptId
+      ) {
+        store.checkoutQrDataUrl = null
+        store.checkoutQrDataUrlAttemptId = null
+      }
     }
 
     const attemptStatus =
@@ -2614,15 +2636,30 @@ watch(
       store.stopPolling()
     }
 
-    if (
-      currentAttemptMethod.value === 'qris' &&
-      (proxyQrUrl.value || latestAttempt.value?.id) &&
-      !isCheckoutExpired.value &&
-      !isTerminal &&
-      (!qrImageLoading.value || attemptChanged) &&
-      (!proxyBlobUrl.value || attemptChanged)
-    ) {
-      await loadProxyQrBlob()
+    if (currentAttemptMethod.value === 'qris') {
+      if (isMidtrans.value) {
+        if (
+          (proxyQrUrl.value || latestAttempt.value?.id) &&
+          !isCheckoutExpired.value &&
+          !isTerminal &&
+          (!qrImageLoading.value || attemptChanged) &&
+          (!proxyBlobUrl.value || attemptChanged)
+        ) {
+          await loadProxyQrBlob()
+        }
+      } else {
+        // DANA QRIS: Selalu render string EMVCo (qr_content) di client canvas, TANPA request ke qr-image
+        if (
+          emvcoPayload.value &&
+          !isCheckoutExpired.value &&
+          !isTerminal &&
+          (!store.checkoutQrDataUrl ||
+            attemptChanged ||
+            store.checkoutQrDataUrlAttemptId !== attemptId)
+        ) {
+          await store.renderQr(emvcoPayload.value, attemptId)
+        }
+      }
     }
   },
   { immediate: true }

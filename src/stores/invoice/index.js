@@ -139,6 +139,8 @@ export const useInvoiceStore = defineStore('invoice', {
     checkoutQrPayload: null,
     checkoutQrBlobUrl: null,
     checkoutQrBlobAttemptId: null,
+    checkoutQrDataUrlAttemptId: null,
+    checkoutQrPayloadAttemptId: null,
     checkoutPaymentCode: null,
     checkoutPaymentInstruction: null,
     checkoutQrLoading: false,
@@ -609,6 +611,10 @@ export const useInvoiceStore = defineStore('invoice', {
         this.checkoutQrBlobUrl = null
         this.checkoutQrBlobAttemptId = null
       }
+      this.checkoutQrDataUrl = null
+      this.checkoutQrDataUrlAttemptId = null
+      this.checkoutQrPayload = null
+      this.checkoutQrPayloadAttemptId = null
     },
 
     async fetchProxyQrBlob(target = this.checkoutAttempt?.id) {
@@ -889,9 +895,11 @@ export const useInvoiceStore = defineStore('invoice', {
       }, 4000)
     },
 
-    async renderQr(payload) {
+    async renderQr(payload, attemptId = null) {
       if (!payload) {
         this.checkoutQrDataUrl = null
+        this.checkoutQrDataUrlAttemptId = null
+        this.checkoutQrPayloadAttemptId = null
         return
       }
       this.checkoutQrLoading = true
@@ -902,6 +910,8 @@ export const useInvoiceStore = defineStore('invoice', {
           margin: 2,
           width: 320
         })
+        this.checkoutQrDataUrlAttemptId = attemptId
+        this.checkoutQrPayloadAttemptId = attemptId
       } catch {
         this.checkoutQrError = 'Gambar QRIS tidak dapat dibuat di browser.'
       } finally {
@@ -932,7 +942,9 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutQrImageUrl = null
       this.checkoutQrString = null
       this.checkoutQrDataUrl = null
+      this.checkoutQrDataUrlAttemptId = null
       this.checkoutQrPayload = null
+      this.checkoutQrPayloadAttemptId = null
       this.checkoutQrBlobUrl = null
       this.checkoutQrBlobAttemptId = null
       this.checkoutPaymentCode = null
@@ -1044,15 +1056,19 @@ export const useInvoiceStore = defineStore('invoice', {
             if (method === 'qris') {
               if (rawPayload) {
                 this.checkoutQrPayload = rawPayload
+                this.checkoutQrPayloadAttemptId = latestAttempt.id
                 this.checkoutPaymentCode = null
-                await this.renderQr(rawPayload)
+                await this.renderQr(rawPayload, latestAttempt.id)
               } else if (rawQrUrl) {
                 this.checkoutQrPayload = null
+                this.checkoutQrPayloadAttemptId = null
                 this.checkoutPaymentCode = null
               }
             } else {
               this.checkoutQrPayload = null
+              this.checkoutQrPayloadAttemptId = null
               this.checkoutQrDataUrl = null
+              this.checkoutQrDataUrlAttemptId = null
               this.checkoutPaymentCode =
                 typeof rawPayload === 'string' ? rawPayload : null
             }
@@ -1234,11 +1250,14 @@ export const useInvoiceStore = defineStore('invoice', {
               latestAttempt?.metadata?.qr_content ||
               checkout.payment_code
           if (rawPayload) {
+            const activeId = latestAttempt?.id || checkout?.id || null
             this.checkoutQrPayload = rawPayload
+            this.checkoutQrPayloadAttemptId = activeId
             this.checkoutPaymentCode = null
-            await this.renderQr(rawPayload)
+            await this.renderQr(rawPayload, activeId)
           } else if (this.checkoutQrUrl || this.checkoutQrImageUrl) {
             this.checkoutQrPayload = null
+            this.checkoutQrPayloadAttemptId = null
             this.checkoutPaymentCode = null
           }
           if (rawPayload || this.checkoutQrUrl || this.checkoutQrImageUrl) {
@@ -1310,7 +1329,9 @@ export const useInvoiceStore = defineStore('invoice', {
       this.checkoutLastProvider = this.checkoutProvider
       this.checkoutLastBank = this.checkoutBank
       this.checkoutQrDataUrl = null
+      this.checkoutQrDataUrlAttemptId = null
       this.checkoutQrPayload = null
+      this.checkoutQrPayloadAttemptId = null
       this.checkoutPaymentCode = null
       this.checkoutTransactionId = null
       this.checkoutQrBlobUrl = null
@@ -1375,11 +1396,13 @@ export const useInvoiceStore = defineStore('invoice', {
             latest.metadata?.payment_instruction?.qr_content
           if (
             recoveredPayload &&
-            !this.checkoutQrDataUrl &&
+            (!this.checkoutQrDataUrl ||
+              this.checkoutQrDataUrlAttemptId !== latest.id) &&
             !this.checkoutIsExpired
           ) {
             this.checkoutQrPayload = recoveredPayload
-            await this.renderQr(recoveredPayload)
+            this.checkoutQrPayloadAttemptId = latest.id
+            await this.renderQr(recoveredPayload, latest.id)
           }
         }
       } catch (error) {
