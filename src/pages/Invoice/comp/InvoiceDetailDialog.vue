@@ -2006,7 +2006,6 @@ async function recalculateAdminFee() {
     } else {
       activeFeeRule.value = null
       const resp = await danaFeeService.calculateFee({
-        merchant_code: 'udev-central',
         payment_method: store.checkoutPaymentMethod,
         amount: currentSubtotal.value
       })

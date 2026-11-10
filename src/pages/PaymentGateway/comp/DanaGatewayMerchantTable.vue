@@ -24,7 +24,20 @@
       </template>
       <template #body-cell-merchant="props">
         <q-td :props="props">
-          <div class="text-weight-medium">{{ props.row.merchant_name }}</div>
+          <div class="row items-center q-gutter-xs">
+            <span class="text-weight-medium">{{
+              props.row.merchant_name
+            }}</span>
+            <q-badge
+              v-if="props.row.is_primary"
+              color="purple"
+              text-color="white"
+              class="q-px-xs text-caption"
+            >
+              <q-icon name="star" size="12px" class="q-mr-xs" />
+              Merchant Utama Aktif
+            </q-badge>
+          </div>
           <div class="text-caption text-grey-7">
             {{ props.row.merchant_code }}
           </div>
@@ -32,11 +45,10 @@
       </template>
       <template #body-cell-environment="props">
         <q-td :props="props">
-          <q-badge
-            :color="props.value === 'production' ? 'deep-orange' : 'blue-grey'"
-          >
-            {{ props.value }}
-          </q-badge>
+          <div class="row items-center q-gutter-xs">
+            <q-badge color="blue-grey" label="Sandbox" />
+            <q-badge color="deep-orange" label="Production" />
+          </div>
         </q-td>
       </template>
       <template #body-cell-status="props">
@@ -76,7 +88,29 @@
             no-caps
             @click="$emit('detail', props.row.merchant_id)"
           />
-          <template v-if="props.row.merchant_code !== 'udev-central'">
+          <template v-if="props.row.is_primary">
+            <q-badge
+              color="amber-2"
+              text-color="brown-9"
+              label="Merchant Sistem Pusat"
+              class="q-pa-xs"
+            />
+          </template>
+          <template v-else>
+            <q-btn
+              flat
+              dense
+              color="primary"
+              icon="star_outline"
+              label="Jadikan Utama"
+              no-caps
+              :disable="props.row.merchant_status !== 'active'"
+              @click="confirmSetPrimary(props.row)"
+            >
+              <q-tooltip v-if="props.row.merchant_status !== 'active'">
+                Hanya merchant aktif yang dapat dijadikan Merchant Utama
+              </q-tooltip>
+            </q-btn>
             <q-btn
               flat
               dense
@@ -108,13 +142,6 @@
               @click="confirmDelete(props.row)"
             />
           </template>
-          <q-badge
-            v-else
-            color="amber-2"
-            text-color="brown-9"
-            label="Merchant Sistem Pusat"
-            class="q-pa-xs"
-          />
         </q-td>
       </template>
     </q-table>
@@ -132,7 +159,25 @@ defineProps({
   loading: { type: Boolean, default: false },
   pagination: { type: Object, required: true }
 })
-const emit = defineEmits(['request', 'detail', 'toggle-status', 'delete'])
+const emit = defineEmits([
+  'request',
+  'detail',
+  'toggle-status',
+  'delete',
+  'set-primary'
+])
+
+function confirmSetPrimary(row) {
+  $q.dialog({
+    title: 'Tetapkan Merchant Utama DANA',
+    message: `Apakah Anda yakin ingin menetapkan "${row.merchant_name}" (${row.merchant_code}) sebagai Merchant Utama DANA? Seluruh Invoice langganan baru UDEV akan diarahkan ke merchant ini.`,
+    cancel: { label: 'Batal', flat: true },
+    ok: { label: 'Jadikan Utama', color: 'primary' },
+    persistent: true
+  }).onOk(() => {
+    emit('set-primary', row)
+  })
+}
 
 function confirmToggleStatus(row) {
   const isCurrentlyActive = row.merchant_status === 'active'

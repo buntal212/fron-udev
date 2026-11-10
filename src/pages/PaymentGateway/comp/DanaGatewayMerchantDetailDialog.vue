@@ -12,7 +12,7 @@
           @click="closeDetail"
         />
       </div>
-      <div v-if="isSandbox" class="col-12 col-sm-auto row q-gutter-sm">
+      <div class="col-12 col-sm-auto row q-gutter-sm">
         <q-btn
           outline
           color="warning"
@@ -30,7 +30,7 @@
         class="detail-card__header row items-center justify-between"
       >
         <div>
-          <p class="eyebrow">DANA SANDBOX</p>
+          <p class="eyebrow">DANA GATEWAY</p>
           <h2>Detail & Konfigurasi Merchant</h2>
         </div>
         <q-btn
@@ -60,9 +60,10 @@
             </div>
             <div class="detail-row">
               <span>Environment</span>
-              <q-badge :color="isSandbox ? 'blue-grey' : 'deep-orange'">
-                {{ merchant.environment }}
-              </q-badge>
+              <div class="row items-center q-gutter-xs">
+                <q-badge color="blue-grey" label="Sandbox" />
+                <q-badge color="deep-orange" label="Production" />
+              </div>
             </div>
             <div class="detail-row">
               <span>Status provisioning</span>
@@ -73,14 +74,53 @@
           </q-card-section>
           <q-separator />
 
-          <q-card-section v-if="!isSandbox">
-            <q-banner rounded class="warning-banner">
-              <template #avatar><q-icon name="lock" /></template>
-              Manajemen konfigurasi dari UDEV hanya tersedia untuk merchant
-              Sandbox. Production tidak dapat dikonfigurasi dari halaman ini.
+          <!-- Tab Dual Environment: Sandbox dan Production -->
+          <q-card-section class="q-pb-none bg-grey-1">
+            <q-tabs
+              v-model="activeEnvironmentTab"
+              dense
+              class="text-grey-8"
+              active-color="warning"
+              indicator-color="warning"
+              align="left"
+              narrow-indicator
+              @update:model-value="onEnvironmentTabChange"
+            >
+              <q-tab name="sandbox" icon="science" label="Sandbox (Testing)">
+                <q-badge color="blue-grey" class="q-ml-xs">Testing</q-badge>
+              </q-tab>
+              <q-tab
+                name="production"
+                icon="verified"
+                label="Production (Prioritas Utama)"
+              >
+                <q-badge color="deep-orange" class="q-ml-xs">Live</q-badge>
+              </q-tab>
+            </q-tabs>
+          </q-card-section>
+          <q-separator />
+
+          <q-card-section
+            v-if="activeEnvironmentTab === 'production'"
+            class="q-pb-none"
+          >
+            <q-banner rounded class="production-policy-banner">
+              <template #avatar
+                ><q-icon name="shield" color="positive"
+              /></template>
+              <div class="text-weight-bold"
+                >Kebijakan Dual Environment UDEV</div
+              >
+              <div>
+                Transaksi pelanggan nyata otomatis memprioritaskan Production
+                jika konfigurasi DANA Production approved, aktif, credential
+                lengkap, dan terverifikasi. Sandbox hanya digunakan untuk
+                pengujian jika Production belum siap.
+              </div>
             </q-banner>
           </q-card-section>
-          <template v-else>
+
+          <template v-if="true">
             <q-card-section
               class="row items-center justify-between q-col-gutter-md"
             >
@@ -212,14 +252,17 @@
                   :label="
                     configurationDialogOpen
                       ? 'Sembunyikan Form Konfigurasi'
-                      : 'Konfigurasi DANA Sandbox'
+                      : 'Konfigurasi DANA ' +
+                        (activeEnvironmentTab === 'production'
+                          ? 'Production'
+                          : 'Sandbox')
                   "
                   no-caps
                   @click="toggleConfigurationPanel"
                 />
               </q-card-section>
 
-              <!-- Panel Konfigurasi DANA Sandbox Inline (Responsif tanpa QDialog) -->
+              <!-- Panel Konfigurasi DANA Inline (Responsif tanpa QDialog) -->
               <q-card
                 v-if="configurationDialogOpen"
                 flat
@@ -228,8 +271,17 @@
               >
                 <q-card-section class="row items-center justify-between">
                   <div>
-                    <p class="eyebrow">DANA SANDBOX</p>
-                    <h2>Konfigurasi merchant</h2>
+                    <p class="eyebrow"
+                      >DANA {{ activeEnvironmentTab.toUpperCase() }}</p
+                    >
+                    <h2
+                      >Konfigurasi merchant
+                      {{
+                        activeEnvironmentTab === 'production'
+                          ? 'Production'
+                          : 'Sandbox'
+                      }}</h2
+                    >
                   </div>
                   <q-btn
                     flat
@@ -273,8 +325,14 @@
                     </div>
                     <div class="col-12 col-sm">
                       <span class="section-description">
-                        Hanya metadata Sandbox merchant ini yang diisi. Secret
-                        tetap di Gateway dan tidak disimpan otomatis.
+                        Hanya metadata
+                        {{
+                          activeEnvironmentTab === 'production'
+                            ? 'Production'
+                            : 'Sandbox'
+                        }}
+                        merchant ini yang diisi. Secret tetap di Gateway dan
+                        tidak disimpan otomatis.
                       </span>
                     </div>
                   </div>
@@ -346,7 +404,7 @@
                       outlined
                       dense
                       readonly
-                      model-value="sandbox"
+                      :model-value="activeEnvironmentTab"
                       label="Environment"
                       bg-color="grey-2"
                     />
@@ -635,9 +693,11 @@
                 </q-card-actions>
               </q-card>
 
-              <!-- Panel Sandbox Tester -->
-              <DanaSandboxTesterPanel :merchant="merchant" />
-              <q-separator />
+              <!-- Panel Sandbox Tester (Khusus Environment Sandbox) -->
+              <template v-if="activeEnvironmentTab === 'sandbox'">
+                <DanaSandboxTesterPanel :merchant="merchant" />
+                <q-separator />
+              </template>
 
               <!-- Metadata API Key & Riwayat Penerbitan -->
               <q-card-section>
@@ -1080,12 +1140,13 @@ const abilityOptions = [
   { label: 'Baca pembayaran', value: 'payments:read' }
 ]
 const merchant = computed(() => store.selectedMerchant)
-const isSandbox = computed(() => merchant.value?.environment === 'sandbox')
+const activeEnvironmentTab = ref('sandbox')
+const isSandbox = computed(() => activeEnvironmentTab.value === 'sandbox')
 const isSecureFrontend = computed(() =>
   isSecureFrontendProtocol(globalThis.location?.protocol)
 )
 const emptyConfiguration = () => ({
-  environment: 'sandbox',
+  environment: activeEnvironmentTab.value,
   partner_id: '',
   merchant_id: '',
   private_key: '',
@@ -1104,13 +1165,20 @@ const configurationForm = reactive(emptyConfiguration())
 watch(
   [() => store.detailDialogOpen, () => merchant.value?.merchant_id],
   ([isOpen, merchantId]) => {
-    if (!isOpen || !merchantId || !isSandbox.value) {
+    if (!isOpen || !merchantId) {
       managementLoadedMerchantId.value = null
       return
     }
-    refreshManagement()
+    refreshManagement(true)
   }
 )
+
+function onEnvironmentTabChange(tab) {
+  activeEnvironmentTab.value = tab
+  configurationDialogOpen.value = false
+  resetConfigurationForm()
+  refreshManagement(true)
+}
 
 function closeDetail() {
   store.selectedMerchant = null
@@ -1142,7 +1210,7 @@ function apiKeyStatus(apiKey) {
   return { label: 'Aktif', color: 'positive' }
 }
 function canRevoke(apiKey) {
-  return isSandbox.value && apiKeyStatus(apiKey).label === 'Aktif'
+  return apiKeyStatus(apiKey).label === 'Aktif'
 }
 function issuanceStatusColor(status) {
   if (status === 'active') return 'positive'
@@ -1176,7 +1244,6 @@ async function refreshManagement(force = false) {
   const merchantId = merchant.value?.merchant_id
   if (
     !merchantId ||
-    !isSandbox.value ||
     managementLoading.value ||
     (!force && managementLoadedMerchantId.value === merchantId)
   )
@@ -1187,7 +1254,10 @@ async function refreshManagement(force = false) {
   try {
     const [readinessResponse, apiKeysResponse, issuanceResponse] =
       await Promise.all([
-        danaGatewayMerchantService.readiness(merchantId),
+        danaGatewayMerchantService.readiness(
+          merchantId,
+          activeEnvironmentTab.value
+        ),
         danaGatewayMerchantService.apiKeys(merchantId),
         danaGatewayMerchantService.issuances(merchantId, {
           per_page: 5
@@ -1247,8 +1317,7 @@ function applyStoredConfiguration(response) {
   const values = response?.configuration
   if (!response?.configuration_exists || !values) {
     storedSecretStatus.value = null
-    storedConfigurationNotice.value =
-      'Konfigurasi DANA Sandbox tersimpan belum ditemukan untuk merchant ini. Silakan lengkapi konfigurasi secara manual.'
+    storedConfigurationNotice.value = `Konfigurasi DANA ${activeEnvironmentTab.value === 'production' ? 'Production' : 'Sandbox'} tersimpan belum ditemukan untuk merchant ini. Silakan lengkapi konfigurasi secara manual.`
     return
   }
 
@@ -1273,7 +1342,7 @@ function applyStoredConfiguration(response) {
       missing.push(field)
     }
   }
-  configurationForm.environment = 'sandbox'
+  configurationForm.environment = activeEnvironmentTab.value
   configurationForm.enabled = values.enabled === true
   configurationForm.private_key = ''
   configurationForm.dana_webhook_public_key = ''
@@ -1306,7 +1375,8 @@ async function executeLoadStoredConfiguration() {
   configurationError.value = null
   try {
     const response = await danaGatewayMerchantService.storedDanaConfiguration(
-      merchant.value.merchant_id
+      merchant.value.merchant_id,
+      activeEnvironmentTab.value
     )
     applyStoredConfiguration(response.data?.data ?? null)
   } catch (error) {
@@ -1353,6 +1423,7 @@ function openIssueDialog() {
   }
 
   issueError.value = null
+  issueForm.name = `UDEV ${activeEnvironmentTab.value === 'production' ? 'Production' : 'Sandbox'} Checkout`
   issueIdempotencyKey.value = globalThis.crypto.randomUUID()
   issueDialogOpen.value = true
 }
@@ -1371,7 +1442,7 @@ async function issueApiKey() {
     const response = await danaGatewayMerchantService.issueApiKey(
       merchant.value.merchant_id,
       {
-        environment: 'sandbox',
+        environment: activeEnvironmentTab.value,
         name: issueForm.name,
         abilities: issueForm.abilities,
         expires_at: issueForm.expires_at || null
@@ -1466,7 +1537,10 @@ async function saveConfiguration() {
   configurationSaving.value = true
   configurationError.value = null
   configurationErrors.value = {}
-  const payload = { ...configurationForm, environment: 'sandbox' }
+  const payload = {
+    ...configurationForm,
+    environment: activeEnvironmentTab.value
+  }
   if (!payload.private_key) delete payload.private_key
   if (!payload.dana_webhook_public_key) delete payload.dana_webhook_public_key
   try {
@@ -1476,14 +1550,13 @@ async function saveConfiguration() {
     )
     configurationDialogOpen.value = false
     Notify.create({
-      message:
-        'Konfigurasi DANA Sandbox tersimpan. Credential tidak ditampilkan kembali.',
+      message: `Konfigurasi DANA ${activeEnvironmentTab.value === 'production' ? 'Production' : 'Sandbox'} tersimpan. Credential tidak ditampilkan kembali.`,
       color: 'positive',
       icon: 'check_circle',
       position: 'top',
       timeout: 5000
     })
-    await refreshManagement()
+    await refreshManagement(true)
   } catch (error) {
     configurationErrors.value = getApiValidationErrors(error)
     configurationError.value = getApiErrorMessage(error)
@@ -1592,6 +1665,13 @@ h3 {
   background: #fff8dc;
   color: #5d4710;
   font-size: 0.82rem;
+}
+.production-policy-banner {
+  border: 1px solid #94d3a2;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 .transport-notice {
   border: 1px solid #cbb57c;

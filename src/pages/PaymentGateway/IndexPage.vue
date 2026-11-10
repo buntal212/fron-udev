@@ -137,6 +137,7 @@
               @detail="merchantStore.showMerchant"
               @toggle-status="merchantStore.toggleMerchantStatus"
               @delete="merchantStore.deleteMerchant"
+              @set-primary="merchantStore.setPrimaryMerchant"
             />
           </div>
           <div v-else>

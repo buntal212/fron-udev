@@ -54,23 +54,10 @@
             :error="hasError('email')"
             :error-message="errorFor('email')"
           />
-          <q-select
-            v-model="store.form.environment"
-            outlined
-            dense
-            emit-value
-            map-options
-            label="Environment"
-            :disable="store.saving"
-            :options="environmentOptions"
-            :rules="[requiredEnvironment]"
-            :error="hasError('environment')"
-            :error-message="errorFor('environment')"
-          />
           <q-banner dense class="bootstrap-notice">
-            Merchant yang berhasil diprovisikan tetap memerlukan bootstrap
-            credential dan konfigurasi DANA sebelum dapat digunakan untuk
-            checkout. Mapping aplikasi tidak dibuat otomatis.
+            Merchant didaftarkan sebagai identitas bisnis tunggal. Konfigurasi
+            credential, kesiapan Sandbox, dan kesiapan Production dikelola
+            secara mandiri pada panel Detail & Konfigurasi merchant.
           </q-banner>
         </q-card-section>
         <q-separator />
@@ -101,14 +88,6 @@
 import { useDanaGatewayMerchantStore } from '@/stores/danagatewaymerchant'
 
 const store = useDanaGatewayMerchantStore()
-const environmentOptions = [
-  { label: 'Sandbox', value: 'sandbox' },
-  {
-    label: 'Production (belum diaktifkan)',
-    value: 'production',
-    disable: true
-  }
-]
 const requiredCode = value => !!value?.trim() || 'Kode merchant wajib diisi.'
 const validCode = value =>
   /^[A-Za-z0-9_-]+$/.test(value?.trim() || '') ||
@@ -123,7 +102,6 @@ const validEmail = value =>
   /\S+@\S+\.\S+/.test(value) || 'Format email tidak valid.'
 const maxEmailLength = value =>
   (value?.trim() || '').length <= 255 || 'Email resmi maksimal 255 karakter.'
-const requiredEnvironment = value => !!value || 'Environment wajib dipilih.'
 const hasError = field => Boolean(store.formErrors[field]?.length)
 const errorFor = field => store.formErrors[field]?.[0] || ''
 </script>

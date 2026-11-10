@@ -260,6 +260,8 @@ export const danaGatewayMerchantService = {
     }),
   delete: merchantId =>
     api.delete(`/v1/admin/dana-gateway-merchants/${merchantId}`),
+  setPrimaryMerchant: merchantId =>
+    api.post(`/v1/admin/dana-gateway-merchants/${merchantId}/set-primary`),
   getEnvironment: () => api.get('/v1/admin/dana-gateway-merchants/environment'),
   activateProduction: payload =>
     api.post(
@@ -271,18 +273,26 @@ export const danaGatewayMerchantService = {
       '/v1/admin/dana-gateway-merchants/environment/switch-sandbox',
       payload
     ),
-  readiness: merchantId =>
+  readiness: (merchantId, environment = 'sandbox') =>
     api.get(`/v1/admin/dana-gateway-merchants/${merchantId}/readiness`, {
+      params: { environment },
       headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
     }),
-  storedDanaConfiguration: merchantId =>
+  storedDanaConfiguration: (merchantId, environment = 'sandbox') =>
     api.get(
       `/v1/admin/dana-gateway-merchants/${merchantId}/dana-configuration`,
       {
+        params: { environment },
         headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' }
       }
     ),
   configureSandbox: (merchantId, payload) =>
+    api.put(
+      `/v1/admin/dana-gateway-merchants/${merchantId}/dana-configuration`,
+      payload,
+      { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
+    ),
+  configureMerchant: (merchantId, payload) =>
     api.put(
       `/v1/admin/dana-gateway-merchants/${merchantId}/dana-configuration`,
       payload,

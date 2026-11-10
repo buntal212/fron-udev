@@ -6,8 +6,7 @@ import { getApiErrorMessage, getApiValidationErrors } from '@/utils/api-error'
 const emptyForm = () => ({
   code: '',
   name: '',
-  email: '',
-  environment: 'sandbox'
+  email: ''
 })
 
 let pendingMerchantRequest = null
@@ -142,8 +141,7 @@ export const useDanaGatewayMerchantStore = defineStore(
           const response = await danaGatewayMerchantService.create({
             code: this.form.code.trim(),
             name: this.form.name.trim(),
-            email: this.form.email.trim() || null,
-            environment: this.form.environment
+            email: this.form.email.trim() || null
           })
 
           this.formDialogOpen = false
@@ -211,6 +209,27 @@ export const useDanaGatewayMerchantStore = defineStore(
             message: res.data?.message || 'Merchant berhasil dihapus.'
           })
           await this.fetchMerchants()
+        } catch (error) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(error)
+          })
+          throw error
+        }
+      },
+
+      async setPrimaryMerchant(merchant) {
+        try {
+          const res = await danaGatewayMerchantService.setPrimaryMerchant(
+            merchant.merchant_id
+          )
+          Notify.create({
+            type: 'positive',
+            message:
+              res.data?.message || 'Merchant Utama DANA berhasil diperbarui.'
+          })
+          await this.fetchMerchants()
+          await this.fetchEnvironment()
         } catch (error) {
           Notify.create({
             type: 'negative',
