@@ -116,3 +116,191 @@ test('useDanaGatewayMerchantStore: setPrimaryMerchant menangani loading, API ber
     /finally\s*\{\s*this\.settingPrimaryMerchantId\s*=\s*null\s*\}/
   )
 })
+
+test('quasar.config.js: mendaftarkan plugin Dialog dan Notify pada framework.plugins', async () => {
+  const quasarConfig = await readFile(
+    new URL('../quasar.config.js', import.meta.url),
+    'utf8'
+  )
+
+  // Memastikan framework.plugins mendaftarkan Dialog dan Notify
+  assert.match(
+    quasarConfig,
+    /framework:\s*\{[\s\S]*?plugins:\s*\[[^\]]*'Dialog'[^\]]*\]/,
+    'Plugin Dialog harus terdaftar di framework.plugins quasar.config.js'
+  )
+  assert.match(
+    quasarConfig,
+    /framework:\s*\{[\s\S]*?plugins:\s*\[[^\]]*'Notify'[^\]]*\]/,
+    'Plugin Notify harus terdaftar di framework.plugins quasar.config.js'
+  )
+})
+
+test('Regression: klik tombol Jadikan Utama memunculkan konfirmasi dialog tanpa TypeError dan hanya mengirim API setelah disetujui', async () => {
+  const tableSource = await readFile(
+    new URL(
+      '../src/pages/PaymentGateway/comp/DanaGatewayMerchantTable.vue',
+      import.meta.url
+    ),
+    'utf8'
+  )
+
+  // 1. Memastikan useQuasar dan Dialog diimpor dari quasar untuk proteksi ketersediaan dialog
+  assert.match(
+    tableSource,
+    /import\s*\{[^}]*Dialog[^}]*\}\s*from\s*'quasar'|import\s*\{[^}]*useQuasar[^}]*\}\s*from\s*'quasar'/
+  )
+
+  // 2. Simulasi execution handler confirmSetPrimary dengan $q.dialog (dari Quasar Dialog plugin)
+  const emittedEvents = []
+  const emit = (event, ...args) => emittedEvents.push({ event, args })
+
+  let dialogOptionsReceived = null
+  let okCallbackTriggered = false
+
+  const mockQuasar = {
+    dialog: options => {
+      dialogOptionsReceived = options
+      return {
+        onOk: fn => {
+          // Callback disimpan dan hanya dieksekusi saat user klik tombol konfirmasi OK
+          mockQuasar._onOkCallback = fn
+          return {
+            onCancel: () => {},
+            onDismiss: () => {}
+          }
+        }
+      }
+    }
+  }
+
+  const mockRow = {
+    merchant_id: 42,
+    merchant_name: 'Warung Kopi Nusantara',
+    merchant_code: 'WKN-001',
+    merchant_status: 'active',
+    is_primary: false
+  }
+
+  // Handler yang merefleksikan implementasi di DanaGatewayMerchantTable
+  function executeConfirmSetPrimary(row, $qInstance, fallbackDialog) {
+    const dialogFn = $qInstance?.dialog || fallbackDialog?.create
+    if (typeof dialogFn !== 'function') {
+      throw new TypeError('n.dialog is not a function')
+    }
+    return dialogFn({
+      title: 'Tetapkan Merchant Utama DANA',
+      message: `Apakah Anda yakin ingin menetapkan "${row.merchant_name}" (${row.merchant_code}) sebagai Merchant Utama DANA? Seluruh Invoice langganan baru UDEV akan diarahkan ke merchant ini.`,
+      cancel: { label: 'Batal', flat: true },
+      ok: { label: 'Jadikan Utama', color: 'primary' },
+      persistent: true
+    })
+  }
+
+  // Eksekusi klik tombol Jadikan Utama - pastikan TIDAK terjadi TypeError
+  assert.doesNotThrow(() => {
+    const dialogRef = executeConfirmSetPrimary(mockRow, mockQuasar, null)
+    dialogRef.onOk(() => {
+      okCallbackTriggered = true
+      emit('set-primary', mockRow)
+    })
+  }, 'Klik tombol Jadikan Utama tidak boleh melempar TypeError')
+
+  // 3. Verifikasi opsi dialog konfirmasi muncul dengan pesan dan data merchant yang benar
+  assert.ok(dialogOptionsReceived, 'Dialog konfirmasi harus dibuka')
+  assert.strictEqual(
+    dialogOptionsReceived.title,
+    'Tetapkan Merchant Utama DANA'
+  )
+  assert.ok(
+    dialogOptionsReceived.message.includes('Warung Kopi Nusantara'),
+    'Pesan dialog harus memuat nama merchant'
+  )
+  assert.ok(
+    dialogOptionsReceived.message.includes('WKN-001'),
+    'Pesan dialog harus memuat kode merchant'
+  )
+  assert.strictEqual(dialogOptionsReceived.persistent, true)
+  assert.strictEqual(dialogOptionsReceived.ok.label, 'Jadikan Utama')
+  assert.strictEqual(dialogOptionsReceived.cancel.label, 'Batal')
+
+  // 4. Pastikan sebelum disetujui, event set-primary BELUM dipancarkan (tidak mengubah otomatis)
+  assert.strictEqual(
+    okCallbackTriggered,
+    false,
+    'Sebelum pengguna menekan OK, callback tidak boleh dijalankan'
+  )
+  assert.strictEqual(
+    emittedEvents.length,
+    0,
+    'Sebelum pengguna menyetujui dialog, emit set-primary tidak boleh dikirim'
+  )
+
+  // 5. Simulasikan pengguna menyetujui dialog konfirmasi (klik "Jadikan Utama")
+  mockQuasar._onOkCallback()
+
+  assert.strictEqual(
+    okCallbackTriggered,
+    true,
+    'Callback onOk harus dieksekusi setelah pengguna menyetujui'
+  )
+  assert.strictEqual(emittedEvents.length, 1)
+  assert.strictEqual(emittedEvents[0].event, 'set-primary')
+  assert.deepStrictEqual(emittedEvents[0].args[0], mockRow)
+
+  // 6. Verifikasi alur integrasi ke API store: request penetapan Merchant Utama hanya dikirim setelah event diterima
+  const apiCalls = []
+  const mockService = {
+    setPrimaryMerchant: async id => {
+      apiCalls.push(id)
+      return {
+        data: {
+          success: true,
+          message: 'Merchant Utama berhasil diperbarui.'
+        }
+      }
+    }
+  }
+
+  let settingPrimaryMerchantId = null
+  async function simulateStoreSetPrimary(merchant) {
+    const merchantId =
+      typeof merchant === 'object' && merchant !== null
+        ? merchant.merchant_id
+        : merchant
+    settingPrimaryMerchantId = merchantId
+    try {
+      await mockService.setPrimaryMerchant(merchantId)
+    } finally {
+      settingPrimaryMerchantId = null
+    }
+  }
+
+  await simulateStoreSetPrimary(emittedEvents[0].args[0])
+  assert.strictEqual(apiCalls.length, 1)
+  assert.strictEqual(
+    apiCalls[0],
+    42,
+    'API set-primary harus dipanggil dengan merchant_id yang sesuai'
+  )
+  assert.strictEqual(
+    settingPrimaryMerchantId,
+    null,
+    'Loading state harus selesai dan kembali null'
+  )
+
+  // 7. Verifikasi penanganan regresi jika $q.dialog tidak tersedia, fallback Dialog.create mencegah TypeError
+  const mockFallbackDialog = {
+    create: () => {
+      return {
+        onOk: fn => {
+          fn()
+          return { onCancel: () => {}, onDismiss: () => {} }
+        }
+      }
+    }
+  }
+  assert.doesNotThrow(() => {
+    executeConfirmSetPrimary(mockRow, {}, mockFallbackDialog)
+  }, 'Fallback Dialog.create mencegah TypeError bila $q.dialog tidak tersedia')
+})

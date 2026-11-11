@@ -153,7 +153,7 @@
 </template>
 
 <script setup>
-import { useQuasar } from 'quasar'
+import { Dialog, useQuasar } from 'quasar'
 import EmptyState from '@/components/EmptyState.vue'
 
 const $q = useQuasar()
@@ -173,7 +173,8 @@ const emit = defineEmits([
 ])
 
 function confirmSetPrimary(row) {
-  $q.dialog({
+  const dialog = $q?.dialog || Dialog.create
+  dialog({
     title: 'Tetapkan Merchant Utama DANA',
     message: `Apakah Anda yakin ingin menetapkan "${row.merchant_name}" (${row.merchant_code}) sebagai Merchant Utama DANA? Seluruh Invoice langganan baru UDEV akan diarahkan ke merchant ini.`,
     cancel: { label: 'Batal', flat: true },
@@ -187,7 +188,8 @@ function confirmSetPrimary(row) {
 function confirmToggleStatus(row) {
   const isCurrentlyActive = row.merchant_status === 'active'
   const actionLabel = isCurrentlyActive ? 'menonaktifkan' : 'mengaktifkan'
-  $q.dialog({
+  const dialog = $q?.dialog || Dialog.create
+  dialog({
     title: `Konfirmasi ${isCurrentlyActive ? 'Nonaktifkan' : 'Aktifkan'} Merchant`,
     message: `Apakah Anda yakin ingin ${actionLabel} merchant "${row.merchant_name}" (${row.merchant_code})?`,
     cancel: { label: 'Batal', flat: true },
@@ -202,7 +204,8 @@ function confirmToggleStatus(row) {
 }
 
 function confirmDelete(row) {
-  $q.dialog({
+  const dialog = $q?.dialog || Dialog.create
+  dialog({
     title: 'Hapus Merchant DANA',
     message: `Apakah Anda yakin ingin menghapus merchant "${row.merchant_name}" (${row.merchant_code})? Tindakan ini tidak dapat dibatalkan.`,
     cancel: { label: 'Batal', flat: true },
