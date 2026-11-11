@@ -429,6 +429,12 @@
                       ? 'tersimpan'
                       : 'belum tersedia'
                   }}</strong
+                  >; client secret:
+                  <strong>{{
+                    storedSecretStatus.client_secret
+                      ? 'tersimpan'
+                      : 'belum tersedia'
+                  }}</strong
                   >. Biarkan field secret kosong untuk mempertahankan nilai yang
                   sudah tersimpan.
                 </q-banner>
@@ -452,7 +458,9 @@
                         v-model.trim="configurationForm.partner_id"
                         outlined
                         dense
-                        label="Partner ID"
+                        label="Partner ID / Client ID"
+                        hint="X-PARTNER-ID pada header DANA SNAP (sama dengan Client ID di Portal DANA)."
+                        persistent-hint
                         :error="Boolean(configurationErrors.partner_id)"
                         :error-message="firstError('partner_id')"
                         :rules="[requiredRule, maxRule(150)]"
@@ -464,13 +472,67 @@
                         v-model.trim="configurationForm.merchant_id"
                         outlined
                         dense
-                        label="Merchant ID DANA"
+                        label="Merchant ID DANA (MID)"
+                        hint="MID resmi merchant dari Portal DANA."
+                        persistent-hint
                         autocomplete="off"
                         :error="Boolean(configurationErrors.merchant_id)"
                         :error-message="firstError('merchant_id')"
                         :rules="[requiredRule, maxRule(150)]"
                         no-error-icon
                       />
+                    </div>
+                  </div>
+                  <div class="row q-col-gutter-md">
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.trim="configurationForm.client_id"
+                        outlined
+                        dense
+                        label="Client ID (Opsional jika beda)"
+                        hint="Isi jika portal memberikan Client ID terpisah dari Partner ID."
+                        persistent-hint
+                        :error="Boolean(configurationErrors.client_id)"
+                        :error-message="firstError('client_id')"
+                        :rules="[maxRule(150)]"
+                        no-error-icon
+                      />
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model="configurationForm.client_secret"
+                        outlined
+                        dense
+                        :type="showClientSecret ? 'text' : 'password'"
+                        label="Client Secret (Opsional)"
+                        hint="API Secret dari Portal DANA jika tersedia. Biarkan kosong jika tidak diubah."
+                        persistent-hint
+                        autocomplete="off"
+                        :input-class="
+                          showClientSecret ? '' : 'masked-sensitive-input'
+                        "
+                        :error="Boolean(configurationErrors.client_secret)"
+                        :error-message="firstError('client_secret')"
+                        :rules="[maxRule(255)]"
+                        no-error-icon
+                      >
+                        <template #append>
+                          <q-btn
+                            flat
+                            round
+                            dense
+                            :icon="
+                              showClientSecret ? 'visibility_off' : 'visibility'
+                            "
+                            :aria-label="
+                              showClientSecret
+                                ? 'Sembunyikan client secret'
+                                : 'Tampilkan client secret'
+                            "
+                            @click="showClientSecret = !showClientSecret"
+                          />
+                        </template>
+                      </q-input>
                     </div>
                   </div>
                   <div class="row q-col-gutter-md">
@@ -1194,6 +1256,7 @@ const storedSecretStatus = ref(null)
 const confirmOverwriteStoredConfig = ref(false)
 const showPrivateKey = ref(false)
 const showWebhookPublicKey = ref(false)
+const showClientSecret = ref(false)
 const revokeConfirmationOpen = ref(false)
 const apiKeyToRevoke = ref(null)
 const revoking = ref(false)
@@ -1236,6 +1299,8 @@ const isSecureFrontend = computed(() =>
 const emptyConfiguration = () => ({
   environment: activeEnvironmentTab.value,
   partner_id: '',
+  client_id: '',
+  client_secret: '',
   merchant_id: '',
   private_key: '',
   dana_webhook_public_key: '',
@@ -1422,12 +1487,15 @@ function resetConfigurationForm() {
   confirmOverwriteStoredConfig.value = false
   showPrivateKey.value = false
   showWebhookPublicKey.value = false
+  showClientSecret.value = false
   saveConfirmationOpen.value = false
 }
 function clearSensitiveFields() {
   configurationForm.merchant_id = ''
+  configurationForm.client_secret = ''
   configurationForm.private_key = ''
   configurationForm.dana_webhook_public_key = ''
+  showClientSecret.value = false
   showPrivateKey.value = false
   showWebhookPublicKey.value = false
 }
@@ -1449,6 +1517,7 @@ function applyStoredConfiguration(response) {
 
   const fields = [
     'partner_id',
+    'client_id',
     'merchant_id',
     'origin',
     'channel_id',
@@ -1470,17 +1539,20 @@ function applyStoredConfiguration(response) {
   }
   configurationForm.environment = activeEnvironmentTab.value
   configurationForm.enabled = values.enabled === true
+  configurationForm.client_secret = ''
   configurationForm.private_key = ''
   configurationForm.dana_webhook_public_key = ''
   storedSecretStatus.value = {
     private_key: values.private_key_configured === true,
-    webhook_public_key: values.dana_webhook_public_key_configured === true
+    webhook_public_key: values.dana_webhook_public_key_configured === true,
+    client_secret: values.client_secret_configured === true
   }
 
   const envName =
     activeEnvironmentTab.value === 'production' ? 'Production' : 'Sandbox'
   const labels = {
-    partner_id: 'Partner ID',
+    partner_id: 'Partner ID / Client ID',
+    client_id: 'Client ID',
     merchant_id: 'Merchant ID DANA',
     origin: 'Origin',
     channel_id: 'Channel ID',
@@ -1678,6 +1750,8 @@ async function saveConfiguration() {
   }
   if (!payload.private_key) delete payload.private_key
   if (!payload.dana_webhook_public_key) delete payload.dana_webhook_public_key
+  if (!payload.client_secret) delete payload.client_secret
+  if (!payload.client_id) delete payload.client_id
   try {
     await danaGatewayMerchantService.configureSandbox(
       merchant.value.merchant_id,
