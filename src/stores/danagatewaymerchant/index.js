@@ -89,7 +89,7 @@ export const useDanaGatewayMerchantStore = defineStore(
       feesPage: 1,
       feeFilter: {
         search: '',
-        environment: 'sandbox',
+        environment: null,
         gateway_merchant_code: null,
         application_id: null,
         fee_type: null,
@@ -508,6 +508,8 @@ export const useDanaGatewayMerchantStore = defineStore(
         this.feeForm = emptyFeeForm()
         if (this.feeFilter.environment) {
           this.feeForm.environment = this.feeFilter.environment
+        } else if (this.isProductionActive) {
+          this.feeForm.environment = 'production'
         }
         if (this.feeFilter.gateway_merchant_code) {
           this.feeForm.scope_type = 'merchant'
@@ -591,6 +593,13 @@ export const useDanaGatewayMerchantStore = defineStore(
               message: 'Aturan biaya DANA berhasil diperbarui.',
               position: 'top'
             })
+          }
+
+          if (
+            this.feeFilter.environment &&
+            this.feeFilter.environment !== payload.environment
+          ) {
+            this.feeFilter.environment = payload.environment
           }
 
           this.feeFormDialogOpen = false

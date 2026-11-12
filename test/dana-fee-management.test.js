@@ -375,3 +375,50 @@ test('Dropdown Pilih Merchant DANA memetakan merchant_code dan merchant_name den
     'Management filter tidak boleh menggunakan m.name atau m.code yang menghasilkan undefined'
   )
 })
+
+test('Filter Environment DANA mendukung Semua Environment (default null) dan Production sehingga aturan Production tampil benar', () => {
+  const storeFile = path.join(
+    rootDir,
+    'src/stores/danagatewaymerchant/index.js'
+  )
+  const storeContent = fs.readFileSync(storeFile, 'utf8')
+
+  // feeFilter.environment harus default null (Semua Environment)
+  assert.match(
+    storeContent,
+    /feeFilter:\s*\{[\s\S]*?environment:\s*null/,
+    'feeFilter.environment harus default null agar semua aturan (termasuk Production) tampil saat pertama kali dimuat'
+  )
+
+  // openCreateFeeDialog mendukung fallback production jika production aktif
+  assert.match(
+    storeContent,
+    /else\s+if\s*\(this\.isProductionActive\)\s*\{\s*this\.feeForm\.environment\s*=\s*'production'/,
+    'openCreateFeeDialog harus menginisialisasi environment ke production jika production sedang aktif'
+  )
+
+  // saveFee menyelaraskan feeFilter.environment jika ada filter yang tidak cocok
+  assert.match(
+    storeContent,
+    /this\.feeFilter\.environment\s*=\s*payload\.environment/,
+    'saveFee harus menyelaraskan feeFilter.environment agar aturan yang baru dibuat langsung terlihat'
+  )
+
+  const managementFile = path.join(
+    rootDir,
+    'src/pages/PaymentGateway/comp/DanaFeeManagement.vue'
+  )
+  const mgmtContent = fs.readFileSync(managementFile, 'utf8')
+
+  // Options environment pada management view
+  assert.match(
+    mgmtContent,
+    /label:\s*'Semua Environment',\s*value:\s*null/,
+    'Filter environment harus menyediakan pilihan Semua Environment dengan value null'
+  )
+  assert.match(
+    mgmtContent,
+    /label:\s*'Production',\s*value:\s*'production'/,
+    'Filter environment harus menyediakan pilihan Production'
+  )
+})

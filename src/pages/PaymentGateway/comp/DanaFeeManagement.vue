@@ -720,6 +720,7 @@ onMounted(async () => {
 })
 
 function onFilterChanged() {
+  infiniteScrollRef.value?.resume?.()
   store.fetchFees(true)
 }
 
