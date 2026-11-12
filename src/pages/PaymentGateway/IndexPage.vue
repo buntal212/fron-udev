@@ -39,6 +39,7 @@
         <q-tab name="environment" icon="tune" label="Pengaturan Environment" />
         <q-tab name="merchants" icon="storefront" label="Daftar Merchant" />
         <q-tab name="mappings" icon="account_tree" label="Mapping Aplikasi" />
+        <q-tab name="fees" icon="payments" label="Pengaturan Biaya" />
         <q-tab
           name="billing-transactions"
           icon="receipt_long"
@@ -230,6 +231,10 @@
           />
         </q-tab-panel>
 
+        <q-tab-panel name="fees" class="q-px-none q-pt-lg">
+          <DanaFeeManagement :applications="store.applications" />
+        </q-tab-panel>
+
         <q-tab-panel name="billing-transactions" class="q-px-none q-pt-lg">
           <BillingGatewayTransactions :applications="store.applications" />
         </q-tab-panel>
@@ -237,6 +242,7 @@
 
       <PaymentGatewayFormDialog />
       <DanaGatewayMerchantFormDialog />
+      <DanaFeeFormDialog :applications="store.applications" />
 
       <q-dialog v-model="store.mappingDeleteConfirmDialogOpen">
         <q-card style="min-width: 380px">
@@ -277,6 +283,8 @@ import FilterPanel from '@/components/FilterPanel.vue'
 import { useDanaGatewayMerchantStore } from '@/stores/danagatewaymerchant'
 import { usePaymentGatewayStore } from '@/stores/paymentgateway'
 import DanaEnvironmentSettings from './comp/DanaEnvironmentSettings.vue'
+import DanaFeeFormDialog from './comp/DanaFeeFormDialog.vue'
+import DanaFeeManagement from './comp/DanaFeeManagement.vue'
 import DanaGatewayMerchantDetailDialog from './comp/DanaGatewayMerchantDetailDialog.vue'
 import DanaGatewayMerchantFormDialog from './comp/DanaGatewayMerchantFormDialog.vue'
 import DanaGatewayMerchantTable from './comp/DanaGatewayMerchantTable.vue'
@@ -291,6 +299,7 @@ const validTabs = [
   'environment',
   'merchants',
   'mappings',
+  'fees',
   'billing-transactions'
 ]
 const activeTab = ref(
@@ -334,6 +343,8 @@ watch(
 watch(activeTab, newTab => {
   if (newTab === 'environment') {
     merchantStore.fetchEnvironment()
+  } else if (newTab === 'fees') {
+    merchantStore.fetchFees(true)
   }
 })
 </script>

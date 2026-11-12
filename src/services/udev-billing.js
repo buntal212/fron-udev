@@ -537,7 +537,19 @@ export const danaGatewayMerchantService = {
       `/v1/admin/dana-gateway-merchants/${merchantId}/api-key-issuances/${issuanceId}/cancel`,
       {},
       { headers: { 'Cache-Control': 'no-store', Pragma: 'no-cache' } }
-    )
+    ),
+  fees: params => api.get('/v1/admin/dana-gateway/fees', { params }),
+  createFee: payload => api.post('/v1/admin/dana-gateway/fees', payload),
+  showFee: id => api.get(`/v1/admin/dana-gateway/fees/${id}`),
+  updateFee: (id, payload) =>
+    api.put(`/v1/admin/dana-gateway/fees/${id}`, payload),
+  toggleFeeStatus: (id, isActive) =>
+    api.patch(`/v1/admin/dana-gateway/fees/${id}/status`, {
+      is_active: isActive
+    }),
+  deleteFee: id => api.delete(`/v1/admin/dana-gateway/fees/${id}`),
+  calculateFee: payload =>
+    api.post('/v1/admin/dana-gateway/calculate-fee', payload)
 }
 
 export const dokuGatewayService = {

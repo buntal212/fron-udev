@@ -9,6 +9,19 @@ const emptyForm = () => ({
   email: ''
 })
 
+const emptyFeeForm = () => ({
+  id: null,
+  application_id: null,
+  scope_type: 'default',
+  payment_method: 'qris',
+  environment: 'sandbox',
+  fee_type: 'dana',
+  fee_value: 0.7,
+  fee_unit: 'percent',
+  is_active: true,
+  notes: ''
+})
+
 let pendingMerchantRequest = null
 let merchantRequestSequence = 0
 
@@ -66,7 +79,38 @@ export const useDanaGatewayMerchantStore = defineStore(
       switchSandboxDialogOpen: false,
       activationPhrase: '',
       activationNotes: '',
-      switchSandboxNotes: ''
+      switchSandboxNotes: '',
+
+      // Fee Management
+      fees: [],
+      feesLoading: false,
+      feesHasMore: true,
+      feesPage: 1,
+      feeFilter: {
+        search: '',
+        environment: 'sandbox',
+        application_id: null,
+        fee_type: null,
+        status: null
+      },
+      feeFormDialogOpen: false,
+      feeFormMode: 'create',
+      feeForm: emptyFeeForm(),
+      feeFormErrors: {},
+      feeSaving: false,
+      feeDeleting: false,
+      feeDeleteConfirmDialogOpen: false,
+      feeToDelete: null,
+
+      // Fee Simulation Preview
+      feeCalcForm: {
+        amount: 100000,
+        payment_method: 'qris',
+        environment: 'sandbox',
+        application_id: null
+      },
+      feeCalcResult: null,
+      feeCalcLoading: false
     }),
 
     getters: {
@@ -387,6 +431,243 @@ export const useDanaGatewayMerchantStore = defineStore(
           return null
         } finally {
           this.environmentLoading = false
+        }
+      },
+
+      async fetchFees(reset = false) {
+        if (reset) {
+          this.feesPage = 1
+          this.fees = []
+          this.feesHasMore = true
+        }
+        this.feesLoading = true
+        try {
+          const params = {
+            page: this.feesPage,
+            per_page: 15,
+            environment: this.feeFilter.environment || undefined,
+            application_id:
+              this.feeFilter.application_id === 'default'
+                ? 'default'
+                : this.feeFilter.application_id || undefined,
+            fee_type: this.feeFilter.fee_type || undefined,
+            status: this.feeFilter.status || undefined,
+            search: this.feeFilter.search || undefined
+          }
+
+          const res = await danaGatewayMerchantService.fees(params)
+          const newItems = res.data?.data || []
+          if (reset) {
+            this.fees = newItems
+          } else {
+            this.fees = [...this.fees, ...newItems]
+          }
+
+          const meta = res.data?.meta
+          if (meta) {
+            this.feesHasMore = this.feesPage < meta.last_page
+          } else {
+            this.feesHasMore = newItems.length >= 15
+          }
+          return this.fees
+        } catch (error) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              error,
+              'Gagal memuat daftar biaya DANA.'
+            ),
+            position: 'top'
+          })
+          return []
+        } finally {
+          this.feesLoading = false
+        }
+      },
+
+      async loadMoreFees(index, done) {
+        if (!this.feesHasMore || this.feesLoading) {
+          if (typeof done === 'function') done(true)
+          return
+        }
+
+        this.feesPage += 1
+        await this.fetchFees(false)
+        if (typeof done === 'function') {
+          done(!this.feesHasMore)
+        }
+      },
+
+      openCreateFeeDialog() {
+        this.feeFormMode = 'create'
+        this.feeForm = emptyFeeForm()
+        if (this.feeFilter.environment) {
+          this.feeForm.environment = this.feeFilter.environment
+        }
+        if (
+          this.feeFilter.application_id &&
+          this.feeFilter.application_id !== 'default'
+        ) {
+          this.feeForm.scope_type = 'application'
+          this.feeForm.application_id = this.feeFilter.application_id
+        }
+        this.feeFormErrors = {}
+        this.feeFormDialogOpen = true
+      },
+
+      openEditFeeDialog(fee) {
+        this.feeFormMode = 'edit'
+        this.feeForm = {
+          id: fee.id,
+          application_id: fee.application_id ?? null,
+          scope_type: fee.application_id ? 'application' : 'default',
+          payment_method: fee.payment_method,
+          environment: fee.environment,
+          fee_type: fee.fee_type,
+          fee_value: Number(fee.fee_value),
+          fee_unit: fee.fee_unit,
+          is_active: Boolean(fee.is_active),
+          notes: fee.notes || ''
+        }
+        this.feeFormErrors = {}
+        this.feeFormDialogOpen = true
+      },
+
+      confirmDeleteFee(fee) {
+        this.feeToDelete = fee
+        this.feeDeleteConfirmDialogOpen = true
+      },
+
+      async saveFee() {
+        this.feeSaving = true
+        this.feeFormErrors = {}
+        try {
+          const payload = {
+            application_id:
+              this.feeForm.scope_type === 'application'
+                ? this.feeForm.application_id
+                : null,
+            payment_method: this.feeForm.payment_method,
+            environment: this.feeForm.environment,
+            fee_type: this.feeForm.fee_type,
+            fee_value: Number(this.feeForm.fee_value),
+            fee_unit: this.feeForm.fee_unit,
+            is_active: this.feeForm.is_active,
+            notes: this.feeForm.notes || null
+          }
+
+          if (this.feeFormMode === 'create') {
+            await danaGatewayMerchantService.createFee(payload)
+            Notify.create({
+              type: 'positive',
+              message: 'Aturan biaya DANA berhasil ditambahkan.',
+              position: 'top'
+            })
+          } else {
+            await danaGatewayMerchantService.updateFee(this.feeForm.id, payload)
+            Notify.create({
+              type: 'positive',
+              message: 'Aturan biaya DANA berhasil diperbarui.',
+              position: 'top'
+            })
+          }
+
+          this.feeFormDialogOpen = false
+          await this.fetchFees(true)
+        } catch (error) {
+          this.feeFormErrors = getApiValidationErrors(error)
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              error,
+              'Gagal menyimpan aturan biaya DANA.'
+            ),
+            position: 'top',
+            timeout: 6000
+          })
+          throw error
+        } finally {
+          this.feeSaving = false
+        }
+      },
+
+      async toggleFeeStatus(fee) {
+        const targetStatus = !fee.is_active
+        fee.is_active = targetStatus
+        try {
+          await danaGatewayMerchantService.toggleFeeStatus(fee.id, targetStatus)
+          Notify.create({
+            type: 'positive',
+            message: `Status biaya ${fee.payment_method.toUpperCase()} (${fee.fee_type.toUpperCase()}) berhasil ${
+              targetStatus ? 'diaktifkan' : 'dinonaktifkan'
+            }.`,
+            position: 'top'
+          })
+        } catch (error) {
+          fee.is_active = !targetStatus
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              error,
+              'Gagal mengubah status aturan biaya.'
+            ),
+            position: 'top'
+          })
+        }
+      },
+
+      async deleteFee() {
+        if (!this.feeToDelete) return
+        this.feeDeleting = true
+        try {
+          await danaGatewayMerchantService.deleteFee(this.feeToDelete.id)
+          Notify.create({
+            type: 'positive',
+            message: 'Aturan biaya DANA berhasil dihapus.',
+            position: 'top'
+          })
+          this.feeDeleteConfirmDialogOpen = false
+          this.feeToDelete = null
+          await this.fetchFees(true)
+        } catch (error) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              error,
+              'Gagal menghapus aturan biaya DANA.'
+            ),
+            position: 'top'
+          })
+        } finally {
+          this.feeDeleting = false
+        }
+      },
+
+      async calculateFeePreview() {
+        this.feeCalcLoading = true
+        try {
+          const payload = {
+            amount: Number(this.feeCalcForm.amount),
+            payment_method: this.feeCalcForm.payment_method,
+            environment: this.feeCalcForm.environment,
+            application_id: this.feeCalcForm.application_id || undefined
+          }
+          const res = await danaGatewayMerchantService.calculateFee(payload)
+          this.feeCalcResult = res.data?.data || null
+          return this.feeCalcResult
+        } catch (error) {
+          this.feeCalcResult = null
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(
+              error,
+              'Gagal menghitung simulasi biaya DANA.'
+            ),
+            position: 'top'
+          })
+          return null
+        } finally {
+          this.feeCalcLoading = false
         }
       }
     }
