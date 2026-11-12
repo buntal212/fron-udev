@@ -220,16 +220,39 @@
               <label class="text-caption text-weight-medium text-grey-9">
                 Nilai Tarif
               </label>
-              <q-btn
-                v-if="recommendedFee !== null"
-                flat
-                dense
-                no-caps
-                size="sm"
-                color="primary"
-                :label="`Gunakan tarif resmi (${formatRecommended(recommendedFee)})`"
-                @click="applyRecommendedFee"
-              />
+              <div class="row q-gutter-xs">
+                <q-btn
+                  v-if="store.feeForm.fee_type === 'dana'"
+                  flat
+                  dense
+                  no-caps
+                  size="sm"
+                  color="warning"
+                  icon="science"
+                  label="Set Rp0 Sementara (UAT)"
+                  @click="applyZeroUatFee"
+                >
+                  <q-tooltip
+                    >Gunakan tarif DANA Rp0 khusus pengujian UAT
+                    sementara.</q-tooltip
+                  >
+                </q-btn>
+                <q-btn
+                  v-if="recommendedFee !== null"
+                  flat
+                  dense
+                  no-caps
+                  size="sm"
+                  color="primary"
+                  icon="verified"
+                  :label="`Tarif Resmi DANA (${formatRecommended(recommendedFee)})`"
+                  @click="applyRecommendedFee"
+                >
+                  <q-tooltip
+                    >Gunakan tarif resmi MDR DANA yang disepakati.</q-tooltip
+                  >
+                </q-btn>
+              </div>
             </div>
             <q-input
               v-model.number="store.feeForm.fee_value"
@@ -248,6 +271,25 @@
               :error="Boolean(store.feeFormErrors.fee_value)"
               :error-message="store.feeFormErrors.fee_value?.[0]"
             />
+            <q-banner
+              v-if="
+                store.feeForm.fee_type === 'dana' &&
+                Number(store.feeForm.fee_value) === 0
+              "
+              dense
+              rounded
+              class="bg-amber-1 text-amber-10 q-mt-xs"
+            >
+              <template #avatar>
+                <q-icon name="warning_amber" color="amber-9" />
+              </template>
+              <span class="text-weight-bold"
+                >Tarif DANA Rp0 Sementara (UAT):</span
+              >
+              Biaya DANA dibebaskan ke pelanggan khusus pengujian UAT. Pastikan
+              memperbarui ke tarif resmi DANA sebelum transaksi komersial
+              berjalan.
+            </q-banner>
           </div>
 
           <!-- Active Toggle & Notes -->
@@ -450,6 +492,14 @@ function applyRecommendedFee() {
   if (recommendedFee.value) {
     store.feeForm.fee_value = recommendedFee.value.value
     store.feeForm.fee_unit = recommendedFee.value.unit
+  }
+}
+
+function applyZeroUatFee() {
+  store.feeForm.fee_value = 0
+  store.feeForm.fee_unit = 'rupiah'
+  if (!store.feeForm.notes) {
+    store.feeForm.notes = 'Tarif DANA Rp0 sementara untuk UAT'
   }
 }
 

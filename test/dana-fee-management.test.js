@@ -451,3 +451,50 @@ test('Kalkulator simulasi biaya DANA menampilkan hak pemilik aplikasi utuh 100% 
     'Kalkulator simulasi harus menjelaskan formula Total = Pokok + DANA + UDEV'
   )
 })
+
+test('Dukungan tarif DANA Rp0 sementara untuk UAT dibedakan dari tarif resmi melalui label UI dan tombol aksi', () => {
+  const formDialogFile = path.join(
+    rootDir,
+    'src/pages/PaymentGateway/comp/DanaFeeFormDialog.vue'
+  )
+  const formContent = fs.readFileSync(formDialogFile, 'utf8')
+
+  // Tombol aksi set Rp0 sementara UAT
+  assert.match(
+    formContent,
+    /Set Rp0 Sementara \(UAT\)/,
+    'Form dialog harus menyediakan tombol cepat Set Rp0 Sementara (UAT)'
+  )
+
+  // Banner peringatan saat tarif Rp0
+  assert.match(
+    formContent,
+    /Tarif DANA Rp0 Sementara \(UAT\)/,
+    'Form dialog harus menampilkan banner penjelas saat tarif DANA bernilai 0'
+  )
+
+  // Tombol tarif resmi DANA tetap tersedia
+  assert.match(
+    formContent,
+    /Tarif Resmi DANA/,
+    'Form dialog harus menyediakan tombol tarif resmi DANA'
+  )
+
+  const managementFile = path.join(
+    rootDir,
+    'src/pages/PaymentGateway/comp/DanaFeeManagement.vue'
+  )
+  const mgmtContent = fs.readFileSync(managementFile, 'utf8')
+
+  // Badge pembeda pada card item
+  assert.match(
+    mgmtContent,
+    /DANA:\s*Rp0 Sementara \(UAT\)/,
+    'Card view harus menampilkan badge pembeda khusus DANA Rp0 Sementara (UAT)'
+  )
+  assert.match(
+    mgmtContent,
+    /Biaya DANA \(Resmi\)/,
+    'Card view harus membedakan label Biaya DANA (Resmi)'
+  )
+})

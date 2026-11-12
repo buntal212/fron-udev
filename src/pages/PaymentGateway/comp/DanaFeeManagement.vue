@@ -442,9 +442,24 @@
               </q-badge>
 
               <q-badge
+                v-if="fee.fee_type === 'dana' && Number(fee.fee_value) === 0"
+                rounded
+                color="orange-10"
+                text-color="white"
+                label="DANA: Rp0 Sementara (UAT)"
+                class="text-weight-bold q-px-sm"
+              >
+                <q-tooltip
+                  >Tarif DANA Rp0 khusus pengujian UAT sementara.</q-tooltip
+                >
+              </q-badge>
+              <q-badge
+                v-else
                 rounded
                 :color="fee.fee_type === 'dana' ? 'blue-9' : 'indigo-9'"
-                :label="fee.fee_type === 'dana' ? 'Biaya DANA' : 'Biaya UDEV'"
+                :label="
+                  fee.fee_type === 'dana' ? 'Biaya DANA (Resmi)' : 'Biaya UDEV'
+                "
                 class="text-weight-bold q-px-sm"
               />
             </div>
@@ -508,13 +523,33 @@
                   class="metric-value text-gold-glow text-weight-bolder text-h6"
                 >
                   {{ formatFeeValue(fee) }}
+                  <q-badge
+                    v-if="
+                      fee.fee_type === 'dana' && Number(fee.fee_value) === 0
+                    "
+                    color="amber-9"
+                    text-color="dark"
+                    label="UAT Rp0"
+                    class="q-ml-xs text-weight-bold"
+                  />
                 </div>
                 <div class="text-caption text-grey-5">
-                  {{
-                    fee.fee_unit === 'percent'
-                      ? 'Dihitung dari tagihan pokok'
-                      : 'Biaya tetap per transaksi'
-                  }}
+                  <span
+                    v-if="
+                      fee.fee_type === 'dana' && Number(fee.fee_value) === 0
+                    "
+                    class="text-amber-4"
+                  >
+                    Tarif khusus pengujian UAT. DANA Rp0 dibebankan ke
+                    pelanggan.
+                  </span>
+                  <span v-else>
+                    {{
+                      fee.fee_unit === 'percent'
+                        ? 'Dihitung dari tagihan pokok'
+                        : 'Biaya tetap per transaksi'
+                    }}
+                  </span>
                 </div>
               </div>
 
