@@ -92,7 +92,7 @@
               <q-tab
                 name="production"
                 icon="verified"
-                label="Production (Prioritas Utama)"
+                label="Production (Live)"
               >
                 <q-badge color="deep-orange" class="q-ml-xs">Live</q-badge>
               </q-tab>
@@ -112,10 +112,10 @@
                 >Kebijakan Dual Environment UDEV</div
               >
               <div>
-                Transaksi pelanggan nyata otomatis memprioritaskan Production
-                jika konfigurasi DANA Production approved, aktif, credential
-                lengkap, dan terverifikasi. Sandbox hanya digunakan untuk
-                pengujian jika Production belum siap.
+                Sistem menggunakan isolasi ketat antar environment. Checkout
+                transaksi ditentukan secara deterministik oleh environment
+                mapping aplikasi dan mode global aktif. Tidak ada fallback
+                otomatis lintas environment.
               </div>
             </q-banner>
           </q-card-section>

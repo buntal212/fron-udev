@@ -9,9 +9,22 @@
           <p class="eyebrow">PENGATURAN</p>
           <h1>Payment Gateway DANA</h1>
           <p class="page-description">
-            Kelola provisioning merchant DANA dan mapping aplikasi dari satu
-            halaman aman.
+            Kelola provisioning merchant DANA, pengaturan environment, dan
+            mapping aplikasi dari satu halaman aman.
           </p>
+        </div>
+
+        <div class="col-12 col-md-auto row items-center q-gutter-sm">
+          <q-badge
+            :color="merchantStore.isProductionActive ? 'negative' : 'amber-9'"
+            :text-color="merchantStore.isProductionActive ? 'white' : 'dark'"
+            :label="
+              merchantStore.isProductionActive
+                ? 'PRODUCTION AKTIF'
+                : 'SANDBOX AKTIF'
+            "
+            class="q-px-md q-py-xs text-weight-bold"
+          />
         </div>
       </div>
 
@@ -23,6 +36,7 @@
         class="gateway-tabs"
         narrow-indicator
       >
+        <q-tab name="environment" icon="tune" label="Pengaturan Environment" />
         <q-tab name="merchants" icon="storefront" label="Daftar Merchant" />
         <q-tab name="mappings" icon="account_tree" label="Mapping Aplikasi" />
         <q-tab
@@ -34,6 +48,10 @@
       <q-separator />
 
       <q-tab-panels v-model="activeTab" animated class="gateway-panels">
+        <q-tab-panel name="environment" class="q-px-none q-pt-lg">
+          <DanaEnvironmentSettings />
+        </q-tab-panel>
+
         <q-tab-panel name="merchants" class="q-px-none q-pt-lg">
           <div
             v-if="
@@ -258,6 +276,7 @@ import ErrorState from '@/components/ErrorState.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import { useDanaGatewayMerchantStore } from '@/stores/danagatewaymerchant'
 import { usePaymentGatewayStore } from '@/stores/paymentgateway'
+import DanaEnvironmentSettings from './comp/DanaEnvironmentSettings.vue'
 import DanaGatewayMerchantDetailDialog from './comp/DanaGatewayMerchantDetailDialog.vue'
 import DanaGatewayMerchantFormDialog from './comp/DanaGatewayMerchantFormDialog.vue'
 import DanaGatewayMerchantTable from './comp/DanaGatewayMerchantTable.vue'
@@ -268,10 +287,14 @@ import PaymentGatewayTable from './comp/PaymentGatewayTable.vue'
 const store = usePaymentGatewayStore()
 const merchantStore = useDanaGatewayMerchantStore()
 const route = useRoute()
+const validTabs = [
+  'environment',
+  'merchants',
+  'mappings',
+  'billing-transactions'
+]
 const activeTab = ref(
-  route.query.tab === 'billing-transactions'
-    ? 'billing-transactions'
-    : 'merchants'
+  validTabs.includes(route.query.tab) ? route.query.tab : 'environment'
 )
 const applicationOptions = computed(() =>
   store.applications.map(application => ({
@@ -304,9 +327,15 @@ watch([() => store.applicationId, () => store.environment], () =>
 watch(
   () => route.query.tab,
   tab => {
-    if (tab === 'billing-transactions') activeTab.value = tab
+    if (validTabs.includes(tab)) activeTab.value = tab
   }
 )
+
+watch(activeTab, newTab => {
+  if (newTab === 'environment') {
+    merchantStore.fetchEnvironment()
+  }
+})
 </script>
 
 <style scoped>

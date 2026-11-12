@@ -59,8 +59,28 @@ export const useDanaGatewayMerchantStore = defineStore(
       detailLoading: false,
       selectedMerchant: null,
       environmentSettings: null,
-      settingPrimaryMerchantId: null
+      settingPrimaryMerchantId: null,
+      environmentLoading: false,
+      submittingEnvironment: false,
+      activateDialogOpen: false,
+      switchSandboxDialogOpen: false,
+      activationPhrase: '',
+      activationNotes: '',
+      switchSandboxNotes: ''
     }),
+
+    getters: {
+      activeEnvironment: state =>
+        state.environmentSettings?.active_environment || 'sandbox',
+      isProductionActive: state =>
+        (state.environmentSettings?.active_environment || 'sandbox') ===
+        'production',
+      primaryMerchantCode: state =>
+        state.environmentSettings?.primary_merchant_code || 'udev-central',
+      isProductionReady: state =>
+        Boolean(state.environmentSettings?.is_production_ready),
+      productionReadiness: state => state.environmentSettings?.readiness || null
+    },
 
     actions: {
       async fetchMerchants(nextPagination = {}) {
@@ -263,13 +283,110 @@ export const useDanaGatewayMerchantStore = defineStore(
         }
       },
 
+      openActivateDialog() {
+        this.activationPhrase = ''
+        this.activationNotes = ''
+        this.activateDialogOpen = true
+      },
+
+      closeActivateDialog() {
+        this.activateDialogOpen = false
+      },
+
+      openSwitchSandboxDialog() {
+        this.switchSandboxNotes = ''
+        this.switchSandboxDialogOpen = true
+      },
+
+      closeSwitchSandboxDialog() {
+        this.switchSandboxDialogOpen = false
+      },
+
+      async activateProduction(notes) {
+        if (this.submittingEnvironment) return
+        this.submittingEnvironment = true
+        try {
+          const payload = {
+            confirmation_phrase: this.activationPhrase,
+            notes: this.activationNotes || notes || null
+          }
+          const res =
+            await danaGatewayMerchantService.activateProduction(payload)
+          Notify.create({
+            type: 'positive',
+            message:
+              res.data?.message ||
+              'Environment DANA Production berhasil diaktifkan.',
+            position: 'top'
+          })
+          this.activateDialogOpen = false
+          await this.fetchEnvironment()
+          await this.fetchMerchants()
+          return res.data
+        } catch (error) {
+          const validationErrors = getApiValidationErrors(error)
+          const firstKey = Object.keys(validationErrors)[0]
+          const detailedMessage =
+            firstKey &&
+            Array.isArray(validationErrors[firstKey]) &&
+            validationErrors[firstKey].length
+              ? validationErrors[firstKey].join(' ')
+              : getApiErrorMessage(error)
+
+          Notify.create({
+            type: 'negative',
+            message: detailedMessage,
+            position: 'top',
+            timeout: 6000
+          })
+          throw error
+        } finally {
+          this.submittingEnvironment = false
+        }
+      },
+
+      async switchSandbox(notes) {
+        if (this.submittingEnvironment) return
+        this.submittingEnvironment = true
+        try {
+          const payload = {
+            notes: this.switchSandboxNotes || notes || null
+          }
+          const res = await danaGatewayMerchantService.switchSandbox(payload)
+          Notify.create({
+            type: 'positive',
+            message:
+              res.data?.message ||
+              'Environment DANA berhasil dikembalikan ke Sandbox.',
+            position: 'top'
+          })
+          this.switchSandboxDialogOpen = false
+          await this.fetchEnvironment()
+          await this.fetchMerchants()
+          return res.data
+        } catch (error) {
+          Notify.create({
+            type: 'negative',
+            message: getApiErrorMessage(error),
+            position: 'top',
+            timeout: 6000
+          })
+          throw error
+        } finally {
+          this.submittingEnvironment = false
+        }
+      },
+
       async fetchEnvironment() {
+        this.environmentLoading = true
         try {
           const res = await danaGatewayMerchantService.getEnvironment()
           this.environmentSettings = res.data?.data ?? null
           return this.environmentSettings
         } catch {
           return null
+        } finally {
+          this.environmentLoading = false
         }
       }
     }
