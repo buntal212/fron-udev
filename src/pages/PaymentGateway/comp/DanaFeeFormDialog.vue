@@ -79,12 +79,23 @@
               dense
               emit-value
               map-options
+              use-input
+              input-debounce="0"
               :options="merchantOptions"
               label="Pilih merchant DANA target"
               :disable="store.feeFormMode === 'edit'"
               :error="Boolean(store.feeFormErrors.gateway_merchant_code)"
               :error-message="store.feeFormErrors.gateway_merchant_code?.[0]"
-            />
+              @filter="filterMerchantFn"
+            >
+              <template #no-option>
+                <q-item>
+                  <q-item-section class="text-grey">
+                    Tidak ada merchant DANA ditemukan
+                  </q-item-section>
+                </q-item>
+              </template>
+            </q-select>
           </div>
 
           <!-- Application Select (Visible only when scope_type === 'application') -->
@@ -301,7 +312,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useDanaGatewayMerchantStore } from '@/stores/danagatewaymerchant'
 import { usePaymentGatewayStore } from '@/stores/paymentgateway'
 
@@ -314,6 +325,13 @@ const props = defineProps({
 
 const store = useDanaGatewayMerchantStore()
 const paymentGatewayStore = usePaymentGatewayStore()
+const merchantFilter = ref('')
+
+onMounted(() => {
+  if (!store.items || store.items.length === 0) {
+    store.fetchMerchants().catch(() => {})
+  }
+})
 
 const effectiveApplications = computed(() =>
   props.applications.length > 0
@@ -328,12 +346,59 @@ const applicationOptions = computed(() =>
   }))
 )
 
-const merchantOptions = computed(() =>
-  store.items.map(m => ({
-    label: `${m.name} (${m.code})`,
-    value: m.code
-  }))
-)
+function getMerchantCode(m) {
+  if (!m) return ''
+  return String(m.merchant_code || m.code || '').trim()
+}
+
+function getMerchantName(m) {
+  if (!m) return ''
+  return String(m.merchant_name || m.name || '').trim()
+}
+
+function formatMerchantLabel(m) {
+  const code = getMerchantCode(m)
+  const name = getMerchantName(m)
+  if (!code && !name) return 'Merchant Tidak Dikenal'
+  if (name && code && name.toLowerCase() !== code.toLowerCase()) {
+    return `${name} (${code})`
+  }
+  return name || code
+}
+
+const merchantOptions = computed(() => {
+  const items = Array.isArray(store.items) ? store.items : []
+  const mapped = items
+    .map(m => {
+      const code = getMerchantCode(m)
+      const name = getMerchantName(m)
+      if (!code && !name) return null
+      return {
+        label: formatMerchantLabel(m),
+        value: code || name,
+        code: code || name,
+        name: name || code
+      }
+    })
+    .filter(Boolean)
+
+  if (!merchantFilter.value) {
+    return mapped
+  }
+
+  const needle = merchantFilter.value.toLowerCase().trim()
+  return mapped.filter(
+    opt =>
+      opt.label.toLowerCase().includes(needle) ||
+      opt.value.toLowerCase().includes(needle)
+  )
+})
+
+function filterMerchantFn(val, update) {
+  update(() => {
+    merchantFilter.value = val || ''
+  })
+}
 
 const paymentMethodOptions = [
   { label: 'QRIS', value: 'qris' },

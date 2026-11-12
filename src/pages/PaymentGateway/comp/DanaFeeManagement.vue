@@ -641,21 +641,59 @@ const filterAppOptions = computed(() => [
   }))
 ])
 
-const filterMerchantOptions = computed(() => [
-  { label: 'Semua Merchant', value: null },
-  ...store.items.map(m => ({
-    label: `${m.name} (${m.code})`,
-    value: m.code
-  }))
-])
+function getMerchantCode(m) {
+  if (!m) return ''
+  return String(m.merchant_code || m.code || '').trim()
+}
 
-const calcMerchantOptions = computed(() => [
-  { label: 'Default UDEV', value: null },
-  ...store.items.map(m => ({
-    label: `${m.name} (${m.code})`,
-    value: m.code
-  }))
-])
+function getMerchantName(m) {
+  if (!m) return ''
+  return String(m.merchant_name || m.name || '').trim()
+}
+
+function formatMerchantLabel(m) {
+  const code = getMerchantCode(m)
+  const name = getMerchantName(m)
+  if (!code && !name) return 'Merchant Tidak Dikenal'
+  if (name && code && name.toLowerCase() !== code.toLowerCase()) {
+    return `${name} (${code})`
+  }
+  return name || code
+}
+
+const filterMerchantOptions = computed(() => {
+  const items = Array.isArray(store.items) ? store.items : []
+  const mapped = items
+    .map(m => {
+      const code = getMerchantCode(m)
+      const name = getMerchantName(m)
+      if (!code && !name) return null
+      return {
+        label: formatMerchantLabel(m),
+        value: code || name
+      }
+    })
+    .filter(Boolean)
+
+  return [{ label: 'Semua Merchant', value: null }, ...mapped]
+})
+
+const calcMerchantOptions = computed(() => {
+  const items = Array.isArray(store.items) ? store.items : []
+  const mapped = items
+    .map(m => {
+      const code = getMerchantCode(m)
+      const name = getMerchantName(m)
+      if (!code && !name) return null
+      return {
+        label: formatMerchantLabel(m),
+        value: code || name
+      }
+    })
+    .filter(Boolean)
+
+  return [{ label: 'Default UDEV', value: null }, ...mapped]
+})
 
 const paymentMethodOptions = [
   { label: 'QRIS (0.70%)', value: 'qris' },

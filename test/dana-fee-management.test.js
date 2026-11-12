@@ -325,3 +325,53 @@ test('Frontend mendukung konfigurasi biaya per gateway_merchant_code untuk isola
     'Card view harus menampilkan badge atau label gateway_merchant_code'
   )
 })
+
+test('Dropdown Pilih Merchant DANA memetakan merchant_code dan merchant_name dengan benar tanpa undefined', () => {
+  const formDialogFile = path.join(
+    rootDir,
+    'src/pages/PaymentGateway/comp/DanaFeeFormDialog.vue'
+  )
+  const formContent = fs.readFileSync(formDialogFile, 'utf8')
+
+  assert.match(
+    formContent,
+    /merchant_code/,
+    'Form dialog harus memetakan merchant_code dari API response'
+  )
+  assert.match(
+    formContent,
+    /merchant_name/,
+    'Form dialog harus memetakan merchant_name dari API response'
+  )
+  assert.match(
+    formContent,
+    /use-input/,
+    'Select merchant harus mendukung input pencarian'
+  )
+  assert.match(
+    formContent,
+    /@filter="filterMerchantFn"/,
+    'Select merchant harus memiliki filter handler untuk pencarian'
+  )
+  assert.doesNotMatch(
+    formContent,
+    /\$\{m\.name\}\s*\(\$\{m\.code\}\)/,
+    'Form dialog tidak boleh menggunakan m.name atau m.code yang menghasilkan undefined'
+  )
+
+  const managementFile = path.join(
+    rootDir,
+    'src/pages/PaymentGateway/comp/DanaFeeManagement.vue'
+  )
+  const mgmtContent = fs.readFileSync(managementFile, 'utf8')
+  assert.match(
+    mgmtContent,
+    /merchant_code/,
+    'Management filter harus memetakan merchant_code dari API response'
+  )
+  assert.doesNotMatch(
+    mgmtContent,
+    /\$\{m\.name\}\s*\(\$\{m\.code\}\)/,
+    'Management filter tidak boleh menggunakan m.name atau m.code yang menghasilkan undefined'
+  )
+})
