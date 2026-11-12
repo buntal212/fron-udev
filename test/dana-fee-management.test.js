@@ -255,3 +255,73 @@ test('Komponen DanaFeeFormDialog mendukung tarif default global, khusus aplikasi
     'Dialog harus memiliki shortcut untuk menerapkan tarif resmi DANA'
   )
 })
+
+test('Frontend mendukung konfigurasi biaya per gateway_merchant_code untuk isolasi multi-merchant DANA', () => {
+  const storeFile = path.join(
+    rootDir,
+    'src/stores/danagatewaymerchant/index.js'
+  )
+  const storeContent = fs.readFileSync(storeFile, 'utf8')
+  assert.match(
+    storeContent,
+    /gateway_merchant_code:\s*null/,
+    'Store harus memiliki gateway_merchant_code di feeForm dan feeFilter'
+  )
+  assert.match(
+    storeContent,
+    /gateway_merchant_code:\s*this\.feeFilter\.gateway_merchant_code\s*\|\|\s*undefined/,
+    'fetchFees harus meneruskan gateway_merchant_code ke params API'
+  )
+  assert.match(
+    storeContent,
+    /gateway_merchant_code:\s*this\.feeForm\.scope_type\s*===\s*'merchant'\s*\?\s*this\.feeForm\.gateway_merchant_code\s*:\s*null/,
+    'saveFee harus mengirim gateway_merchant_code jika scope_type merchant'
+  )
+  assert.match(
+    storeContent,
+    /gateway_merchant_code:\s*this\.feeCalcForm\.gateway_merchant_code\s*\|\|\s*undefined/,
+    'calculateFeePreview harus mengirim gateway_merchant_code untuk simulasi per merchant'
+  )
+
+  const formDialogFile = path.join(
+    rootDir,
+    'src/pages/PaymentGateway/comp/DanaFeeFormDialog.vue'
+  )
+  const formContent = fs.readFileSync(formDialogFile, 'utf8')
+  assert.match(
+    formContent,
+    /Khusus Merchant DANA/,
+    'Form dialog harus memiliki pilihan cakupan Khusus Merchant DANA'
+  )
+  assert.match(
+    formContent,
+    /v-model="store\.feeForm\.gateway_merchant_code"/,
+    'Form dialog harus mengikat input merchant ke store.feeForm.gateway_merchant_code'
+  )
+  assert.match(
+    formContent,
+    /merchantOptions/,
+    'Form dialog harus menyediakan options merchant yang terdaftar'
+  )
+
+  const managementFile = path.join(
+    rootDir,
+    'src/pages/PaymentGateway/comp/DanaFeeManagement.vue'
+  )
+  const mgmtContent = fs.readFileSync(managementFile, 'utf8')
+  assert.match(
+    mgmtContent,
+    /store\.feeFilter\.gateway_merchant_code/,
+    'Management view harus menyediakan filter merchant DANA'
+  )
+  assert.match(
+    mgmtContent,
+    /store\.feeCalcForm\.gateway_merchant_code/,
+    'Kalkulator simulasi harus mendukung pilihan merchant DANA'
+  )
+  assert.match(
+    mgmtContent,
+    /fee\.gateway_merchant_code/,
+    'Card view harus menampilkan badge atau label gateway_merchant_code'
+  )
+})

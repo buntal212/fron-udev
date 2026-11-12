@@ -107,6 +107,23 @@
 
             <div class="col-12 col-sm-6 col-md-2">
               <label class="text-caption text-sand block q-mb-xs">
+                Merchant DANA (Opsional)
+              </label>
+              <q-select
+                v-model="store.feeCalcForm.gateway_merchant_code"
+                outlined
+                dense
+                emit-value
+                map-options
+                clearable
+                bg-color="dark"
+                placeholder="Default UDEV"
+                :options="calcMerchantOptions"
+              />
+            </div>
+
+            <div class="col-12 col-sm-6 col-md-2">
+              <label class="text-caption text-sand block q-mb-xs">
                 Aplikasi (Opsional)
               </label>
               <q-select
@@ -122,7 +139,7 @@
               />
             </div>
 
-            <div class="col-12 col-md-2">
+            <div class="col-12 col-md-1">
               <q-btn
                 unelevated
                 color="warning"
@@ -247,7 +264,22 @@
           />
         </div>
 
-        <div class="col-12 col-sm-6 col-md-3">
+        <div class="col-12 col-sm-6 col-md-2">
+          <q-select
+            v-model="store.feeFilter.gateway_merchant_code"
+            outlined
+            dense
+            emit-value
+            map-options
+            clearable
+            label="Merchant DANA"
+            bg-color="white"
+            :options="filterMerchantOptions"
+            @update:model-value="onFilterChanged"
+          />
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-2">
           <q-select
             v-model="store.feeFilter.application_id"
             outlined
@@ -262,7 +294,7 @@
           />
         </div>
 
-        <div class="col-12 col-sm-6 col-md-2">
+        <div class="col-12 col-sm-6 col-md-1">
           <q-select
             v-model="store.feeFilter.fee_type"
             outlined
@@ -270,12 +302,12 @@
             emit-value
             map-options
             clearable
-            label="Tipe Biaya"
+            label="Tipe"
             bg-color="white"
             :options="[
-              { label: 'Semua Tipe', value: null },
-              { label: 'Biaya DANA', value: 'dana' },
-              { label: 'Biaya UDEV', value: 'udev' }
+              { label: 'Semua', value: null },
+              { label: 'DANA', value: 'dana' },
+              { label: 'UDEV', value: 'udev' }
             ]"
             @update:model-value="onFilterChanged"
           />
@@ -375,6 +407,17 @@
               </q-badge>
 
               <q-badge
+                v-if="fee.gateway_merchant_code"
+                rounded
+                color="cyan-9"
+                text-color="white"
+                class="text-weight-bold q-px-sm"
+              >
+                <q-icon name="storefront" size="13px" class="q-mr-xs" />
+                Merchant: {{ fee.gateway_merchant_code }}
+              </q-badge>
+
+              <q-badge
                 rounded
                 :color="fee.application_id ? 'purple-9' : 'teal-9'"
                 class="text-weight-bold q-px-sm"
@@ -382,7 +425,9 @@
                 {{
                   fee.application
                     ? `Khusus: ${fee.application.name}`
-                    : 'Default Global'
+                    : fee.gateway_merchant_code
+                      ? 'Semua Aplikasi'
+                      : 'Default Global'
                 }}
               </q-badge>
 
@@ -483,7 +528,11 @@
                 <div class="text-caption text-grey-5">
                   Cakupan:
                   <span class="text-warning">{{
-                    fee.application?.name || 'Semua Aplikasi (Default)'
+                    fee.gateway_merchant_code
+                      ? `Merchant ${fee.gateway_merchant_code}${fee.application ? ` (App: ${fee.application.name})` : ''}`
+                      : fee.application?.name
+                        ? `App: ${fee.application.name}`
+                        : 'Semua Aplikasi (Default)'
                   }}</span>
                 </div>
               </div>
@@ -592,6 +641,22 @@ const filterAppOptions = computed(() => [
   }))
 ])
 
+const filterMerchantOptions = computed(() => [
+  { label: 'Semua Merchant', value: null },
+  ...store.items.map(m => ({
+    label: `${m.name} (${m.code})`,
+    value: m.code
+  }))
+])
+
+const calcMerchantOptions = computed(() => [
+  { label: 'Default UDEV', value: null },
+  ...store.items.map(m => ({
+    label: `${m.name} (${m.code})`,
+    value: m.code
+  }))
+])
+
 const paymentMethodOptions = [
   { label: 'QRIS (0.70%)', value: 'qris' },
   { label: 'DANA Wallet (1.50%)', value: 'dana_wallet' },
@@ -607,6 +672,9 @@ const environmentOptions = [
 ]
 
 onMounted(async () => {
+  if (!store.items || store.items.length === 0) {
+    store.fetchMerchants().catch(() => {})
+  }
   await store.fetchFees(true)
   if (!store.feeCalcResult) {
     store.calculateFeePreview()

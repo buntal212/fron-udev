@@ -39,7 +39,7 @@
             tagihan pokok.
           </q-banner>
 
-          <!-- Scope Selection: Default vs Khusus Aplikasi -->
+          <!-- Scope Selection: Default vs Khusus Merchant vs Khusus Aplikasi -->
           <div>
             <label
               class="text-caption text-weight-medium text-grey-9 block q-mb-xs"
@@ -59,9 +59,31 @@
               toggle-text-color="dark"
               :options="[
                 { label: 'Default Global (Semua Aplikasi)', value: 'default' },
+                { label: 'Khusus Merchant DANA', value: 'merchant' },
                 { label: 'Khusus Aplikasi Tertentu', value: 'application' }
               ]"
               :disable="store.feeFormMode === 'edit'"
+            />
+          </div>
+
+          <!-- Merchant Select (Visible only when scope_type === 'merchant') -->
+          <div v-if="store.feeForm.scope_type === 'merchant'">
+            <label
+              class="text-caption text-weight-medium text-grey-9 block q-mb-xs"
+            >
+              Pilih Merchant DANA
+            </label>
+            <q-select
+              v-model="store.feeForm.gateway_merchant_code"
+              outlined
+              dense
+              emit-value
+              map-options
+              :options="merchantOptions"
+              label="Pilih merchant DANA target"
+              :disable="store.feeFormMode === 'edit'"
+              :error="Boolean(store.feeFormErrors.gateway_merchant_code)"
+              :error-message="store.feeFormErrors.gateway_merchant_code?.[0]"
             />
           </div>
 
@@ -303,6 +325,13 @@ const applicationOptions = computed(() =>
   effectiveApplications.value.map(app => ({
     label: app.name,
     value: app.id
+  }))
+)
+
+const merchantOptions = computed(() =>
+  store.items.map(m => ({
+    label: `${m.name} (${m.code})`,
+    value: m.code
   }))
 )
 

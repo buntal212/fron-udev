@@ -11,6 +11,7 @@ const emptyForm = () => ({
 
 const emptyFeeForm = () => ({
   id: null,
+  gateway_merchant_code: null,
   application_id: null,
   scope_type: 'default',
   payment_method: 'qris',
@@ -89,6 +90,7 @@ export const useDanaGatewayMerchantStore = defineStore(
       feeFilter: {
         search: '',
         environment: 'sandbox',
+        gateway_merchant_code: null,
         application_id: null,
         fee_type: null,
         status: null
@@ -106,6 +108,7 @@ export const useDanaGatewayMerchantStore = defineStore(
       feeCalcForm: {
         amount: 100000,
         payment_method: 'qris',
+        gateway_merchant_code: null,
         environment: 'sandbox',
         application_id: null
       },
@@ -446,6 +449,8 @@ export const useDanaGatewayMerchantStore = defineStore(
             page: this.feesPage,
             per_page: 15,
             environment: this.feeFilter.environment || undefined,
+            gateway_merchant_code:
+              this.feeFilter.gateway_merchant_code || undefined,
             application_id:
               this.feeFilter.application_id === 'default'
                 ? 'default'
@@ -504,7 +509,11 @@ export const useDanaGatewayMerchantStore = defineStore(
         if (this.feeFilter.environment) {
           this.feeForm.environment = this.feeFilter.environment
         }
-        if (
+        if (this.feeFilter.gateway_merchant_code) {
+          this.feeForm.scope_type = 'merchant'
+          this.feeForm.gateway_merchant_code =
+            this.feeFilter.gateway_merchant_code
+        } else if (
           this.feeFilter.application_id &&
           this.feeFilter.application_id !== 'default'
         ) {
@@ -517,10 +526,18 @@ export const useDanaGatewayMerchantStore = defineStore(
 
       openEditFeeDialog(fee) {
         this.feeFormMode = 'edit'
+        let scopeType = 'default'
+        if (fee.gateway_merchant_code) {
+          scopeType = 'merchant'
+        } else if (fee.application_id) {
+          scopeType = 'application'
+        }
+
         this.feeForm = {
           id: fee.id,
+          gateway_merchant_code: fee.gateway_merchant_code ?? null,
           application_id: fee.application_id ?? null,
-          scope_type: fee.application_id ? 'application' : 'default',
+          scope_type: scopeType,
           payment_method: fee.payment_method,
           environment: fee.environment,
           fee_type: fee.fee_type,
@@ -543,6 +560,10 @@ export const useDanaGatewayMerchantStore = defineStore(
         this.feeFormErrors = {}
         try {
           const payload = {
+            gateway_merchant_code:
+              this.feeForm.scope_type === 'merchant'
+                ? this.feeForm.gateway_merchant_code
+                : null,
             application_id:
               this.feeForm.scope_type === 'application'
                 ? this.feeForm.application_id
@@ -650,6 +671,8 @@ export const useDanaGatewayMerchantStore = defineStore(
             amount: Number(this.feeCalcForm.amount),
             payment_method: this.feeCalcForm.payment_method,
             environment: this.feeCalcForm.environment,
+            gateway_merchant_code:
+              this.feeCalcForm.gateway_merchant_code || undefined,
             application_id: this.feeCalcForm.application_id || undefined
           }
           const res = await danaGatewayMerchantService.calculateFee(payload)
