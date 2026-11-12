@@ -390,11 +390,11 @@ test('Filter Environment DANA mendukung Semua Environment (default null) dan Pro
     'feeFilter.environment harus default null agar semua aturan (termasuk Production) tampil saat pertama kali dimuat'
   )
 
-  // openCreateFeeDialog mendukung fallback production jika production aktif
-  assert.match(
+  // openCreateFeeDialog TIDAK boleh otomatis memilih Production; harus eksplisit
+  assert.doesNotMatch(
     storeContent,
     /else\s+if\s*\(this\.isProductionActive\)\s*\{\s*this\.feeForm\.environment\s*=\s*'production'/,
-    'openCreateFeeDialog harus menginisialisasi environment ke production jika production sedang aktif'
+    'openCreateFeeDialog tidak boleh otomatis memilih Production, harus menggunakan pilihan eksplisit'
   )
 
   // saveFee menyelaraskan feeFilter.environment jika ada filter yang tidak cocok
@@ -420,5 +420,34 @@ test('Filter Environment DANA mendukung Semua Environment (default null) dan Pro
     mgmtContent,
     /label:\s*'Production',\s*value:\s*'production'/,
     'Filter environment harus menyediakan pilihan Production'
+  )
+})
+
+test('Kalkulator simulasi biaya DANA menampilkan hak pemilik aplikasi utuh 100% dan penanganan bebas biaya', () => {
+  const managementFile = path.join(
+    rootDir,
+    'src/pages/PaymentGateway/comp/DanaFeeManagement.vue'
+  )
+  const mgmtContent = fs.readFileSync(managementFile, 'utf8')
+
+  assert.match(
+    mgmtContent,
+    /Hak Pemilik Aplikasi/,
+    'Kalkulator simulasi harus menampilkan kolom Hak Pemilik Aplikasi'
+  )
+  assert.match(
+    mgmtContent,
+    /100%\s*Hak Utuh/,
+    'Kalkulator simulasi harus memiliki badge 100% Hak Utuh'
+  )
+  assert.match(
+    mgmtContent,
+    /Bebas biaya/,
+    'Kalkulator simulasi harus menampilkan label Bebas biaya saat biaya gateway/platform Rp0'
+  )
+  assert.match(
+    mgmtContent,
+    /Total = Pokok \+ DANA \+ UDEV/,
+    'Kalkulator simulasi harus menjelaskan formula Total = Pokok + DANA + UDEV'
   )
 })

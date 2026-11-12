@@ -173,9 +173,14 @@
                 </div>
                 <div class="text-caption text-grey-5">
                   {{
-                    store.feeCalcResult.dana_fee_details?.fee_unit === 'percent'
-                      ? `${store.feeCalcResult.dana_fee_details?.fee_value}% tagihan`
-                      : 'Tetap'
+                    (store.feeCalcResult.dana_fee_details?.fee_unit ===
+                      'percent' ||
+                      store.feeCalcResult.dana_fee_unit === 'percent') &&
+                    store.feeCalcResult.dana_fee > 0
+                      ? `${store.feeCalcResult.dana_fee_details?.fee_value ?? store.feeCalcResult.dana_fee_value}% tagihan`
+                      : store.feeCalcResult.dana_fee > 0
+                        ? 'Biaya tetap'
+                        : 'Bebas biaya'
                   }}
                 </div>
               </div>
@@ -187,9 +192,14 @@
                 </div>
                 <div class="text-caption text-grey-5">
                   {{
-                    store.feeCalcResult.udev_fee_details?.fee_unit === 'percent'
-                      ? `${store.feeCalcResult.udev_fee_details?.fee_value}% tagihan`
-                      : 'Tetap'
+                    (store.feeCalcResult.udev_fee_details?.fee_unit ===
+                      'percent' ||
+                      store.feeCalcResult.udev_fee_unit === 'percent') &&
+                    store.feeCalcResult.udev_fee > 0
+                      ? `${store.feeCalcResult.udev_fee_details?.fee_value ?? store.feeCalcResult.udev_fee_value}% tagihan`
+                      : store.feeCalcResult.udev_fee > 0
+                        ? 'Biaya tetap'
+                        : 'Bebas biaya'
                   }}
                 </div>
               </div>

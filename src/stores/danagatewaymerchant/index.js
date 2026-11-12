@@ -508,8 +508,6 @@ export const useDanaGatewayMerchantStore = defineStore(
         this.feeForm = emptyFeeForm()
         if (this.feeFilter.environment) {
           this.feeForm.environment = this.feeFilter.environment
-        } else if (this.isProductionActive) {
-          this.feeForm.environment = 'production'
         }
         if (this.feeFilter.gateway_merchant_code) {
           this.feeForm.scope_type = 'merchant'
