@@ -56,7 +56,7 @@
         </q-td>
       </template>
       <template #body-cell-actions="props">
-        <q-td :props="props" class="text-right">
+        <q-td :props="props" class="text-right q-gutter-x-xs">
           <q-btn
             flat
             round
@@ -67,6 +67,17 @@
             @click="$emit('edit', props.row)"
           >
             <q-tooltip>Ubah</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat
+            round
+            dense
+            icon="delete_outline"
+            color="negative"
+            aria-label="Hapus mapping"
+            @click="$emit('delete', props.row)"
+          >
+            <q-tooltip>Hapus</q-tooltip>
           </q-btn>
         </q-td>
       </template>
@@ -80,7 +91,7 @@ defineProps({
   loading: { type: Boolean, default: false },
   pagination: { type: Object, required: true }
 })
-defineEmits(['request', 'edit', 'change-status'])
+defineEmits(['request', 'edit', 'change-status', 'delete'])
 
 const columns = [
   {

@@ -208,6 +208,7 @@
             @request="store.fetchMappings"
             @edit="store.openEditDialog"
             @change-status="store.setMappingActive"
+            @delete="store.confirmDeleteMapping"
           />
         </q-tab-panel>
 
@@ -218,6 +219,33 @@
 
       <PaymentGatewayFormDialog />
       <DanaGatewayMerchantFormDialog />
+
+      <q-dialog v-model="store.mappingDeleteConfirmDialogOpen">
+        <q-card style="min-width: 380px">
+          <q-card-section class="row items-center q-pb-none">
+            <div class="text-h6 text-weight-bold">Konfirmasi Hapus Mapping</div>
+            <q-space />
+            <q-btn icon="close" flat round dense v-close-popup />
+          </q-card-section>
+
+          <q-card-section>
+            Apakah Anda yakin ingin menghapus mapping
+            <strong>{{ store.mappingToDelete?.application?.name }}</strong>
+            ({{ store.mappingToDelete?.environment?.toUpperCase() }})?
+          </q-card-section>
+
+          <q-card-actions align="right">
+            <q-btn flat label="Batal" color="grey-8" v-close-popup />
+            <q-btn
+              flat
+              label="Hapus"
+              color="negative"
+              :loading="store.saving"
+              @click="store.deleteMapping"
+            />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </div>
   </q-page>
 </template>

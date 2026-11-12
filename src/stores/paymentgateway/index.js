@@ -33,7 +33,9 @@ export const usePaymentGatewayStore = defineStore('payment-gateway', {
     saving: false,
     formDialogOpen: false,
     formMode: 'create',
-    editingId: null
+    editingId: null,
+    mappingDeleteConfirmDialogOpen: false,
+    mappingToDelete: null
   }),
 
   actions: {
@@ -133,7 +135,11 @@ export const usePaymentGatewayStore = defineStore('payment-gateway', {
         if (this.formMode === 'edit') {
           delete payload.application_id
           delete payload.provider
-          await paymentGatewayService.update(this.editingId, payload)
+          delete payload.environment
+          await paymentGatewayService.update(this.editingId, {
+            gateway_merchant_code: this.form.gateway_merchant_code,
+            is_active: this.form.is_active
+          })
         } else {
           await paymentGatewayService.create(payload)
         }
@@ -150,6 +156,32 @@ export const usePaymentGatewayStore = defineStore('payment-gateway', {
         this.formErrors = getApiValidationErrors(error)
         if (!Object.keys(this.formErrors).length)
           this.error = getApiErrorMessage(error)
+      } finally {
+        this.saving = false
+      }
+    },
+
+    confirmDeleteMapping(mapping) {
+      this.mappingToDelete = mapping
+      this.mappingDeleteConfirmDialogOpen = true
+    },
+
+    async deleteMapping() {
+      if (!this.mappingToDelete) return
+      this.saving = true
+      try {
+        await paymentGatewayService.delete(this.mappingToDelete.id)
+        this.mappingDeleteConfirmDialogOpen = false
+        this.mappingToDelete = null
+        Notify.create({
+          message: 'Mapping payment gateway berhasil dihapus.',
+          color: 'positive',
+          icon: 'check_circle',
+          position: 'top'
+        })
+        await this.fetchMappings()
+      } catch (error) {
+        this.error = getApiErrorMessage(error)
       } finally {
         this.saving = false
       }

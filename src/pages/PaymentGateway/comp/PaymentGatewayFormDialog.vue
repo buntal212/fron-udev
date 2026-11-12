@@ -47,6 +47,7 @@
             emit-value
             map-options
             label="Environment"
+            :disable="store.formMode === 'edit'"
             :options="environmentOptions"
             :rules="[requiredEnvironment]"
             :error="hasError('environment')"
@@ -85,9 +86,9 @@
             dilihat atau diubah dari halaman ini.
           </q-banner>
           <q-banner dense class="bg-blue-1 text-blue-10">
-            Mapping aplikasi hanya dipertahankan untuk checkout dan settlement
-            historis. Invoice langganan Sandbox baru selalu memakai merchant
-            penerima UDEV pusat yang dikonfigurasi aman di server.
+            Satu aplikasi dapat memiliki mapping Sandbox dan Production secara
+            bersamaan. Kelola mapping masing-masing environment secara
+            independen tanpa menimpa konfigurasi lain.
           </q-banner>
           <q-toggle
             v-model="store.form.is_active"
