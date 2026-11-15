@@ -569,6 +569,7 @@
                         v-model.trim="configurationForm.external_store_id"
                         outlined
                         dense
+                        :disable="clearExternalStoreId"
                         :label="
                           activeEnvironmentTab === 'production'
                             ? 'External Store ID Production (untuk QRIS)'
@@ -576,8 +577,8 @@
                         "
                         :hint="
                           activeEnvironmentTab === 'production'
-                            ? 'Wajib untuk QRIS. Isi hanya ID resmi dari DANA Production, bukan nilai contoh.'
-                            : 'Wajib untuk QRIS. Isi hanya ID resmi dari DANA Sandbox, bukan nilai contoh.'
+                            ? 'Wajib untuk QRIS. Isi hanya ID resmi dari DANA Production, bukan nilai contoh. Biarkan kosong jika tidak diubah.'
+                            : 'Wajib untuk QRIS. Isi hanya ID resmi dari DANA Sandbox, bukan nilai contoh. Biarkan kosong jika tidak diubah.'
                         "
                         persistent-hint
                         :error="Boolean(configurationErrors.external_store_id)"
@@ -585,23 +586,42 @@
                         :rules="[maxRule(150)]"
                         no-error-icon
                       />
+                      <q-checkbox
+                        v-if="isConfigured"
+                        v-model="clearExternalStoreId"
+                        dense
+                        size="xs"
+                        color="negative"
+                        class="q-mt-xs text-caption text-negative"
+                        label="Hapus External Store ID tersimpan secara permanen"
+                      />
                     </div>
                     <div class="col-12 col-md-6">
                       <q-input
                         v-model.trim="configurationForm.sub_merchant_id"
                         outlined
                         dense
+                        :disable="clearSubMerchantId"
                         :label="
                           activeEnvironmentTab === 'production'
                             ? 'Sub Merchant ID Production'
                             : 'Sub Merchant ID Sandbox'
                         "
-                        hint="Isi hanya bila merchant merupakan aggregator."
+                        hint="Isi hanya bila merchant merupakan aggregator. Biarkan kosong jika tidak diubah."
                         persistent-hint
                         :error="Boolean(configurationErrors.sub_merchant_id)"
                         :error-message="firstError('sub_merchant_id')"
                         :rules="[maxRule(150)]"
                         no-error-icon
+                      />
+                      <q-checkbox
+                        v-if="isConfigured"
+                        v-model="clearSubMerchantId"
+                        dense
+                        size="xs"
+                        color="negative"
+                        class="q-mt-xs text-caption text-negative"
+                        label="Hapus Sub Merchant ID tersimpan secara permanen"
                       />
                     </div>
                   </div>
@@ -778,6 +798,13 @@
                     <div>
                       Credential akan dikirim sekali ke backend UDEV dan tidak
                       akan ditampilkan kembali oleh halaman ini.
+                    </div>
+                    <div
+                      v-if="clearExternalStoreId || clearSubMerchantId"
+                      class="text-negative text-weight-bold q-mt-xs"
+                    >
+                      Peringatan: External Store ID atau Sub Merchant ID yang
+                      ditandai akan dihapus secara permanen dari konfigurasi.
                     </div>
                     <template #action>
                       <q-btn
@@ -1257,6 +1284,8 @@ const confirmOverwriteStoredConfig = ref(false)
 const showPrivateKey = ref(false)
 const showWebhookPublicKey = ref(false)
 const showClientSecret = ref(false)
+const clearExternalStoreId = ref(false)
+const clearSubMerchantId = ref(false)
 const revokeConfirmationOpen = ref(false)
 const apiKeyToRevoke = ref(null)
 const revoking = ref(false)
@@ -1325,6 +1354,14 @@ watch(
     refreshManagement(true)
   }
 )
+
+watch(clearExternalStoreId, val => {
+  if (val) configurationForm.external_store_id = ''
+})
+
+watch(clearSubMerchantId, val => {
+  if (val) configurationForm.sub_merchant_id = ''
+})
 
 function onEnvironmentTabChange(tab) {
   activeEnvironmentTab.value = tab
@@ -1485,13 +1522,14 @@ function resetConfigurationForm() {
   storedConfigurationNotice.value = null
   storedSecretStatus.value = null
   confirmOverwriteStoredConfig.value = false
+  clearExternalStoreId.value = false
+  clearSubMerchantId.value = false
   showPrivateKey.value = false
   showWebhookPublicKey.value = false
   showClientSecret.value = false
   saveConfirmationOpen.value = false
 }
 function clearSensitiveFields() {
-  configurationForm.merchant_id = ''
   configurationForm.client_secret = ''
   configurationForm.private_key = ''
   configurationForm.dana_webhook_public_key = ''
@@ -1500,6 +1538,7 @@ function clearSensitiveFields() {
   showWebhookPublicKey.value = false
 }
 function hasManualConfigurationChanges() {
+  if (clearExternalStoreId.value || clearSubMerchantId.value) return true
   return Object.entries(configurationForm).some(([field, value]) => {
     if (field === 'environment') return false
     if (typeof value === 'boolean') return value
@@ -1542,6 +1581,8 @@ function applyStoredConfiguration(response) {
   configurationForm.client_secret = ''
   configurationForm.private_key = ''
   configurationForm.dana_webhook_public_key = ''
+  clearExternalStoreId.value = false
+  clearSubMerchantId.value = false
   storedSecretStatus.value = {
     private_key: values.private_key_configured === true,
     webhook_public_key: values.dana_webhook_public_key_configured === true,
@@ -1752,6 +1793,30 @@ async function saveConfiguration() {
   if (!payload.dana_webhook_public_key) delete payload.dana_webhook_public_key
   if (!payload.client_secret) delete payload.client_secret
   if (!payload.client_id) delete payload.client_id
+
+  if (clearExternalStoreId.value) {
+    payload.clear_external_store_id = true
+    payload.external_store_id = null
+  } else if (
+    typeof payload.external_store_id === 'string' &&
+    payload.external_store_id.trim() !== ''
+  ) {
+    payload.external_store_id = payload.external_store_id.trim()
+  } else {
+    delete payload.external_store_id
+  }
+
+  if (clearSubMerchantId.value) {
+    payload.clear_sub_merchant_id = true
+    payload.sub_merchant_id = null
+  } else if (
+    typeof payload.sub_merchant_id === 'string' &&
+    payload.sub_merchant_id.trim() !== ''
+  ) {
+    payload.sub_merchant_id = payload.sub_merchant_id.trim()
+  } else {
+    delete payload.sub_merchant_id
+  }
   try {
     await danaGatewayMerchantService.configureSandbox(
       merchant.value.merchant_id,
