@@ -517,7 +517,28 @@
                 />
               </div>
 
-              <!-- Gateway Selector Toggle (Midtrans Sandbox / DANA Sandbox) -->
+              <!-- Uncertain Status Alert (DANA 01) -->
+              <div
+                v-if="isAttemptUncertain"
+                class="q-pa-sm q-mb-md bg-amber-1 text-dark rounded-borders"
+                style="border: 1px solid #f59e0b"
+              >
+                <div
+                  class="row items-center q-gutter-xs text-amber-9 text-weight-bold"
+                >
+                  <q-icon name="warning" size="20px" color="amber-9" />
+                  <span>Status Transaksi Tidak Pasti (DANA 01)</span>
+                </div>
+                <div class="text-caption text-grey-9 q-mt-xs">
+                  {{
+                    latestAttempt?.failure_message ||
+                    store.checkoutAttempt?.failure_message ||
+                    'Transaksi telah terdaftar di sistem gateway DANA tetapi kode instruksi QRIS belum berhasil diperoleh. Pembuatan transaksi baru diblokir demi keamanan untuk mencegah pendebetan ganda.'
+                  }}
+                </div>
+              </div>
+
+              <!-- Gateway Selector Toggle -->
               <div
                 v-if="canStartCheckout && availableGateways.length > 1"
                 class="q-mb-md"
@@ -537,18 +558,7 @@
                   text-color="grey-4"
                   toggle-text-color="dark"
                   class="gateway-btn-toggle"
-                  :options="[
-                    {
-                      label: 'DANA Sandbox',
-                      value: 'dana',
-                      icon: 'account_balance_wallet'
-                    },
-                    {
-                      label: 'Midtrans Sandbox',
-                      value: 'midtrans',
-                      icon: 'bolt'
-                    }
-                  ]"
+                  :options="gatewayOptions"
                 />
               </div>
 
@@ -637,7 +647,8 @@
                 class="qris-presentation-box q-pa-md text-center q-mb-sm"
               >
                 <div class="text-caption text-weight-bold text-dark q-mb-xs">
-                  QRIS {{ isMidtrans ? 'Midtrans' : 'DANA' }} Sandbox
+                  QRIS {{ isMidtrans ? 'Midtrans' : 'DANA'
+                  }}{{ isAttemptProduction ? '' : ' Sandbox' }}
                 </div>
 
                 <!-- Expired QR Alert -->
@@ -685,8 +696,8 @@
                   <div class="text-caption text-grey-8 q-mt-xs">
                     {{
                       isMidtrans
-                        ? 'Menghubungi Midtrans Sandbox untuk QRIS resmi...'
-                        : 'Menyiapkan QRIS DANA...'
+                        ? `Menghubungi Midtrans${isAttemptProduction ? '' : ' Sandbox'} untuk QRIS resmi...`
+                        : `Menyiapkan QRIS DANA${isAttemptProduction ? '' : ' Sandbox'}...`
                     }}
                   </div>
                 </div>
@@ -697,7 +708,7 @@
                     <img
                       :key="displayQrSource"
                       :src="displayQrSource"
-                      :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'} Sandbox`"
+                      :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'}${isAttemptProduction ? '' : ' Sandbox'}`"
                       class="qris-img"
                       @load="onQrImageLoad"
                       @error="handleQrImageError"
@@ -706,13 +717,17 @@
                   <div
                     class="text-caption text-grey-9 text-weight-medium q-mt-xs"
                   >
-                    Scan kode QRIS melalui simulator atau aplikasi sandbox.
+                    {{
+                      isAttemptProduction
+                        ? 'Scan kode QRIS melalui aplikasi DANA atau e-wallet / mobile banking yang mendukung QRIS.'
+                        : 'Scan kode QRIS melalui simulator atau aplikasi sandbox.'
+                    }}
                   </div>
                   <div
                     class="row items-center justify-center q-gutter-xs q-mt-sm"
                   >
                     <q-btn
-                      v-if="rawMidtransQrUrl"
+                      v-if="rawMidtransQrUrl && !isAttemptProduction"
                       dense
                       outline
                       no-caps
@@ -1105,8 +1120,8 @@
               </div>
             </div>
 
-            <!-- Card: Admin UAT Sandbox Controls -->
-            <div class="gold-card q-pa-md">
+            <!-- Card: Admin UAT Sandbox Controls (Hanya untuk Sandbox) -->
+            <div v-if="!isAttemptProduction" class="gold-card q-pa-md">
               <div class="row items-center justify-between q-mb-xs">
                 <div class="row items-center q-gutter-xs">
                   <q-icon name="science" color="warning" size="18px" />
@@ -1233,6 +1248,48 @@
                   store.simulateError ||
                   store.reconcileError
                 }}
+              </q-banner>
+            </div>
+
+            <!-- Card: Admin Status Synchronization (Production) -->
+            <div
+              v-else-if="invoice.payment_attempts?.length"
+              class="gold-card q-pa-md"
+            >
+              <div class="row items-center justify-between q-mb-xs">
+                <div class="row items-center q-gutter-xs">
+                  <q-icon name="sync" color="primary" size="18px" />
+                  <span class="gold-card-title"
+                    >Sinkronisasi Status Gateway</span
+                  >
+                </div>
+                <q-badge color="positive" outline label="Production" />
+              </div>
+              <p class="text-caption text-muted q-mb-sm">
+                Sinkronkan status pembayaran resmi langsung dari gateway DANA /
+                Midtrans Production.
+              </p>
+              <div class="row q-gutter-xs items-center">
+                <q-btn
+                  dense
+                  unelevated
+                  no-caps
+                  color="primary"
+                  icon="sync"
+                  label="Sinkronkan Status Gateway"
+                  class="q-px-sm"
+                  :loading="store.reconcileLoading"
+                  :disable="store.reconcileLoading"
+                  @click="store.reconcileInvoice()"
+                />
+              </div>
+              <q-banner
+                v-if="store.reconcileError"
+                rounded
+                dense
+                class="bg-negative text-white q-mt-xs text-caption"
+              >
+                {{ store.reconcileError }}
               </q-banner>
             </div>
           </div>
@@ -2032,6 +2089,41 @@ watch(
   { immediate: true }
 )
 
+const isAttemptProduction = computed(() => {
+  const env =
+    latestAttempt.value?.gateway_environment ||
+    latestAttempt.value?.environment ||
+    store.checkoutAttempt?.gateway_environment ||
+    store.checkoutAttempt?.environment ||
+    invoice.value?.application_payment_gateways?.[0]?.environment ||
+    invoice.value?.metadata?.environment
+  return env === 'production'
+})
+
+const isAttemptUncertain = computed(() => {
+  return (
+    Boolean(latestAttempt.value?.is_uncertain) ||
+    Boolean(store.checkoutAttempt?.is_uncertain) ||
+    latestAttempt.value?.failure_code === 'gateway_uncertain_status' ||
+    store.checkoutAttempt?.failure_code === 'gateway_uncertain_status' ||
+    Boolean(latestAttempt.value?.metadata?.uncertain) ||
+    Boolean(store.checkoutAttempt?.metadata?.uncertain)
+  )
+})
+
+const gatewayOptions = computed(() => [
+  {
+    label: isAttemptProduction.value ? 'DANA' : 'DANA Sandbox',
+    value: 'dana',
+    icon: 'account_balance_wallet'
+  },
+  {
+    label: isAttemptProduction.value ? 'Midtrans' : 'Midtrans Sandbox',
+    value: 'midtrans',
+    icon: 'bolt'
+  }
+])
+
 const availableGateways = computed(() => {
   const gateways = invoice.value.application_payment_gateways || []
   const active = gateways.filter(g => g.is_active)
@@ -2127,6 +2219,7 @@ const paymentMethodLabel = method =>
 const canStartCheckout = computed(
   () =>
     invoice.value.status === 'pending' &&
+    !isAttemptUncertain.value &&
     !invoice.value.payment_attempts?.some(
       attempt => attempt.status === 'succeeded'
     )

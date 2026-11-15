@@ -486,9 +486,12 @@
                   <div class="row q-col-gutter-md">
                     <div class="col-12 col-md-6">
                       <q-input
+                        id="dana_client_id"
+                        name="dana_client_id"
                         v-model.trim="configurationForm.client_id"
                         outlined
                         dense
+                        autocomplete="off"
                         label="Client ID (Opsional jika beda)"
                         hint="Isi jika portal memberikan Client ID terpisah dari Partner ID."
                         persistent-hint
@@ -500,14 +503,17 @@
                     </div>
                     <div class="col-12 col-md-6">
                       <q-input
+                        id="dana_client_secret"
+                        name="dana_client_secret"
                         v-model="configurationForm.client_secret"
                         outlined
                         dense
                         :type="showClientSecret ? 'text' : 'password'"
+                        :disable="clearClientSecret"
                         label="Client Secret (Opsional)"
                         hint="API Secret dari Portal DANA jika tersedia. Biarkan kosong jika tidak diubah."
                         persistent-hint
-                        autocomplete="off"
+                        autocomplete="new-password"
                         :input-class="
                           showClientSecret ? '' : 'masked-sensitive-input'
                         "
@@ -533,6 +539,15 @@
                           />
                         </template>
                       </q-input>
+                      <q-checkbox
+                        v-if="isConfigured && storedSecretStatus?.client_secret"
+                        v-model="clearClientSecret"
+                        dense
+                        size="xs"
+                        color="negative"
+                        class="q-mt-xs text-caption text-negative"
+                        label="Hapus Client Secret tersimpan secara permanen"
+                      />
                     </div>
                   </div>
                   <div class="row q-col-gutter-md">
@@ -1286,6 +1301,7 @@ const showWebhookPublicKey = ref(false)
 const showClientSecret = ref(false)
 const clearExternalStoreId = ref(false)
 const clearSubMerchantId = ref(false)
+const clearClientSecret = ref(false)
 const revokeConfirmationOpen = ref(false)
 const apiKeyToRevoke = ref(null)
 const revoking = ref(false)
@@ -1351,6 +1367,12 @@ watch(
       managementLoadedMerchantId.value = null
       return
     }
+    if (
+      merchant.value?.environment === 'production' ||
+      merchant.value?.environment === 'sandbox'
+    ) {
+      activeEnvironmentTab.value = merchant.value.environment
+    }
     refreshManagement(true)
   }
 )
@@ -1361,6 +1383,10 @@ watch(clearExternalStoreId, val => {
 
 watch(clearSubMerchantId, val => {
   if (val) configurationForm.sub_merchant_id = ''
+})
+
+watch(clearClientSecret, val => {
+  if (val) configurationForm.client_secret = ''
 })
 
 function onEnvironmentTabChange(tab) {
@@ -1513,6 +1539,9 @@ function toggleConfigurationPanel() {
   } else {
     resetConfigurationForm()
     configurationDialogOpen.value = true
+    if (isConfigured.value) {
+      executeLoadStoredConfiguration()
+    }
   }
 }
 function resetConfigurationForm() {
@@ -1524,6 +1553,7 @@ function resetConfigurationForm() {
   confirmOverwriteStoredConfig.value = false
   clearExternalStoreId.value = false
   clearSubMerchantId.value = false
+  clearClientSecret.value = false
   showPrivateKey.value = false
   showWebhookPublicKey.value = false
   showClientSecret.value = false
@@ -1538,7 +1568,12 @@ function clearSensitiveFields() {
   showWebhookPublicKey.value = false
 }
 function hasManualConfigurationChanges() {
-  if (clearExternalStoreId.value || clearSubMerchantId.value) return true
+  if (
+    clearExternalStoreId.value ||
+    clearSubMerchantId.value ||
+    clearClientSecret.value
+  )
+    return true
   return Object.entries(configurationForm).some(([field, value]) => {
     if (field === 'environment') return false
     if (typeof value === 'boolean') return value
@@ -1583,6 +1618,7 @@ function applyStoredConfiguration(response) {
   configurationForm.dana_webhook_public_key = ''
   clearExternalStoreId.value = false
   clearSubMerchantId.value = false
+  clearClientSecret.value = false
   storedSecretStatus.value = {
     private_key: values.private_key_configured === true,
     webhook_public_key: values.dana_webhook_public_key_configured === true,
@@ -1791,7 +1827,17 @@ async function saveConfiguration() {
   }
   if (!payload.private_key) delete payload.private_key
   if (!payload.dana_webhook_public_key) delete payload.dana_webhook_public_key
-  if (!payload.client_secret) delete payload.client_secret
+  if (clearClientSecret.value) {
+    payload.clear_client_secret = true
+    payload.client_secret = null
+  } else if (
+    typeof payload.client_secret === 'string' &&
+    payload.client_secret.trim() !== ''
+  ) {
+    payload.client_secret = payload.client_secret.trim()
+  } else {
+    delete payload.client_secret
+  }
   if (!payload.client_id) delete payload.client_id
 
   if (clearExternalStoreId.value) {
@@ -1831,6 +1877,7 @@ async function saveConfiguration() {
       timeout: 5000
     })
     await refreshManagement(true)
+    await executeLoadStoredConfiguration()
   } catch (error) {
     configurationErrors.value = getApiValidationErrors(error)
     const valErrors = getApiValidationErrors(error)

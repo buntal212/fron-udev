@@ -782,6 +782,7 @@ export const useInvoiceStore = defineStore('invoice', {
       this.stopPolling()
       this.checkoutPollAttemptId = attemptId
       this.checkoutPollInProgress = false
+      this.checkoutPollCount = 0
 
       this.checkoutPollId = setInterval(async () => {
         if (!this.selectedInvoice?.id || !this.detailDialogOpen) {
@@ -798,6 +799,20 @@ export const useInvoiceStore = defineStore('invoice', {
           return
         }
 
+        this.checkoutPollCount = (this.checkoutPollCount || 0) + 1
+        if (this.checkoutPollCount >= 15) {
+          this.stopPolling()
+          if (
+            !this.checkoutQrPayload &&
+            !this.checkoutQrUrl &&
+            !this.checkoutPaymentCode
+          ) {
+            this.checkoutError =
+              'Waktu tunggu gateway habis. Instruksi pembayaran belum dapat dimuat. Silakan periksa status beberapa saat lagi.'
+          }
+          return
+        }
+
         const currentLatest = Array.isArray(
           this.selectedInvoice?.payment_attempts
         )
@@ -805,6 +820,21 @@ export const useInvoiceStore = defineStore('invoice', {
               (a, b) => b.attempt_number - a.attempt_number
             )[0]
           : null
+
+        const isUncertain =
+          this.checkoutAttempt?.is_uncertain ||
+          currentLatest?.is_uncertain ||
+          this.checkoutAttempt?.failure_code === 'gateway_uncertain_status' ||
+          currentLatest?.failure_code === 'gateway_uncertain_status'
+
+        if (isUncertain) {
+          this.stopPolling()
+          this.checkoutError =
+            currentLatest?.failure_message ||
+            this.checkoutAttempt?.failure_message ||
+            'Status transaksi di gateway tidak pasti (DANA 01). Pembuatan order baru diblokir demi keamanan.'
+          return
+        }
 
         const currentStatus =
           this.checkoutAttempt?.status || currentLatest?.status
@@ -1265,6 +1295,17 @@ export const useInvoiceStore = defineStore('invoice', {
               this.startCountdown(this.checkoutExpiresAt)
               this.startPolling(latestAttempt?.id)
             }
+          } else if (
+            checkout.checkout_status === 'uncertain' ||
+            checkout.is_uncertain ||
+            latestAttempt?.is_uncertain
+          ) {
+            this.stopPolling()
+            this.stopCountdown()
+            this.checkoutError =
+              checkout.failure_message ||
+              latestAttempt?.failure_message ||
+              'Status transaksi di gateway tidak pasti (DANA 01). Pembuatan order baru diblokir demi keamanan.'
           } else {
             this.checkoutError =
               checkout.checkout_status === 'processing'
@@ -1285,6 +1326,17 @@ export const useInvoiceStore = defineStore('invoice', {
               this.startCountdown(this.checkoutExpiresAt)
               this.startPolling(latestAttempt?.id)
             }
+          } else if (
+            checkout.checkout_status === 'uncertain' ||
+            checkout.is_uncertain ||
+            latestAttempt?.is_uncertain
+          ) {
+            this.stopPolling()
+            this.stopCountdown()
+            this.checkoutError =
+              checkout.failure_message ||
+              latestAttempt?.failure_message ||
+              'Status transaksi di gateway tidak pasti (DANA 01). Pembuatan order baru diblokir demi keamanan.'
           } else {
             this.checkoutError =
               checkout.checkout_status === 'processing'
@@ -1294,10 +1346,20 @@ export const useInvoiceStore = defineStore('invoice', {
         }
       } catch (error) {
         const status = error?.response?.status
+        const errorMessage = error?.response?.data?.message || ''
+        const isUncertainError =
+          errorMessage.includes('tidak pasti') ||
+          errorMessage.includes('transaksi sudah terdaftar') ||
+          errorMessage.includes('pembuatan order baru diblokir')
+
         if (status === 409) {
-          this.checkoutIdempotencyKey = createIdempotencyKey()
+          if (!isUncertainError) {
+            this.checkoutIdempotencyKey = createIdempotencyKey()
+          }
+          this.stopPolling()
+          this.stopCountdown()
           this.checkoutError =
-            error.response?.data?.message ||
+            errorMessage ||
             'Permintaan checkout berkonflik dengan transaksi sebelumnya. Silakan klik tombol untuk membuat instruksi baru.'
         } else if (
           error?.code === 'ECONNABORTED' ||
@@ -1308,6 +1370,7 @@ export const useInvoiceStore = defineStore('invoice', {
             'Koneksi ke gateway pembayaran mengalami timeout jaringan. Periksa koneksi dan coba lagi.'
         } else if (status === 502 || status === 504) {
           this.checkoutError =
+            errorMessage ||
             'Gateway pembayaran sedang mengalami gangguan atau tidak dapat dijangkau. Coba beberapa saat lagi.'
         } else if (status === 202) {
           this.checkoutError =
