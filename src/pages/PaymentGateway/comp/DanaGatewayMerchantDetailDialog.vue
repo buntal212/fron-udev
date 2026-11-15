@@ -502,16 +502,126 @@
                       />
                     </div>
                     <div class="col-12 col-md-6">
+                      <div class="row items-center justify-between q-mb-xs">
+                        <div class="text-caption text-weight-medium">
+                          Client Secret (Opsional)
+                          <q-badge
+                            v-if="clearSecret.client_secret"
+                            color="negative"
+                            class="q-ml-xs"
+                            icon="delete"
+                            label="Akan dihapus"
+                          />
+                          <q-badge
+                            v-else-if="editingSecret.client_secret"
+                            color="warning"
+                            text-color="dark"
+                            class="q-ml-xs"
+                            icon="edit"
+                            label="Mode ganti"
+                          />
+                          <q-badge
+                            v-else-if="storedSecretStatus?.client_secret"
+                            color="positive"
+                            class="q-ml-xs"
+                            icon="lock"
+                            label="Tersimpan"
+                          />
+                          <q-badge
+                            v-else
+                            color="grey-6"
+                            class="q-ml-xs"
+                            icon="lock_open"
+                            label="Belum ada"
+                          />
+                        </div>
+                        <div
+                          v-if="storedSecretStatus?.client_secret"
+                          class="row q-gutter-xs"
+                        >
+                          <q-btn
+                            v-if="
+                              !editingSecret.client_secret &&
+                              !clearSecret.client_secret
+                            "
+                            flat
+                            dense
+                            size="sm"
+                            color="warning"
+                            icon="edit"
+                            label="Ganti"
+                            no-caps
+                            @click="startEditSecret('client_secret')"
+                          />
+                          <q-btn
+                            v-if="
+                              !editingSecret.client_secret &&
+                              !clearSecret.client_secret
+                            "
+                            flat
+                            dense
+                            size="sm"
+                            color="negative"
+                            icon="delete"
+                            label="Hapus"
+                            no-caps
+                            @click="startClearSecret('client_secret')"
+                          />
+                          <q-btn
+                            v-if="editingSecret.client_secret"
+                            flat
+                            dense
+                            size="sm"
+                            color="grey-7"
+                            icon="close"
+                            label="Batal ganti"
+                            no-caps
+                            @click="cancelEditSecret('client_secret')"
+                          />
+                          <q-btn
+                            v-if="clearSecret.client_secret"
+                            flat
+                            dense
+                            size="sm"
+                            color="primary"
+                            icon="undo"
+                            label="Batal hapus"
+                            no-caps
+                            @click="cancelClearSecret('client_secret')"
+                          />
+                        </div>
+                      </div>
+
                       <q-input
+                        v-if="!clearSecret.client_secret"
                         id="dana_client_secret"
                         name="dana_client_secret"
                         v-model="configurationForm.client_secret"
                         outlined
                         dense
                         :type="showClientSecret ? 'text' : 'password'"
-                        :disable="clearClientSecret"
-                        label="Client Secret (Opsional)"
-                        hint="API Secret dari Portal DANA jika tersedia. Biarkan kosong jika tidak diubah."
+                        :placeholder="
+                          storedSecretStatus?.client_secret &&
+                          !editingSecret.client_secret
+                            ? '••••••••'
+                            : 'Masukkan Client Secret jika tersedia'
+                        "
+                        :readonly="
+                          storedSecretStatus?.client_secret &&
+                          !editingSecret.client_secret
+                        "
+                        :bg-color="
+                          storedSecretStatus?.client_secret &&
+                          !editingSecret.client_secret
+                            ? 'grey-2'
+                            : 'white'
+                        "
+                        :hint="
+                          storedSecretStatus?.client_secret &&
+                          !editingSecret.client_secret
+                            ? 'Client secret tersimpan di Gateway. Klik Ganti untuk memasukkan nilai baru.'
+                            : 'API Secret dari Portal DANA jika tersedia. Biarkan kosong jika tidak diubah.'
+                        "
                         persistent-hint
                         autocomplete="new-password"
                         :input-class="
@@ -539,15 +649,17 @@
                           />
                         </template>
                       </q-input>
-                      <q-checkbox
-                        v-if="isConfigured && storedSecretStatus?.client_secret"
-                        v-model="clearClientSecret"
+                      <q-banner
+                        v-else
+                        rounded
                         dense
-                        size="xs"
-                        color="negative"
-                        class="q-mt-xs text-caption text-negative"
-                        label="Hapus Client Secret tersimpan secara permanen"
-                      />
+                        class="bg-red-1 text-negative border-negative q-mt-xs"
+                      >
+                        <template #avatar
+                          ><q-icon name="warning" color="negative"
+                        /></template>
+                        Client secret akan dihapus dari server saat disimpan.
+                      </q-banner>
                     </div>
                   </div>
                   <div class="row q-col-gutter-md">
@@ -692,90 +804,347 @@
                       />
                     </div>
                   </div>
-                  <q-input
-                    v-model="configurationForm.private_key"
-                    outlined
-                    type="textarea"
-                    autogrow
-                    :label="
-                      activeEnvironmentTab === 'production'
-                        ? 'Private key DANA Production'
-                        : 'Private key DANA Sandbox'
-                    "
-                    :hint="
-                      activeEnvironmentTab === 'production'
-                        ? 'Tempel langsung key dari Portal DANA Production: PEM lengkap atau Base64 DER. Header/footer PEM tidak perlu ditambahkan manual.'
-                        : 'Tempel langsung key dari Portal DANA Sandbox: PEM lengkap atau Base64 DER. Header/footer PEM tidak perlu ditambahkan manual.'
-                    "
-                    persistent-hint
-                    autocomplete="off"
-                    :input-class="
-                      showPrivateKey ? '' : 'masked-sensitive-input'
-                    "
-                    :error="Boolean(configurationErrors.private_key)"
-                    :error-message="firstError('private_key')"
-                    :rules="[optionalKeyMaterialRule]"
-                    no-error-icon
-                  >
-                    <template #append>
-                      <q-btn
-                        flat
-                        round
-                        dense
-                        :icon="showPrivateKey ? 'visibility_off' : 'visibility'"
-                        :aria-label="
-                          showPrivateKey
-                            ? 'Sembunyikan private key'
-                            : 'Tampilkan private key'
-                        "
-                        @click="showPrivateKey = !showPrivateKey"
-                      />
-                    </template>
-                  </q-input>
-                  <q-input
-                    v-model="configurationForm.dana_webhook_public_key"
-                    outlined
-                    type="textarea"
-                    autogrow
-                    :label="
-                      activeEnvironmentTab === 'production'
-                        ? 'Public key webhook DANA Production'
-                        : 'Public key webhook DANA Sandbox'
-                    "
-                    :hint="
-                      activeEnvironmentTab === 'production'
-                        ? 'Tempel langsung public key DANA dari portal Production. Jangan gunakan public key merchant untuk field ini.'
-                        : 'Tempel langsung public key DANA dari portal Sandbox. Jangan gunakan public key merchant untuk field ini.'
-                    "
-                    persistent-hint
-                    autocomplete="off"
-                    :input-class="
-                      showWebhookPublicKey ? '' : 'masked-sensitive-input'
-                    "
-                    :error="
-                      Boolean(configurationErrors.dana_webhook_public_key)
-                    "
-                    :error-message="firstError('dana_webhook_public_key')"
-                    :rules="[optionalKeyMaterialRule]"
-                    no-error-icon
-                  >
-                    <template #append>
-                      <q-btn
-                        flat
-                        round
-                        dense
-                        :icon="
-                          showWebhookPublicKey ? 'visibility_off' : 'visibility'
-                        "
-                        :aria-label="
-                          showWebhookPublicKey
-                            ? 'Sembunyikan public key'
-                            : 'Tampilkan public key'
-                        "
-                        @click="showWebhookPublicKey = !showWebhookPublicKey"
-                      />
-                    </template>
-                  </q-input>
+                  <div class="q-mt-sm">
+                    <div class="row items-center justify-between q-mb-xs">
+                      <div class="text-caption text-weight-medium">
+                        Private key DANA
+                        {{
+                          activeEnvironmentTab === 'production'
+                            ? 'Production'
+                            : 'Sandbox'
+                        }}
+                        <q-badge
+                          v-if="clearSecret.private_key"
+                          color="negative"
+                          class="q-ml-xs"
+                          icon="delete"
+                          label="Akan dihapus"
+                        />
+                        <q-badge
+                          v-else-if="editingSecret.private_key"
+                          color="warning"
+                          text-color="dark"
+                          class="q-ml-xs"
+                          icon="edit"
+                          label="Mode ganti"
+                        />
+                        <q-badge
+                          v-else-if="storedSecretStatus?.private_key"
+                          color="positive"
+                          class="q-ml-xs"
+                          icon="lock"
+                          label="Tersimpan"
+                        />
+                        <q-badge
+                          v-else
+                          color="grey-6"
+                          class="q-ml-xs"
+                          icon="lock_open"
+                          label="Belum ada"
+                        />
+                      </div>
+                      <div
+                        v-if="storedSecretStatus?.private_key"
+                        class="row q-gutter-xs"
+                      >
+                        <q-btn
+                          v-if="
+                            !editingSecret.private_key &&
+                            !clearSecret.private_key
+                          "
+                          flat
+                          dense
+                          size="sm"
+                          color="warning"
+                          icon="edit"
+                          label="Ganti"
+                          no-caps
+                          @click="startEditSecret('private_key')"
+                        />
+                        <q-btn
+                          v-if="
+                            !editingSecret.private_key &&
+                            !clearSecret.private_key
+                          "
+                          flat
+                          dense
+                          size="sm"
+                          color="negative"
+                          icon="delete"
+                          label="Hapus"
+                          no-caps
+                          @click="startClearSecret('private_key')"
+                        />
+                        <q-btn
+                          v-if="editingSecret.private_key"
+                          flat
+                          dense
+                          size="sm"
+                          color="grey-7"
+                          icon="close"
+                          label="Batal ganti"
+                          no-caps
+                          @click="cancelEditSecret('private_key')"
+                        />
+                        <q-btn
+                          v-if="clearSecret.private_key"
+                          flat
+                          dense
+                          size="sm"
+                          color="primary"
+                          icon="undo"
+                          label="Batal hapus"
+                          no-caps
+                          @click="cancelClearSecret('private_key')"
+                        />
+                      </div>
+                    </div>
+
+                    <q-input
+                      v-if="!clearSecret.private_key"
+                      id="dana_private_key"
+                      name="dana_private_key"
+                      v-model="configurationForm.private_key"
+                      outlined
+                      type="textarea"
+                      autogrow
+                      :placeholder="
+                        storedSecretStatus?.private_key &&
+                        !editingSecret.private_key
+                          ? '••••••••'
+                          : 'Tempel RSA Private Key (PEM lengkap atau Base64 DER)...'
+                      "
+                      :readonly="
+                        storedSecretStatus?.private_key &&
+                        !editingSecret.private_key
+                      "
+                      :bg-color="
+                        storedSecretStatus?.private_key &&
+                        !editingSecret.private_key
+                          ? 'grey-2'
+                          : 'white'
+                      "
+                      :hint="
+                        storedSecretStatus?.private_key &&
+                        !editingSecret.private_key
+                          ? 'Private key tersimpan di Gateway. Klik Ganti untuk memasukkan key baru.'
+                          : activeEnvironmentTab === 'production'
+                            ? 'Tempel langsung key dari Portal DANA Production: PEM lengkap atau Base64 DER.'
+                            : 'Tempel langsung key dari Portal DANA Sandbox: PEM lengkap atau Base64 DER.'
+                      "
+                      persistent-hint
+                      autocomplete="off"
+                      :input-class="
+                        showPrivateKey ? '' : 'masked-sensitive-input'
+                      "
+                      :error="Boolean(configurationErrors.private_key)"
+                      :error-message="firstError('private_key')"
+                      :rules="[optionalKeyMaterialRule]"
+                      no-error-icon
+                    >
+                      <template #append>
+                        <q-btn
+                          flat
+                          round
+                          dense
+                          :icon="
+                            showPrivateKey ? 'visibility_off' : 'visibility'
+                          "
+                          :aria-label="
+                            showPrivateKey
+                              ? 'Sembunyikan private key'
+                              : 'Tampilkan private key'
+                          "
+                          @click="showPrivateKey = !showPrivateKey"
+                        />
+                      </template>
+                    </q-input>
+                    <q-banner
+                      v-else
+                      rounded
+                      dense
+                      class="bg-red-1 text-negative border-negative q-mt-xs"
+                    >
+                      <template #avatar
+                        ><q-icon name="warning" color="negative"
+                      /></template>
+                      Private key akan dihapus dari gateway saat disimpan.
+                      Konfigurasi tidak dapat aktif tanpa key.
+                    </q-banner>
+                  </div>
+
+                  <div class="q-mt-sm">
+                    <div class="row items-center justify-between q-mb-xs">
+                      <div class="text-caption text-weight-medium">
+                        Public key webhook DANA
+                        {{
+                          activeEnvironmentTab === 'production'
+                            ? 'Production'
+                            : 'Sandbox'
+                        }}
+                        <q-badge
+                          v-if="clearSecret.webhook_public_key"
+                          color="negative"
+                          class="q-ml-xs"
+                          icon="delete"
+                          label="Akan dihapus"
+                        />
+                        <q-badge
+                          v-else-if="editingSecret.webhook_public_key"
+                          color="warning"
+                          text-color="dark"
+                          class="q-ml-xs"
+                          icon="edit"
+                          label="Mode ganti"
+                        />
+                        <q-badge
+                          v-else-if="storedSecretStatus?.webhook_public_key"
+                          color="positive"
+                          class="q-ml-xs"
+                          icon="lock"
+                          label="Tersimpan"
+                        />
+                        <q-badge
+                          v-else
+                          color="grey-6"
+                          class="q-ml-xs"
+                          icon="lock_open"
+                          label="Belum ada"
+                        />
+                      </div>
+                      <div
+                        v-if="storedSecretStatus?.webhook_public_key"
+                        class="row q-gutter-xs"
+                      >
+                        <q-btn
+                          v-if="
+                            !editingSecret.webhook_public_key &&
+                            !clearSecret.webhook_public_key
+                          "
+                          flat
+                          dense
+                          size="sm"
+                          color="warning"
+                          icon="edit"
+                          label="Ganti"
+                          no-caps
+                          @click="startEditSecret('webhook_public_key')"
+                        />
+                        <q-btn
+                          v-if="
+                            !editingSecret.webhook_public_key &&
+                            !clearSecret.webhook_public_key
+                          "
+                          flat
+                          dense
+                          size="sm"
+                          color="negative"
+                          icon="delete"
+                          label="Hapus"
+                          no-caps
+                          @click="startClearSecret('webhook_public_key')"
+                        />
+                        <q-btn
+                          v-if="editingSecret.webhook_public_key"
+                          flat
+                          dense
+                          size="sm"
+                          color="grey-7"
+                          icon="close"
+                          label="Batal ganti"
+                          no-caps
+                          @click="cancelEditSecret('webhook_public_key')"
+                        />
+                        <q-btn
+                          v-if="clearSecret.webhook_public_key"
+                          flat
+                          dense
+                          size="sm"
+                          color="primary"
+                          icon="undo"
+                          label="Batal hapus"
+                          no-caps
+                          @click="cancelClearSecret('webhook_public_key')"
+                        />
+                      </div>
+                    </div>
+
+                    <q-input
+                      v-if="!clearSecret.webhook_public_key"
+                      id="dana_webhook_public_key"
+                      name="dana_webhook_public_key"
+                      v-model="configurationForm.dana_webhook_public_key"
+                      outlined
+                      type="textarea"
+                      autogrow
+                      :placeholder="
+                        storedSecretStatus?.webhook_public_key &&
+                        !editingSecret.webhook_public_key
+                          ? '••••••••'
+                          : 'Tempel public key DANA dari portal...'
+                      "
+                      :readonly="
+                        storedSecretStatus?.webhook_public_key &&
+                        !editingSecret.webhook_public_key
+                      "
+                      :bg-color="
+                        storedSecretStatus?.webhook_public_key &&
+                        !editingSecret.webhook_public_key
+                          ? 'grey-2'
+                          : 'white'
+                      "
+                      :hint="
+                        storedSecretStatus?.webhook_public_key &&
+                        !editingSecret.webhook_public_key
+                          ? 'Public key webhook tersimpan di Gateway. Klik Ganti untuk memasukkan key baru.'
+                          : activeEnvironmentTab === 'production'
+                            ? 'Tempel langsung public key DANA dari portal Production. Jangan gunakan public key merchant untuk field ini.'
+                            : 'Tempel langsung public key DANA dari portal Sandbox. Jangan gunakan public key merchant untuk field ini.'
+                      "
+                      persistent-hint
+                      autocomplete="off"
+                      :input-class="
+                        showWebhookPublicKey ? '' : 'masked-sensitive-input'
+                      "
+                      :error="
+                        Boolean(configurationErrors.dana_webhook_public_key)
+                      "
+                      :error-message="firstError('dana_webhook_public_key')"
+                      :rules="[optionalKeyMaterialRule]"
+                      no-error-icon
+                    >
+                      <template #append>
+                        <q-btn
+                          flat
+                          round
+                          dense
+                          :icon="
+                            showWebhookPublicKey
+                              ? 'visibility_off'
+                              : 'visibility'
+                          "
+                          :aria-label="
+                            showWebhookPublicKey
+                              ? 'Sembunyikan webhook public key'
+                              : 'Tampilkan webhook public key'
+                          "
+                          @click="showWebhookPublicKey = !showWebhookPublicKey"
+                        />
+                      </template>
+                    </q-input>
+                    <q-banner
+                      v-else
+                      rounded
+                      dense
+                      class="bg-red-1 text-negative border-negative q-mt-xs"
+                    >
+                      <template #avatar
+                        ><q-icon name="warning" color="negative"
+                      /></template>
+                      Public key webhook akan dihapus dari gateway saat
+                      disimpan. Konfigurasi tidak dapat aktif tanpa key.
+                    </q-banner>
+                  </div>
                   <q-banner rounded class="transport-notice">
                     <template #avatar><q-icon name="verified_user" /></template>
                     Saat disimpan, Gateway memvalidasi struktur key, RSA-2048,
@@ -815,11 +1184,17 @@
                       akan ditampilkan kembali oleh halaman ini.
                     </div>
                     <div
-                      v-if="clearExternalStoreId || clearSubMerchantId"
+                      v-if="
+                        clearExternalStoreId ||
+                        clearSubMerchantId ||
+                        clearSecret.client_secret ||
+                        clearSecret.private_key ||
+                        clearSecret.webhook_public_key
+                      "
                       class="text-negative text-weight-bold q-mt-xs"
                     >
-                      Peringatan: External Store ID atau Sub Merchant ID yang
-                      ditandai akan dihapus secara permanen dari konfigurasi.
+                      Peringatan: Field atau kredensial yang ditandai akan
+                      dihapus secara permanen dari konfigurasi.
                     </div>
                     <template #action>
                       <q-btn
@@ -1287,7 +1662,7 @@ const isConfigured = computed(() =>
 )
 
 const managementLoadedMerchantId = ref(null)
-const configurationDialogOpen = ref(false)
+const configurationDialogOpen = ref(true)
 const saveConfirmationOpen = ref(false)
 const configurationSaving = ref(false)
 const configurationError = ref(null)
@@ -1301,7 +1676,16 @@ const showWebhookPublicKey = ref(false)
 const showClientSecret = ref(false)
 const clearExternalStoreId = ref(false)
 const clearSubMerchantId = ref(false)
-const clearClientSecret = ref(false)
+const editingSecret = reactive({
+  client_secret: false,
+  private_key: false,
+  webhook_public_key: false
+})
+const clearSecret = reactive({
+  client_secret: false,
+  private_key: false,
+  webhook_public_key: false
+})
 const revokeConfirmationOpen = ref(false)
 const apiKeyToRevoke = ref(null)
 const revoking = ref(false)
@@ -1360,9 +1744,66 @@ const emptyConfiguration = () => ({
 })
 const configurationForm = reactive(emptyConfiguration())
 
+function startEditSecret(field) {
+  clearSecret[field] = false
+  editingSecret[field] = true
+  if (field === 'webhook_public_key') {
+    configurationForm.dana_webhook_public_key = ''
+    showWebhookPublicKey.value = false
+  } else if (field === 'private_key') {
+    configurationForm.private_key = ''
+    showPrivateKey.value = false
+  } else if (field === 'client_secret') {
+    configurationForm.client_secret = ''
+    showClientSecret.value = false
+  }
+}
+
+function cancelEditSecret(field) {
+  editingSecret[field] = false
+  if (field === 'webhook_public_key') {
+    configurationForm.dana_webhook_public_key = ''
+    showWebhookPublicKey.value = false
+  } else if (field === 'private_key') {
+    configurationForm.private_key = ''
+    showPrivateKey.value = false
+  } else if (field === 'client_secret') {
+    configurationForm.client_secret = ''
+    showClientSecret.value = false
+  }
+}
+
+function startClearSecret(field) {
+  editingSecret[field] = false
+  clearSecret[field] = true
+  if (field === 'webhook_public_key') {
+    configurationForm.dana_webhook_public_key = ''
+    showWebhookPublicKey.value = false
+  } else if (field === 'private_key') {
+    configurationForm.private_key = ''
+    showPrivateKey.value = false
+  } else if (field === 'client_secret') {
+    configurationForm.client_secret = ''
+    showClientSecret.value = false
+  }
+}
+
+function cancelClearSecret(field) {
+  clearSecret[field] = false
+}
+
+function resetSecretActions() {
+  editingSecret.client_secret = false
+  editingSecret.private_key = false
+  editingSecret.webhook_public_key = false
+  clearSecret.client_secret = false
+  clearSecret.private_key = false
+  clearSecret.webhook_public_key = false
+}
+
 watch(
   [() => store.detailDialogOpen, () => merchant.value?.merchant_id],
-  ([isOpen, merchantId]) => {
+  async ([isOpen, merchantId]) => {
     if (!isOpen || !merchantId) {
       managementLoadedMerchantId.value = null
       return
@@ -1373,7 +1814,9 @@ watch(
     ) {
       activeEnvironmentTab.value = merchant.value.environment
     }
-    refreshManagement(true)
+    configurationDialogOpen.value = true
+    await refreshManagement(true)
+    await executeLoadStoredConfiguration()
   }
 )
 
@@ -1385,15 +1828,12 @@ watch(clearSubMerchantId, val => {
   if (val) configurationForm.sub_merchant_id = ''
 })
 
-watch(clearClientSecret, val => {
-  if (val) configurationForm.client_secret = ''
-})
-
-function onEnvironmentTabChange(tab) {
+async function onEnvironmentTabChange(tab) {
   activeEnvironmentTab.value = tab
-  configurationDialogOpen.value = false
+  configurationDialogOpen.value = true
   resetConfigurationForm()
-  refreshManagement(true)
+  await refreshManagement(true)
+  await executeLoadStoredConfiguration()
 }
 
 function closeDetail() {
@@ -1553,7 +1993,7 @@ function resetConfigurationForm() {
   confirmOverwriteStoredConfig.value = false
   clearExternalStoreId.value = false
   clearSubMerchantId.value = false
-  clearClientSecret.value = false
+  resetSecretActions()
   showPrivateKey.value = false
   showWebhookPublicKey.value = false
   showClientSecret.value = false
@@ -1571,7 +2011,12 @@ function hasManualConfigurationChanges() {
   if (
     clearExternalStoreId.value ||
     clearSubMerchantId.value ||
-    clearClientSecret.value
+    clearSecret.client_secret ||
+    clearSecret.private_key ||
+    clearSecret.webhook_public_key ||
+    editingSecret.client_secret ||
+    editingSecret.private_key ||
+    editingSecret.webhook_public_key
   )
     return true
   return Object.entries(configurationForm).some(([field, value]) => {
@@ -1585,6 +2030,7 @@ function applyStoredConfiguration(response) {
   const values = response?.configuration
   if (!response?.configuration_exists || !values) {
     storedSecretStatus.value = null
+    resetSecretActions()
     storedConfigurationNotice.value = `Konfigurasi DANA ${activeEnvironmentTab.value === 'production' ? 'Production' : 'Sandbox'} tersimpan belum ditemukan untuk merchant ini. Silakan lengkapi konfigurasi secara manual.`
     return
   }
@@ -1608,6 +2054,7 @@ function applyStoredConfiguration(response) {
       configurationForm[field] = values[field]
       filled.push(field)
     } else {
+      configurationForm[field] = ''
       missing.push(field)
     }
   }
@@ -1618,7 +2065,7 @@ function applyStoredConfiguration(response) {
   configurationForm.dana_webhook_public_key = ''
   clearExternalStoreId.value = false
   clearSubMerchantId.value = false
-  clearClientSecret.value = false
+  resetSecretActions()
   storedSecretStatus.value = {
     private_key: values.private_key_configured === true,
     webhook_public_key: values.dana_webhook_public_key_configured === true,
@@ -1825,12 +2272,42 @@ async function saveConfiguration() {
     ...configurationForm,
     environment: activeEnvironmentTab.value
   }
-  if (!payload.private_key) delete payload.private_key
-  if (!payload.dana_webhook_public_key) delete payload.dana_webhook_public_key
-  if (clearClientSecret.value) {
+
+  // Handle private key
+  if (clearSecret.private_key) {
+    payload.clear_private_key = true
+    payload.private_key = null
+  } else if (
+    (editingSecret.private_key || !storedSecretStatus.value?.private_key) &&
+    typeof payload.private_key === 'string' &&
+    payload.private_key.trim() !== ''
+  ) {
+    payload.private_key = payload.private_key.trim()
+  } else {
+    delete payload.private_key
+  }
+
+  // Handle webhook public key
+  if (clearSecret.webhook_public_key) {
+    payload.clear_dana_webhook_public_key = true
+    payload.dana_webhook_public_key = null
+  } else if (
+    (editingSecret.webhook_public_key ||
+      !storedSecretStatus.value?.webhook_public_key) &&
+    typeof payload.dana_webhook_public_key === 'string' &&
+    payload.dana_webhook_public_key.trim() !== ''
+  ) {
+    payload.dana_webhook_public_key = payload.dana_webhook_public_key.trim()
+  } else {
+    delete payload.dana_webhook_public_key
+  }
+
+  // Handle client secret
+  if (clearSecret.client_secret) {
     payload.clear_client_secret = true
     payload.client_secret = null
   } else if (
+    (editingSecret.client_secret || !storedSecretStatus.value?.client_secret) &&
     typeof payload.client_secret === 'string' &&
     payload.client_secret.trim() !== ''
   ) {
@@ -1838,6 +2315,7 @@ async function saveConfiguration() {
   } else {
     delete payload.client_secret
   }
+
   if (!payload.client_id) delete payload.client_id
 
   if (clearExternalStoreId.value) {
@@ -1868,7 +2346,8 @@ async function saveConfiguration() {
       merchant.value.merchant_id,
       payload
     )
-    configurationDialogOpen.value = false
+    configurationDialogOpen.value = true
+    resetSecretActions()
     Notify.create({
       message: `Konfigurasi DANA ${activeEnvironmentTab.value === 'production' ? 'Production' : 'Sandbox'} tersimpan. Credential tidak ditampilkan kembali.`,
       color: 'positive',
