@@ -807,11 +807,10 @@
                   <div class="q-mt-sm">
                     <div class="row items-center justify-between q-mb-xs">
                       <div class="text-caption text-weight-medium">
-                        Private key DANA
                         {{
                           activeEnvironmentTab === 'production'
-                            ? 'Production'
-                            : 'Sandbox'
+                            ? 'Private key DANA Production'
+                            : 'Private key DANA Sandbox'
                         }}
                         <q-badge
                           v-if="clearSecret.private_key"
@@ -976,11 +975,10 @@
                   <div class="q-mt-sm">
                     <div class="row items-center justify-between q-mb-xs">
                       <div class="text-caption text-weight-medium">
-                        Public key webhook DANA
                         {{
                           activeEnvironmentTab === 'production'
-                            ? 'Production'
-                            : 'Sandbox'
+                            ? 'Public key webhook DANA Production'
+                            : 'Public key webhook DANA Sandbox'
                         }}
                         <q-badge
                           v-if="clearSecret.webhook_public_key"

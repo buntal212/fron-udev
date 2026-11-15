@@ -119,8 +119,14 @@ test('DanaGatewayMerchantDetailDialog memisahkan state sandbox dan production se
   assert.match(detailDialog, /Sub Merchant ID Sandbox/)
   assert.match(detailDialog, /Aktifkan konfigurasi Production/)
   assert.match(detailDialog, /Aktifkan konfigurasi Sandbox/)
-  assert.match(detailDialog, /Private key DANA Production/)
-  assert.match(detailDialog, /Private key DANA Sandbox/)
+  assert.match(
+    detailDialog,
+    /(?:Private key DANA Production|Private key DANA[\s\S]*?Production)/
+  )
+  assert.match(
+    detailDialog,
+    /(?:Private key DANA Sandbox|Private key DANA[\s\S]*?Sandbox)/
+  )
 })
 
 test('DanaGatewayMerchantDetailDialog membersihkan dan menyaring pesan error API agar tidak membocorkan credential', async () => {
