@@ -121,7 +121,20 @@
                   :key="attempt.id"
                   caption
                 >
-                  {{ attempt.provider }} ·
+                  {{
+                    attempt.provider === 'dana'
+                      ? String(
+                          attempt.gateway_environment ||
+                            attempt.environment ||
+                            attempt.metadata?.gateway_environment ||
+                            attempt.metadata?.environment ||
+                            ''
+                        ).toLowerCase() === 'production'
+                        ? 'DANA Production'
+                        : 'DANA Sandbox'
+                      : attempt.provider
+                  }}
+                  ·
                   {{ getPaymentAttemptStatus(attempt.status).label }}
                   <span v-if="attempt.reconciliation">
                     ·

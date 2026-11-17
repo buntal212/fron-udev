@@ -270,7 +270,11 @@
                     </q-badge>
                     <q-badge
                       v-else-if="getLatestAttempt(invoice).provider === 'dana'"
-                      color="primary"
+                      :color="
+                        isProductionAttempt(getLatestAttempt(invoice))
+                          ? 'positive'
+                          : 'primary'
+                      "
                       text-color="white"
                       class="text-weight-bold"
                     >
@@ -279,7 +283,7 @@
                         size="13px"
                         class="q-mr-xs"
                       />
-                      DANA Sandbox
+                      {{ getDanaEnvironmentLabel(getLatestAttempt(invoice)) }}
                     </q-badge>
                     <q-badge
                       v-else-if="getLatestAttempt(invoice).provider === 'doku'"
@@ -364,7 +368,7 @@
                       att.provider === 'midtrans'
                         ? 'Midtrans'
                         : att.provider === 'dana'
-                          ? 'DANA'
+                          ? getDanaEnvironmentLabel(att)
                           : att.provider || '—'
                     }}
                     · {{ formatPaymentMethod(att) }}
@@ -563,6 +567,21 @@ const getLatestAttempt = invoice => {
   const attempts = invoice.payment_attempts
   if (!Array.isArray(attempts) || attempts.length === 0) return null
   return [...attempts].sort((a, b) => b.attempt_number - a.attempt_number)[0]
+}
+
+const isProductionAttempt = attempt => {
+  if (!attempt) return false
+  const env =
+    attempt.gateway_environment ||
+    attempt.environment ||
+    attempt.metadata?.gateway_environment ||
+    attempt.metadata?.environment ||
+    ''
+  return String(env).trim().toLowerCase() === 'production'
+}
+
+const getDanaEnvironmentLabel = attempt => {
+  return isProductionAttempt(attempt) ? 'DANA Production' : 'DANA Sandbox'
 }
 
 const paymentMethodLabels = {

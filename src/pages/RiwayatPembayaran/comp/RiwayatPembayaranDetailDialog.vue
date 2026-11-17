@@ -48,7 +48,21 @@
           </div>
           <div class="col-12 col-sm-6">
             <p class="label">Provider</p>
-            <p class="value">{{ attempt.provider || '—' }}</p>
+            <p class="value">
+              {{
+                attempt.provider === 'dana'
+                  ? String(
+                      attempt.gateway_environment ||
+                        attempt.environment ||
+                        attempt.metadata?.gateway_environment ||
+                        attempt.metadata?.environment ||
+                        ''
+                    ).toLowerCase() === 'production'
+                    ? 'DANA Production'
+                    : 'DANA Sandbox'
+                  : attempt.provider || '—'
+              }}
+            </p>
           </div>
           <div class="col-12 col-sm-6">
             <p class="label">Nominal</p>

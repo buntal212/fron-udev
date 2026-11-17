@@ -647,8 +647,16 @@
                 class="qris-presentation-box q-pa-md text-center q-mb-sm"
               >
                 <div class="text-caption text-weight-bold text-dark q-mb-xs">
-                  QRIS {{ isMidtrans ? 'Midtrans' : 'DANA'
-                  }}{{ isAttemptProduction ? '' : ' Sandbox' }}
+                  QRIS
+                  {{
+                    isMidtrans
+                      ? 'Midtrans'
+                      : isAttemptProduction
+                        ? 'DANA Production'
+                        : 'DANA Sandbox'
+                  }}{{
+                    isMidtrans ? (isAttemptProduction ? '' : ' Sandbox') : ''
+                  }}
                 </div>
 
                 <!-- Expired QR Alert -->
@@ -697,7 +705,7 @@
                     {{
                       isMidtrans
                         ? `Menghubungi Midtrans${isAttemptProduction ? '' : ' Sandbox'} untuk QRIS resmi...`
-                        : `Menyiapkan QRIS DANA${isAttemptProduction ? '' : ' Sandbox'}...`
+                        : `Menyiapkan QRIS DANA${isAttemptProduction ? ' Production' : ' Sandbox'}...`
                     }}
                   </div>
                 </div>
@@ -708,7 +716,7 @@
                     <img
                       :key="displayQrSource"
                       :src="displayQrSource"
-                      :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'}${isAttemptProduction ? '' : ' Sandbox'}`"
+                      :alt="`QRIS ${isMidtrans ? 'Midtrans' : 'DANA'}${isMidtrans ? (isAttemptProduction ? '' : ' Sandbox') : isAttemptProduction ? ' Production' : ' Sandbox'}`"
                       class="qris-img"
                       @load="onQrImageLoad"
                       @error="handleQrImageError"
@@ -1058,7 +1066,9 @@
                   />
                 </div>
                 <div v-else class="text-caption text-warning q-mt-sm">
-                  Menyiapkan tautan checkout dari DANA Sandbox...
+                  {{
+                    `Menyiapkan tautan checkout dari DANA ${isAttemptProduction ? 'Production' : 'Sandbox'}...`
+                  }}
                 </div>
               </div>
 
@@ -1355,7 +1365,9 @@
                     <q-item-section>
                       <q-item-label class="text-sand text-weight-bold">
                         {{
-                          attempt.provider === 'midtrans' ? 'Midtrans' : 'DANA'
+                          attempt.provider === 'midtrans'
+                            ? 'Midtrans'
+                            : attemptProviderLabel(attempt)
                         }}
                         · Percobaan #{{ attempt.attempt_number }}
                       </q-item-label>
@@ -1752,8 +1764,9 @@
         </p>
         <p v-if="!isMidtrans" class="text-caption text-warning q-mb-none">
           Request <code>Cancel Order (SNAP 57)</code> akan dikirimkan langsung
-          ke gateway DANA Sandbox. Setelah dibatalkan, instruksi pembayaran ini
-          tidak dapat digunakan lagi.
+          ke gateway DANA {{ isAttemptProduction ? 'Production' : 'Sandbox' }}.
+          Setelah dibatalkan, instruksi pembayaran ini tidak dapat digunakan
+          lagi.
         </p>
       </q-card-section>
 
@@ -2090,15 +2103,39 @@ watch(
 )
 
 const isAttemptProduction = computed(() => {
+  const attempt = latestAttempt.value || store.checkoutAttempt
+  if (attempt) {
+    const env =
+      attempt.gateway_environment ||
+      attempt.environment ||
+      attempt.metadata?.gateway_environment ||
+      attempt.metadata?.environment ||
+      ''
+    return String(env).trim().toLowerCase() === 'production'
+  }
   const env =
-    latestAttempt.value?.gateway_environment ||
-    latestAttempt.value?.environment ||
-    store.checkoutAttempt?.gateway_environment ||
-    store.checkoutAttempt?.environment ||
+    invoice.value?.metadata?.environment ||
     invoice.value?.application_payment_gateways?.[0]?.environment ||
-    invoice.value?.metadata?.environment
-  return env === 'production'
+    ''
+  return String(env).trim().toLowerCase() === 'production'
 })
+
+const attemptProviderLabel = attempt => {
+  if (!attempt) return '—'
+  if (attempt.provider === 'midtrans') return 'Midtrans'
+  if (attempt.provider === 'dana') {
+    const env =
+      attempt.gateway_environment ||
+      attempt.environment ||
+      attempt.metadata?.gateway_environment ||
+      attempt.metadata?.environment ||
+      ''
+    return String(env).trim().toLowerCase() === 'production'
+      ? 'DANA Production'
+      : 'DANA Sandbox'
+  }
+  return attempt.provider || '—'
+}
 
 const isAttemptUncertain = computed(() => {
   return (
@@ -2113,7 +2150,7 @@ const isAttemptUncertain = computed(() => {
 
 const gatewayOptions = computed(() => [
   {
-    label: isAttemptProduction.value ? 'DANA' : 'DANA Sandbox',
+    label: isAttemptProduction.value ? 'DANA Production' : 'DANA Sandbox',
     value: 'dana',
     icon: 'account_balance_wallet'
   },

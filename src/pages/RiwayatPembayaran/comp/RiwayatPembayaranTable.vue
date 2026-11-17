@@ -24,6 +24,26 @@
           props.row.invoice?.invoice_number || '—'
         }}</q-td></template
       >
+      <template #body-cell-provider="props">
+        <q-td :props="props">
+          <span v-if="props.row.provider === 'dana'">
+            {{
+              String(
+                props.row.gateway_environment ||
+                  props.row.environment ||
+                  props.row.metadata?.gateway_environment ||
+                  props.row.metadata?.environment ||
+                  ''
+              ).toLowerCase() === 'production'
+                ? 'DANA Production'
+                : 'DANA Sandbox'
+            }}
+          </span>
+          <span v-else>
+            {{ props.value || '—' }}
+          </span>
+        </q-td>
+      </template>
       <template #body-cell-amount="props"
         ><q-td :props="props">{{
           formatSubscriptionPrice(props.value, props.row.currency)
