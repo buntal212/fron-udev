@@ -364,14 +364,17 @@
                   style="font-size: 11px; margin-top: -2px"
                 >
                   <span v-if="currentAttemptMethod === 'qris'">
-                    * MDR QRIS 0,7% ditanggung sepenuhnya oleh merchant
+                    * MDR QRIS {{ merchantFeeRateLabel || '0%' }} ditanggung sepenuhnya oleh merchant
                     (Pelanggan Bebas Biaya).
                   </span>
                   <span v-else-if="currentAttemptMethod === 'dana_wallet'">
-                    * Bebas biaya surcharge pelanggan (Rp 0).
+                    * MDR DANA Wallet 1,3% ditanggung merchant (Pelanggan Bebas Biaya Rp 0).
+                  </span>
+                  <span v-else-if="currentAttemptMethod?.startsWith('va_')">
+                    * Biaya Transaksi VA Rp 1.500 ditanggung merchant (Pelanggan Bebas Biaya Rp 0).
                   </span>
                   <span v-else>
-                    * Biaya gateway ditanggung merchant (Pelanggan Bebas Biaya).
+                    * Seluruh biaya gateway DANA ditanggung merchant (Pelanggan Bebas Biaya).
                   </span>
                 </div>
               </div>
@@ -457,7 +460,7 @@
                       -
                       {{
                         formatSubscriptionPrice(
-                          estimatedMerchantFee,
+                          estimatedGatewayFee,
                           invoice.currency
                         )
                       }}
@@ -479,6 +482,28 @@
                         )
                       }}
                     </span>
+                  </div>
+                  <div
+                    v-if="actualSettlement !== null"
+                    class="row justify-between text-weight-bold q-pt-xs"
+                    style="border-top: 1px dashed rgba(224, 195, 124, 0.25)"
+                  >
+                    <span class="text-warning">Pelunasan Aktual (DANA):</span>
+                    <span class="text-positive">
+                      {{
+                        formatSubscriptionPrice(
+                          actualSettlement,
+                          invoice.currency
+                        )
+                      }}
+                    </span>
+                  </div>
+                  <div
+                    v-else
+                    class="text-caption text-grey-5 q-mt-xs"
+                    style="font-size: 10px; line-height: 1.2"
+                  >
+                    * Nilai aktual settlement mengikuti laporan resmi penyelesaian (settlement report) DANA.
                   </div>
                 </div>
               </div>
@@ -1630,15 +1655,15 @@
                               </span>
                             </div>
                             <div class="col-6 text-weight-bold text-sand">
-                              Net Settlement:
+                              {{ attempt.fee_breakdown?.actual_settlement != null ? 'Actual Settlement:' : 'Estimasi Net Settlement:' }}
                             </div>
                             <div
                               class="col-6 text-right text-weight-bold text-positive"
                             >
                               {{
                                 formatSubscriptionPrice(
-                                  attempt.fee_breakdown
-                                    .estimated_net_settlement,
+                                  attempt.fee_breakdown?.actual_settlement ??
+                                    attempt.fee_breakdown?.estimated_net_settlement,
                                   attempt.currency
                                 )
                               }}
@@ -1984,13 +2009,13 @@ const estimatedMerchantFee = computed(() => {
   const method = store.checkoutPaymentMethod
   const subtotal = currentSubtotal.value
   if (method === 'qris') {
-    return Math.round(subtotal * 0.007)
+    return subtotal <= 500000 ? 0 : Math.round(subtotal * 0.003)
   }
   if (method === 'dana_wallet') {
-    return Math.round(subtotal * 0.015)
+    return Math.round(subtotal * 0.013)
   }
   if (method?.startsWith('va_')) {
-    return 4000
+    return 1500
   }
   return 0
 })
@@ -2007,22 +2032,65 @@ const estimatedNetSettlement = computed(() => {
   return Math.max(0, currentSubtotal.value - estimatedMerchantFee.value)
 })
 
+const estimatedGatewayFee = computed(() => {
+  if (
+    latestAttempt.value?.fee_breakdown?.estimated_gateway_fee !== undefined
+  ) {
+    return Number(latestAttempt.value.fee_breakdown.estimated_gateway_fee)
+  }
+  if (activeDanaFeeRule.value?.estimated_gateway_fee !== undefined) {
+    return Number(activeDanaFeeRule.value.estimated_gateway_fee)
+  }
+  return estimatedMerchantFee.value
+})
+
+const actualSettlement = computed(() => {
+  const fb = latestAttempt.value?.fee_breakdown
+  if (fb?.actual_settlement !== undefined && fb?.actual_settlement !== null) {
+    return Number(fb.actual_settlement)
+  }
+  const meta = latestAttempt.value?.metadata
+  if (meta?.actual_settlement !== undefined && meta?.actual_settlement !== null) {
+    return Number(meta.actual_settlement)
+  }
+  if (
+    meta?.gateway_verification?.actual_settlement !== undefined &&
+    meta?.gateway_verification?.actual_settlement !== null
+  ) {
+    return Number(meta.gateway_verification.actual_settlement)
+  }
+  return null
+})
+
 const merchantFeeRateLabel = computed(() => {
   if (latestAttempt.value?.fee_breakdown) {
     const fb = latestAttempt.value.fee_breakdown
-    if (fb.merchant_fee_rate) return `${fb.merchant_fee_rate}%`
+    if (fb.merchant_fee_rate !== undefined && fb.merchant_fee_rate !== null) {
+      const rateNum = Number(fb.merchant_fee_rate)
+      return `${String(rateNum).replace('.', ',')}%`
+    }
+    if (fb.fee_rate !== undefined && fb.fee_rate !== null && fb.payment_method === 'qris') {
+      const rateNum = Number(fb.fee_rate)
+      return `${String(rateNum).replace('.', ',')}%`
+    }
     if (fb.merchant_fixed_amount) return `Rp ${fb.merchant_fixed_amount}`
   }
   if (activeDanaFeeRule.value) {
-    if (activeDanaFeeRule.value.merchant_fee_type === 'percent') {
-      return `${activeDanaFeeRule.value.merchant_fee_rate}%`
+    if (activeDanaFeeRule.value.merchant_fee_type === 'percent' || activeDanaFeeRule.value.dana_fee_unit === 'percent') {
+      const rate = activeDanaFeeRule.value.merchant_fee_rate ?? activeDanaFeeRule.value.dana_fee_value ?? 0
+      const rateNum = Number(rate)
+      return `${String(rateNum).replace('.', ',')}%`
     }
-    return `Rp ${activeDanaFeeRule.value.merchant_fixed_amount}`
+    if (activeDanaFeeRule.value.merchant_fixed_amount !== undefined && activeDanaFeeRule.value.merchant_fixed_amount !== null) {
+      return `Rp ${activeDanaFeeRule.value.merchant_fixed_amount}`
+    }
   }
   const method = store.checkoutPaymentMethod
-  if (method === 'qris') return '0,7%'
-  if (method === 'dana_wallet') return '1,5%'
-  if (method?.startsWith('va_')) return 'Rp 4.000'
+  if (method === 'qris') {
+    return currentSubtotal.value <= 500000 ? '0%' : '0,3%'
+  }
+  if (method === 'dana_wallet') return '1,3%'
+  if (method?.startsWith('va_')) return 'Rp 1.500'
   return ''
 })
 
@@ -2188,12 +2256,13 @@ const paymentMethodOptions = computed(() => {
     ]
   }
   return [
-    { label: 'DANA Wallet', value: 'dana_wallet' },
     { label: 'QRIS DANA', value: 'qris' },
+    { label: 'DANA Wallet', value: 'dana_wallet' },
     { label: 'VA BRI', value: 'va_bri' },
-    { label: 'VA PANI', value: 'va_pani' },
+    { label: 'VA Mandiri', value: 'va_mandiri' },
+    { label: 'VA BNI', value: 'va_bni' },
     { label: 'VA CIMB', value: 'va_cimb' },
-    { label: 'VA BTPN', value: 'va_btpn' }
+    { label: 'VA Panin', value: 'va_pani' }
   ]
 })
 
@@ -2217,15 +2286,16 @@ watch(
       }
     } else if (newProvider === 'dana') {
       const danaAllowed = [
-        'dana_wallet',
         'qris',
+        'dana_wallet',
         'va_bri',
-        'va_pani',
+        'va_mandiri',
+        'va_bni',
         'va_cimb',
-        'va_btpn'
+        'va_pani'
       ]
       if (!danaAllowed.includes(store.checkoutPaymentMethod)) {
-        store.checkoutPaymentMethod = 'dana_wallet'
+        store.checkoutPaymentMethod = 'qris'
       }
     }
   }
